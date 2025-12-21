@@ -1,6 +1,5 @@
 export type TaskStatus =
   | "CREATING_WORKTREE"
-  | "READY"
   | "IDLE"
   | "AWAITING_APPROVAL"
   | "WORKING"

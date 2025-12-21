@@ -121,7 +121,7 @@ impl TaskManager {
         let summary = TaskSummary {
             task_id,
             title,
-            status: TaskStatus::Ready,
+            status: TaskStatus::Stopped,
             created_at: timestamp,
             started_at: None,
             ended_at: None,
@@ -260,7 +260,7 @@ impl TaskManager {
             let record = tasks
                 .get_mut(&task_id)
                 .ok_or(TaskError::NotFound)?;
-            record.summary.status = TaskStatus::Ready;
+            record.summary.status = TaskStatus::Stopped;
             emit_status(app, &record.summary);
             return Ok(record.summary.clone());
         }
@@ -502,7 +502,7 @@ impl TaskManager {
             let summary = TaskSummary {
                 task_id: Uuid::new_v4(),
                 title: format_title_from_branch(&branch_name),
-                status: TaskStatus::Ready,
+                status: TaskStatus::Stopped,
                 created_at: Utc::now(),
                 started_at: None,
                 ended_at: None,
@@ -560,7 +560,6 @@ impl TaskManager {
         let target_status = match record.summary.status {
             TaskStatus::Stopped => TaskStatus::Stopped,
             TaskStatus::Discarded => TaskStatus::Discarded,
-            TaskStatus::Ready => TaskStatus::Ready,
             _ if exit_code == 0 => TaskStatus::Completed,
             _ => TaskStatus::Failed,
         };

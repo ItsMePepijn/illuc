@@ -38,7 +38,7 @@ export class TaskViewComponent {
   canStart(): boolean {
     return (
       !!this.task &&
-      ["READY", "STOPPED", "COMPLETED", "FAILED"].includes(this.task.status)
+      ["STOPPED", "COMPLETED", "FAILED"].includes(this.task.status)
     );
   }
 

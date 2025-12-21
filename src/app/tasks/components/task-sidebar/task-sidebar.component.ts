@@ -54,7 +54,6 @@ export class TaskSidebarComponent {
 
   canStart(status: TaskStatus): boolean {
     return (
-      status === "READY" ||
       status === "STOPPED" ||
       status === "FAILED" ||
       status === "COMPLETED"
