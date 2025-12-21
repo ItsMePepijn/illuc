@@ -1,178 +1,51 @@
-use anyhow::Context;
-use chrono::{DateTime, Utc};
+pub mod git;
+pub mod models;
+mod diff;
+mod events;
+mod repo;
+mod worktree;
+
+pub use models::{
+    BaseRepoInfo, CreateTaskRequest, DiffPayload, DiffRequest, DiscardTaskRequest, StartTaskRequest,
+    StopTaskRequest, TaskActionRequest, TaskStatus, TaskSummary, TerminalResizeRequest,
+    TerminalWriteRequest,
+};
+pub use repo::handle_select_base_repo;
+
+use crate::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
+use crate::agents::codex::CodexAgent;
+use crate::error::{Result, TaskError};
+use crate::launcher;
+use crate::tasks::git::{
+    git_diff, git_diff_branch, get_repo_root, list_worktrees, run_git, validate_git_repo,
+};
+use diff::merge_diff_files;
+use events::{emit_status, emit_terminal_exit, emit_terminal_output};
+use crate::utils::fs::ensure_directory;
+use chrono::Utc;
+use log::{debug, info, warn};
 use parking_lot::{Mutex, RwLock};
-use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
-use std::io::{Read, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
-use thiserror::Error;
+use tauri::AppHandle;
 use uuid::Uuid;
-use vte::Parser;
+use worktree::{clean_branch_name, format_title_from_branch, managed_worktree_root};
 
-type Result<T> = std::result::Result<T, TaskError>;
-type ChildHandle = Box<dyn Child + Send + Sync>;
 
-#[derive(Debug, Clone)]
-struct WorktreeEntry {
-    path: PathBuf,
-    head: String,
-    branch: Option<String>,
-}
+const DEFAULT_SCREEN_ROWS: usize = 40;
+const DEFAULT_SCREEN_COLS: usize = 120;
 
-#[derive(Debug, Error)]
-pub enum TaskError {
-    #[error("{0}")]
-    Message(String),
-    #[error("git command failed: {command}")]
-    GitCommand { command: String, stderr: String },
-    #[error("task not found")]
-    NotFound,
-    #[error("task is already running")]
-    AlreadyRunning,
-    #[error("task is not running")]
-    NotRunning,
-    #[error(transparent)]
-    Io(#[from] std::io::Error),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
+type MasterHandle = Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum TaskStatus {
-    CreatingWorktree,
-    Ready,
-    Idle,
-    AwaitingApproval,
-    Working,
-    Completed,
-    Failed,
-    Stopped,
-    Discarded,
-}
+type WriteHandle = Arc<Mutex<Box<dyn Write + Send>>>;
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskSummary {
-    pub task_id: Uuid,
-    pub title: String,
-    pub status: TaskStatus,
-    pub created_at: DateTime<Utc>,
-    pub started_at: Option<DateTime<Utc>>,
-    pub ended_at: Option<DateTime<Utc>>,
-    pub worktree_path: String,
-    pub branch_name: String,
-    pub base_branch: String,
-    pub base_repo_path: String,
-    pub base_commit: String,
-    pub exit_code: Option<i32>,
-}
+pub use git::{DiffFile, DiffMode};
 
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BaseRepoInfo {
-    pub path: String,
-    pub canonical_path: String,
-    pub current_branch: String,
-    pub head: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CreateTaskRequest {
-    pub base_repo_path: String,
-    pub task_title: Option<String>,
-    pub base_ref: Option<String>,
-    pub branch_name: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StartTaskRequest {
-    pub task_id: Uuid,
-    pub codex_args: Option<Vec<String>>,
-    pub env: Option<HashMap<String, String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StopTaskRequest {
-    pub task_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiscardTaskRequest {
-    pub task_id: Uuid,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TerminalWriteRequest {
-    pub task_id: Uuid,
-    pub data: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TerminalResizeRequest {
-    pub task_id: Uuid,
-    pub cols: u16,
-    pub rows: u16,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffRequest {
-    pub task_id: Uuid,
-    pub ignore_whitespace: Option<bool>,
-    pub mode: Option<DiffMode>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskActionRequest {
-    pub task_id: Uuid,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffPayload {
-    pub task_id: Uuid,
-    pub files: Vec<DiffFile>,
-    pub unified_diff: String,
-}
-
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum DiffMode {
-    Worktree,
-    Branch,
-}
-
-impl Default for DiffMode {
-    fn default() -> Self {
-        DiffMode::Worktree
-    }
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DiffFile {
-    pub path: String,
-    pub status: String,
-}
 
 struct TaskRecord {
-    last_output: Option<Instant>,
-    screen: Screen,
-    parser: Parser,
+    agent: Box<dyn Agent>,
     summary: TaskSummary,
     runtime: Option<TaskRuntime>,
     terminal_buffer: String,
@@ -180,209 +53,8 @@ struct TaskRecord {
 
 struct TaskRuntime {
     child: Arc<Mutex<ChildHandle>>,
-    writer: Arc<Mutex<Box<dyn Write + Send>>>,
-    master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
-}
-
-#[derive(Debug, Clone)]
-struct Screen {
-    rows: usize,
-    cols: usize,
-    grid: Vec<Vec<char>>,
-    cursor_row: usize,
-    cursor_col: usize,
-}
-
-impl Screen {
-    fn new(rows: usize, cols: usize) -> Self {
-        Self {
-            rows,
-            cols,
-            grid: vec![vec![' '; cols]; rows],
-            cursor_row: 0,
-            cursor_col: 0,
-        }
-    }
-
-    fn resize(&mut self, rows: usize, cols: usize) {
-        let mut new_grid = vec![vec![' '; cols]; rows];
-        let min_rows = rows.min(self.rows);
-        let min_cols = cols.min(self.cols);
-        for r in 0..min_rows {
-            for c in 0..min_cols {
-                new_grid[r][c] = *self.grid.get(r).and_then(|row| row.get(c)).unwrap_or(&' ');
-            }
-        }
-        self.rows = rows;
-        self.cols = cols;
-        self.grid = new_grid;
-        self.cursor_row = self.cursor_row.min(self.rows.saturating_sub(1));
-        self.cursor_col = self.cursor_col.min(self.cols.saturating_sub(1));
-    }
-
-    fn scroll_up(&mut self, lines: usize) {
-        for _ in 0..lines {
-            self.grid.remove(0);
-            self.grid.push(vec![' '; self.cols]);
-        }
-        self.cursor_row = self.cursor_row.saturating_sub(lines);
-    }
-
-    fn clear_screen(&mut self) {
-        for row in &mut self.grid {
-            for cell in row {
-                *cell = ' ';
-            }
-        }
-        self.cursor_row = 0;
-        self.cursor_col = 0;
-    }
-
-    fn clear_line_from_cursor(&mut self) {
-        if self.cursor_row < self.rows {
-            for c in self.cursor_col..self.cols {
-                self.grid[self.cursor_row][c] = ' ';
-            }
-        }
-    }
-
-    fn set_cursor(&mut self, row: usize, col: usize) {
-        self.cursor_row = row.min(self.rows.saturating_sub(1));
-        self.cursor_col = col.min(self.cols.saturating_sub(1));
-    }
-
-    fn full_text(&self) -> String {
-        self.grid
-            .iter()
-            .map(|row| {
-                let mut s: String = row.iter().collect();
-                while s.ends_with(' ') {
-                    s.pop();
-                }
-                s
-            })
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-}
-
-struct ScreenPerformer<'a> {
-    screen: &'a mut Screen,
-}
-
-impl<'a> ScreenPerformer<'a> {
-    fn new(screen: &'a mut Screen) -> Self {
-        Self { screen }
-    }
-}
-
-impl<'a> vte::Perform for ScreenPerformer<'a> {
-    fn print(&mut self, c: char) {
-        if self.screen.cursor_row >= self.screen.rows {
-            self.screen.scroll_up(1);
-            self.screen.cursor_row = self.screen.rows.saturating_sub(1);
-        }
-        if self.screen.cursor_col >= self.screen.cols {
-            self.screen.cursor_col = 0;
-            self.screen.cursor_row += 1;
-            if self.screen.cursor_row >= self.screen.rows {
-                self.screen.scroll_up(1);
-                self.screen.cursor_row = self.screen.rows.saturating_sub(1);
-            }
-        }
-        if self.screen.cursor_row < self.screen.rows && self.screen.cursor_col < self.screen.cols {
-            self.screen.grid[self.screen.cursor_row][self.screen.cursor_col] = c;
-            self.screen.cursor_col += 1;
-        }
-    }
-
-    fn execute(&mut self, byte: u8) {
-        match byte {
-            b'\n' => {
-                self.screen.cursor_col = 0;
-                self.screen.cursor_row += 1;
-                if self.screen.cursor_row >= self.screen.rows {
-                    self.screen.scroll_up(1);
-                    self.screen.cursor_row = self.screen.rows.saturating_sub(1);
-                }
-            }
-            b'\r' => self.screen.cursor_col = 0,
-            b'\x08' => {
-                if self.screen.cursor_col > 0 {
-                    self.screen.cursor_col -= 1;
-                }
-            }
-            b'\t' => {
-                let next_tab = ((self.screen.cursor_col / 8) + 1) * 8;
-                self.screen.cursor_col = next_tab.min(self.screen.cols.saturating_sub(1));
-            }
-            _ => {}
-        }
-    }
-
-    fn csi_dispatch(
-        &mut self,
-        params: &vte::Params,
-        _intermediates: &[u8],
-        _ignore: bool,
-        action: char,
-    ) {
-        let first_param = |idx: usize, default: usize| -> usize {
-            params
-                .iter()
-                .nth(idx)
-                .and_then(|p| p.get(0))
-                .map(|v| (*v).max(1) as usize)
-                .unwrap_or(default)
-        };
-
-        match action {
-            'A' => {
-                let n = first_param(0, 1);
-                self.screen.cursor_row = self.screen.cursor_row.saturating_sub(n);
-            }
-            'B' => {
-                let n = first_param(0, 1);
-                self.screen.cursor_row = (self.screen.cursor_row + n).min(self.screen.rows - 1);
-            }
-            'C' => {
-                let n = first_param(0, 1);
-                self.screen.cursor_col = (self.screen.cursor_col + n).min(self.screen.cols - 1);
-            }
-            'D' => {
-                let n = first_param(0, 1);
-                self.screen.cursor_col = self.screen.cursor_col.saturating_sub(n);
-            }
-            'H' | 'f' => {
-                let row = first_param(0, 1);
-                let col = first_param(1, 1);
-                self.screen.set_cursor(row.saturating_sub(1), col.saturating_sub(1));
-            }
-            'J' => {
-                let mode = first_param(0, 0);
-                if mode == 2 {
-                    self.screen.clear_screen();
-                } else {
-                    self.screen.clear_line_from_cursor();
-                }
-            }
-            'K' => self.screen.clear_line_from_cursor(),
-            _ => {}
-        }
-    }
-
-    fn hook(
-        &mut self,
-        _params: &vte::Params,
-        _intermediates: &[u8],
-        _ignore: bool,
-        _action: char,
-    ) {
-    }
-
-    fn put(&mut self, _byte: u8) {}
-
-    fn unhook(&mut self) {}
+    writer: WriteHandle,
+    master: MasterHandle,
 }
 
 #[derive(Clone, Default)]
@@ -424,6 +96,7 @@ impl TaskManager {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .ok_or_else(|| TaskError::Message("Branch name is required.".into()))?;
+        info!("create_task task_id={} branch={}", task_id, branch_name);
 
         let managed_root = managed_worktree_root(&repo_root)?;
         let worktree_path = managed_root.join(task_id.to_string());
@@ -464,9 +137,7 @@ impl TaskManager {
         tasks.insert(
             task_id,
             TaskRecord {
-                last_output: None,
-                screen: Screen::new(40, 120),
-                parser: Parser::new(),
+                agent: Box::new(CodexAgent::default()),
                 summary: summary.clone(),
                 runtime: None,
                 terminal_buffer: String::new(),
@@ -504,45 +175,43 @@ impl TaskManager {
                 record.summary.started_at.is_some(),
             )
         };
+        info!("start_task task_id={} title={}", task_id, title);
 
-        let pty_system = native_pty_system();
-        let pair = pty_system.openpty(PtySize {
-            rows: 40,
-            cols: 120,
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
-
-        let master = pair.master;
-        let writer = master
-            .take_writer()
-            .context("failed to obtain pty writer")?;
-        let reader = master
-            .try_clone_reader()
-            .context("failed to clone pty reader")?;
-        let master = Arc::new(Mutex::new(master));
-        let writer = Arc::new(Mutex::new(writer));
-
-        let args = if let Some(explicit) = codex_args {
-            explicit
-        } else {
-            vec!["resume".to_string()]
+        let status_manager = self.clone();
+        let status_app = app.clone();
+        let output_manager = self.clone();
+        let output_app = app.clone();
+        let exit_manager = self.clone();
+        let exit_app = app.clone();
+        let callbacks = AgentCallbacks {
+            on_output: Arc::new(move |chunk: String| {
+                output_manager.handle_agent_output(task_id, chunk, &output_app);
+            }),
+            on_status: Arc::new(move |status: TaskStatus| {
+                status_manager.handle_agent_status(task_id, status, &status_app);
+            }),
+            on_exit: Arc::new(move |exit_code: i32| {
+                exit_manager.handle_agent_exit(task_id, exit_code, &exit_app);
+            }),
         };
 
-        let mut command = CommandBuilder::new("codex");
-        command.args(args.iter().map(|s| s.as_str()));
-        command.cwd(&worktree_path);
-        if let Some(env) = env {
-            for (key, value) in env {
-                command.env(key, value);
-            }
-        }
+        let agent_runtime = {
+            let mut tasks = self.inner.tasks.write();
+            let record = tasks
+                .get_mut(&task_id)
+                .ok_or(TaskError::NotFound)?;
+            record.agent.reset(DEFAULT_SCREEN_ROWS, DEFAULT_SCREEN_COLS);
+            record
+                .agent
+                .start(&worktree_path, codex_args, env, callbacks)
+                .with_context(|| format!("failed to start Codex for task {}", title))?
+        };
 
-        let child = pair
-            .slave
-            .spawn_command(command)
-            .with_context(|| format!("failed to start Codex for task {}", title))?;
-        let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(child));
+        let AgentRuntime {
+            child,
+            writer,
+            master,
+        } = agent_runtime;
 
         {
             let mut tasks = self.inner.tasks.write();
@@ -557,22 +226,8 @@ impl TaskManager {
                 writer: writer.clone(),
                 master: master.clone(),
             });
-            record.screen = Screen::new(40, 120);
-            record.parser = Parser::new();
             emit_status(app, &record.summary);
         }
-
-        let reader_manager = self.clone();
-        let reader_app = app.clone();
-        std::thread::spawn(move || {
-            stream_terminal_output(reader, reader_manager, reader_app, task_id);
-        });
-
-        let exit_manager = self.clone();
-        let exit_app = app.clone();
-        tauri::async_runtime::spawn(async move {
-            wait_for_exit(exit_manager, exit_app, task_id, child).await;
-        });
 
         let tasks = self.inner.tasks.read();
         let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -585,6 +240,7 @@ impl TaskManager {
         app: &AppHandle,
     ) -> Result<TaskSummary> {
         let task_id = req.task_id;
+        info!("stop_task task_id={}", task_id);
         let child = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -612,6 +268,7 @@ impl TaskManager {
 
     pub fn discard_task(&self, req: DiscardTaskRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
+        info!("discard_task task_id={}", task_id);
         let (worktree_path, branch_name, base_repo_path, runtime_exists) = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -658,6 +315,7 @@ impl TaskManager {
 
     pub fn terminal_write(&self, req: TerminalWriteRequest) -> Result<()> {
         let task_id = req.task_id;
+        debug!("terminal_write task_id={} bytes={}", task_id, req.data.len());
         let writer = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -669,13 +327,14 @@ impl TaskManager {
         let mut writer_guard = writer.lock();
         writer_guard
             .write_all(req.data.as_bytes())
-            .context("failed to write to terminal")?;
+            .with_context(|| "failed to write to terminal")?;
         writer_guard.flush().ok();
         Ok(())
     }
 
     pub fn terminal_resize(&self, req: TerminalResizeRequest) -> Result<()> {
         let task_id = req.task_id;
+        debug!("terminal_resize task_id={} rows={} cols={}", task_id, req.rows, req.cols);
         let master = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -686,17 +345,19 @@ impl TaskManager {
         };
         master
             .lock()
-            .resize(PtySize {
+            .resize(portable_pty::PtySize {
                 cols: req.cols,
                 rows: req.rows,
                 pixel_width: 0,
                 pixel_height: 0,
             })
-            .context("failed to resize terminal")?;
+            .with_context(|| "failed to resize terminal")?;
         {
             let mut tasks = self.inner.tasks.write();
             if let Some(record) = tasks.get_mut(&task_id) {
-                record.screen.resize(req.rows as usize, req.cols as usize);
+                record
+                    .agent
+                    .resize(req.rows as usize, req.cols as usize);
             }
         }
         Ok(())
@@ -704,6 +365,7 @@ impl TaskManager {
 
     pub fn get_diff(&self, req: DiffRequest) -> Result<DiffPayload> {
         let task_id = req.task_id;
+        debug!("get_diff task_id={} mode={:?}", task_id, req.mode);
         let (worktree_path, base_commit) = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -756,76 +418,34 @@ impl TaskManager {
         }
     }
 
-    fn append_terminal_output(&self, task_id: Uuid, chunk: &str, raw: &[u8], timestamp: Instant) {
-        if let Some(record) = self.inner.tasks.write().get_mut(&task_id) {
-            record.terminal_buffer.push_str(chunk);
-            record.last_output = Some(timestamp);
-
-            let mut performer = ScreenPerformer::new(&mut record.screen);
-            for byte in raw {
-                record.parser.advance(&mut performer, *byte);
-            }
+    fn apply_agent_status(&self, record: &mut TaskRecord, status: TaskStatus, app: &AppHandle) {
+        if record.summary.status != status {
+            record.summary.status = status;
+            emit_status(app, &record.summary);
         }
     }
 
-    fn mark_waiting_for_approval(&self, task_id: Uuid, app: &AppHandle) {
+    pub fn handle_agent_status(&self, task_id: Uuid, status: TaskStatus, app: &AppHandle) {
+        debug!("agent_status task_id={} status={:?}", task_id, status);
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
-            if record.summary.status != TaskStatus::AwaitingApproval {
-                record.summary.status = TaskStatus::AwaitingApproval;
-                emit_status(app, &record.summary);
-            }
+            self.apply_agent_status(record, status, app);
         }
     }
 
-    fn has_recent_approval_prompt(&self, task_id: Uuid) -> bool {
-        const PROMPT: &str = "would you like to run the following command";
-        let tasks = self.inner.tasks.read();
-        tasks
-            .get(&task_id)
-            .map(|record| {
-                record
-                    .screen
-                    .full_text()
-                    .to_ascii_lowercase()
-                    .contains(PROMPT)
-            })
-            .unwrap_or(false)
-    }
-
-    fn mark_idle_from_awaiting(&self, task_id: Uuid, app: &AppHandle) {
+    pub fn handle_agent_output(&self, task_id: Uuid, chunk: String, app: &AppHandle) {
+        debug!("agent_output task_id={} bytes={}", task_id, chunk.len());
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
-            if record.runtime.is_some() && record.summary.status == TaskStatus::AwaitingApproval {
-                record.summary.status = TaskStatus::Idle;
-                emit_status(app, &record.summary);
-            }
+            record.terminal_buffer.push_str(&chunk);
         }
+        emit_terminal_output(app, task_id, chunk);
     }
 
-    fn mark_working_if_needed(&self, task_id: Uuid, app: &AppHandle) {
-        let mut tasks = self.inner.tasks.write();
-        if let Some(record) = tasks.get_mut(&task_id) {
-            if record.summary.status != TaskStatus::Working {
-                record.summary.status = TaskStatus::Working;
-                emit_status(app, &record.summary);
-            }
-        }
-    }
-
-    fn mark_idle_if_quiet(&self, task_id: Uuid, timestamp: Instant, app: &AppHandle) {
-        let mut tasks = self.inner.tasks.write();
-        if let Some(record) = tasks.get_mut(&task_id) {
-            if let Some(last) = record.last_output {
-                if last <= timestamp
-                    && record.runtime.is_some()
-                    && record.summary.status == TaskStatus::Working
-                {
-                    record.summary.status = TaskStatus::Idle;
-                    emit_status(app, &record.summary);
-                }
-            }
-        }
+    pub fn handle_agent_exit(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) {
+        info!("agent_exit task_id={} exit_code={}", task_id, exit_code);
+        let _ = self.finish_task(task_id, exit_code, app);
+        emit_terminal_exit(app, task_id, exit_code);
     }
 
     fn contains_worktree_path(&self, path: &Path) -> bool {
@@ -842,6 +462,7 @@ impl TaskManager {
         base_repo_path: String,
         app: &AppHandle,
     ) -> Result<Vec<TaskSummary>> {
+        debug!("register_existing_worktrees base_repo_path={}", base_repo_path);
         let provided_path = PathBuf::from(&base_repo_path);
         ensure_directory(&provided_path)?;
         validate_git_repo(&provided_path)?;
@@ -895,9 +516,7 @@ impl TaskManager {
             self.inner.tasks.write().insert(
                 summary.task_id,
                 TaskRecord {
-                    last_output: None,
-                    screen: Screen::new(40, 120),
-                    parser: Parser::new(),
+                    agent: Box::new(CodexAgent::default()),
                     summary: summary.clone(),
                     runtime: None,
                     terminal_buffer: String::new(),
@@ -917,12 +536,14 @@ impl TaskManager {
 
     pub fn open_in_vscode(&self, req: TaskActionRequest) -> Result<()> {
         let path = self.worktree_path(req.task_id)?;
-        spawn_vscode(&path)
+        debug!("open_in_vscode task_id={} path={}", req.task_id, path.display());
+        launcher::open_path_in_vscode(path.as_path())
     }
 
     pub fn open_terminal(&self, req: TaskActionRequest) -> Result<()> {
         let path = self.worktree_path(req.task_id)?;
-        spawn_terminal(&path)
+        debug!("open_terminal task_id={} path={}", req.task_id, path.display());
+        launcher::open_path_terminal(path.as_path())
     }
 
     fn finish_task(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) -> Result<()> {
@@ -930,6 +551,9 @@ impl TaskManager {
         let record = tasks
             .get_mut(&task_id)
             .ok_or(TaskError::NotFound)?;
+        if record.runtime.is_none() {
+            warn!("finish_task task_id={} without runtime", task_id);
+        }
         record.summary.exit_code = Some(exit_code);
         record.summary.ended_at = Some(Utc::now());
         record.runtime = None;
@@ -946,561 +570,4 @@ impl TaskManager {
     }
 }
 
-fn stream_terminal_output(
-    mut reader: Box<dyn Read + Send>,
-    manager: TaskManager,
-    app: AppHandle,
-    task_id: Uuid,
-) {
-    let mut buffer = [0u8; 8192];
-    loop {
-        match reader.read(&mut buffer) {
-            Ok(0) => break,
-            Ok(size) => {
-                let now = Instant::now();
-                let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
-                manager.append_terminal_output(task_id, &chunk, &buffer[..size], now);
-                if manager.has_recent_approval_prompt(task_id) {
-                    manager.mark_waiting_for_approval(task_id, &app);
-                } else {
-                    manager.mark_working_if_needed(task_id, &app);
-                    manager.mark_idle_from_awaiting(task_id, &app);
-                    let mgr = manager.clone();
-                    let app_clone = app.clone();
-                    std::thread::spawn(move || {
-                        std::thread::sleep(Duration::from_millis(1000));
-                        mgr.mark_idle_if_quiet(task_id, now, &app_clone);
-                    });
-                }
-                let payload = TerminalOutputPayload {
-                    task_id,
-                    data: chunk.clone(),
-                };
-                let _ = app.emit("task_terminal_output", payload);
-            }
-            Err(_) => break,
-        }
-    }
-}
-
-async fn wait_for_exit(
-    manager: TaskManager,
-    app: AppHandle,
-    task_id: Uuid,
-    child: Arc<Mutex<ChildHandle>>,
-) {
-    let exit_code = tauri::async_runtime::spawn_blocking(move || loop {
-        {
-            let mut child_guard = child.lock();
-            match child_guard.try_wait() {
-                Ok(Some(status)) => {
-                    let code = status.exit_code() as i32;
-                    return if status.success() { 0 } else { code };
-                }
-                Ok(None) => {}
-                Err(_) => return 1,
-            }
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    })
-    .await
-    .unwrap_or(1);
-
-    let _ = manager.finish_task(task_id, exit_code, &app);
-    let payload = TerminalExitPayload {
-        task_id,
-        exit_code,
-    };
-    let _ = app.emit("task_terminal_exit", payload);
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct TerminalOutputPayload {
-    task_id: Uuid,
-    data: String,
-}
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct TerminalExitPayload {
-    task_id: Uuid,
-    exit_code: i32,
-}
-
-fn ensure_directory(path: &Path) -> Result<()> {
-    if path.exists() {
-        if path.is_dir() {
-            Ok(())
-        } else {
-            Err(TaskError::Message(format!(
-                "{} is not a directory",
-                path.display()
-            )))
-        }
-    } else {
-        Err(TaskError::Message(format!(
-            "{} does not exist",
-            path.display()
-        )))
-    }
-}
-
-fn validate_git_repo(path: &Path) -> Result<()> {
-    run_git(path, ["rev-parse", "--show-toplevel"]).map(|_| ())
-}
-
-fn get_repo_root(path: &Path) -> Result<PathBuf> {
-    let root = run_git(path, ["rev-parse", "--show-toplevel"])?;
-    Ok(PathBuf::from(root))
-}
-
-fn managed_worktree_root(repo_root: &Path) -> Result<PathBuf> {
-    let illuc_dir = repo_root.join(".illuc");
-    let worktree_dir = illuc_dir.join("worktrees");
-    if !worktree_dir.exists() {
-        std::fs::create_dir_all(&worktree_dir)?;
-    }
-    Ok(worktree_dir)
-}
-
-pub fn open_path_in_vscode(path: &str) -> Result<()> {
-    let target = PathBuf::from(path);
-    ensure_directory(&target)?;
-    spawn_vscode(&target)
-}
-
-pub fn open_path_terminal(path: &str) -> Result<()> {
-    let target = PathBuf::from(path);
-    ensure_directory(&target)?;
-    spawn_terminal(&target)
-}
-
-pub fn list_branches(path: String) -> Result<Vec<String>> {
-    let repo = PathBuf::from(&path);
-    ensure_directory(&repo)?;
-    validate_git_repo(&repo)?;
-    let output = run_git(&repo, ["branch", "--format=%(refname:short)"])?;
-    let branches = output
-        .lines()
-        .map(|line| line.trim().trim_start_matches('*').trim().to_string())
-        .filter(|line| !line.is_empty())
-        .collect();
-    Ok(branches)
-}
-
-fn spawn_vscode(path: &Path) -> Result<()> {
-    #[cfg(windows)]
-    let candidates = ["code.cmd", "code.exe", "code"];
-    #[cfg(not(windows))]
-    let candidates = ["code"];
-
-    for candidate in candidates {
-        let result = Command::new(candidate).arg(path).spawn();
-        match result {
-            Ok(_) => return Ok(()),
-            Err(err) => {
-                if err.kind() == std::io::ErrorKind::NotFound {
-                    continue;
-                } else {
-                    return Err(err.into());
-                }
-            }
-        }
-    }
-    Err(TaskError::Message(
-        "Unable to launch VS Code. Make sure the `code` command is available.".to_string(),
-    ))
-}
-
-fn spawn_terminal(path: &Path) -> Result<()> {
-    #[cfg(target_os = "windows")]
-    {
-        let path_str = path.to_string_lossy().to_string();
-        let mut attempt_cmd = |mut command: Command| -> Result<bool> {
-            match command.spawn() {
-                Ok(_) => Ok(true),
-                Err(err) => {
-                    if err.kind() == std::io::ErrorKind::NotFound {
-                        Ok(false)
-                    } else {
-                        Err(err.into())
-                    }
-                }
-            }
-        };
-
-        if attempt_cmd({
-            let mut cmd = Command::new("wt");
-            cmd.args(["-d", &path_str]);
-            cmd
-        })? {
-            return Ok(());
-        }
-
-        for candidate in ["alacritty", "alacritty.exe"] {
-            if attempt_cmd({
-                let mut cmd = Command::new(candidate);
-                cmd.args(["--working-directory", &path_str]);
-                cmd
-            })? {
-                return Ok(());
-            }
-        }
-
-        if attempt_cmd({
-            let mut cmd = Command::new("cmd");
-            cmd.args([
-                "/C",
-                "start",
-                "cmd",
-                "/K",
-                &format!("cd /d \"{}\"", path_str),
-            ]);
-            cmd
-        })? {
-            return Ok(());
-        }
-
-        if attempt_cmd({
-            let mut cmd = Command::new("cmd");
-            cmd.args([
-                "/C",
-                "start",
-                "powershell",
-                "-NoExit",
-                "-Command",
-                &format!("Set-Location -Path \"{}\"", path_str),
-            ]);
-            cmd
-        })? {
-            return Ok(());
-        }
-
-        Err(TaskError::Message(
-            "Unable to launch a terminal window. Install Windows Terminal or ensure cmd.exe is available."
-                .to_string(),
-        ))
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let path_str = path.to_string_lossy().to_string();
-        let attempts: Vec<(&str, Vec<&str>)> = vec![
-            (
-                "x-terminal-emulator",
-                vec!["--working-directory", path_str.as_str()],
-            ),
-            (
-                "gnome-terminal",
-                vec!["--working-directory", path_str.as_str()],
-            ),
-            ("konsole", vec!["--workdir", path_str.as_str()]),
-            (
-                "xfce4-terminal",
-                vec!["--working-directory", path_str.as_str()],
-            ),
-            ("kitty", vec!["--directory", path_str.as_str()]),
-            ("alacritty", vec!["--working-directory", path_str.as_str()]),
-            ("terminator", vec!["--working-directory", path_str.as_str()]),
-            ("tilix", vec!["--working-directory", path_str.as_str()]),
-        ];
-        for (bin, args) in attempts {
-            let result = Command::new(bin).args(args).spawn();
-            match result {
-                Ok(_) => return Ok(()),
-                Err(err) => {
-                    if err.kind() == std::io::ErrorKind::NotFound {
-                        continue;
-                    } else {
-                        return Err(err.into());
-                    }
-                }
-            }
-        }
-        Err(TaskError::Message(
-            "Unable to find a supported terminal application. Install gnome-terminal, kitty, or another supported terminal."
-                .to_string(),
-        ))
-    }
-}
-
-fn list_worktrees(repo: &Path) -> Result<Vec<WorktreeEntry>> {
-    let output = run_git(repo, ["worktree", "list", "--porcelain"])?;
-    let mut entries = Vec::new();
-    let mut current: Option<WorktreeEntry> = None;
-    for line in output.lines() {
-        if line.trim().is_empty() {
-            if let Some(entry) = current.take() {
-                entries.push(entry);
-            }
-            continue;
-        }
-        if let Some(rest) = line.strip_prefix("worktree ") {
-            if let Some(entry) = current.take() {
-                entries.push(entry);
-            }
-            current = Some(WorktreeEntry {
-                path: PathBuf::from(rest.trim()),
-                head: String::new(),
-                branch: None,
-            });
-        } else if let Some(rest) = line.strip_prefix("HEAD ") {
-            if let Some(entry) = current.as_mut() {
-                entry.head = rest.trim().to_string();
-            }
-        } else if let Some(rest) = line.strip_prefix("branch ") {
-            if let Some(entry) = current.as_mut() {
-                entry.branch = Some(rest.trim().to_string());
-            }
-        }
-    }
-    if let Some(entry) = current.take() {
-        entries.push(entry);
-    }
-    Ok(entries)
-}
-
-fn clean_branch_name(branch: &str) -> String {
-    branch
-        .trim()
-        .strip_prefix("refs/heads/")
-        .unwrap_or(branch.trim())
-        .to_string()
-}
-
-fn format_title_from_branch(branch: &str) -> String {
-    let slug = branch.split('/').last().unwrap_or(branch);
-    let (task_id, label) = extract_task_and_label(slug);
-    if let Some(task) = task_id {
-        format!("[{}] {}", task, label)
-    } else {
-        label
-    }
-}
-
-fn extract_task_and_label(slug: &str) -> (Option<String>, String) {
-    let mut range: Option<(usize, usize)> = None;
-    let mut digits = String::new();
-    let mut iter = slug.char_indices().peekable();
-    while let Some((start_idx, ch)) = iter.next() {
-        if ch.is_ascii_digit() {
-            digits.clear();
-            digits.push(ch);
-            let mut end_idx = start_idx + ch.len_utf8();
-            while let Some(&(next_idx, next_ch)) = iter.peek() {
-                if next_ch.is_ascii_digit() {
-                    digits.push(next_ch);
-                    end_idx = next_idx + next_ch.len_utf8();
-                    iter.next();
-                } else {
-                    break;
-                }
-            }
-            if digits.len() >= 3 {
-                range = Some((start_idx, end_idx));
-                break;
-            }
-        }
-    }
-
-    let mut remainder = slug.to_string();
-    let task_id = if let Some((start, end)) = range {
-        let task = remainder[start..end].to_string();
-        remainder.replace_range(start..end, " ");
-        Some(task)
-    } else {
-        None
-    };
-
-    let cleaned = remainder
-        .replace(&['-', '_'][..], " ")
-        .split_whitespace()
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                Some(first) => {
-                    first.to_uppercase().collect::<String>()
-                        + chars.as_str().to_lowercase().as_str()
-                }
-                None => String::new(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-
-    let label = if cleaned.is_empty() {
-        slug.replace(&['/', '-', '_'][..], " ")
-            .split_whitespace()
-            .map(|word| {
-                let mut chars = word.chars();
-                match chars.next() {
-                    Some(first) => {
-                        first.to_uppercase().collect::<String>()
-                            + chars.as_str().to_lowercase().as_str()
-                    }
-                    None => String::new(),
-                }
-            })
-            .collect::<Vec<_>>()
-            .join(" ")
-    } else {
-        cleaned
-    };
-
-    (task_id, label.trim().to_string())
-}
-
-struct DiffResult {
-    diff: String,
-    files: Vec<DiffFile>,
-}
-
-fn git_diff(
-    repo: &Path,
-    mode: Option<&str>,
-    base_commit: &str,
-    whitespace_flag: Option<&str>,
-) -> Result<DiffResult> {
-    let mut diff_args = vec!["diff".to_string()];
-    if let Some(flag) = whitespace_flag {
-        diff_args.push(flag.to_string());
-    }
-    if let Some(mode_flag) = mode {
-        diff_args.push(mode_flag.to_string());
-    }
-    diff_args.push(base_commit.to_string());
-    let diff_output = run_git(repo, diff_args.iter().map(String::as_str))?;
-
-    let mut files_args = vec!["diff".to_string(), "--name-status".to_string()];
-    if let Some(flag) = whitespace_flag {
-        files_args.insert(1, flag.to_string());
-    }
-    if let Some(mode_flag) = mode {
-        files_args.push(mode_flag.to_string());
-    }
-    files_args.push(base_commit.to_string());
-    let files_output = run_git(repo, files_args.iter().map(String::as_str))?;
-    let files = parse_diff_files(&files_output);
-
-    Ok(DiffResult {
-        diff: if mode == Some("--cached") {
-            format!("--- Staged Changes ---\n{}", diff_output)
-        } else {
-            format!("--- Unstaged Changes ---\n{}", diff_output)
-        },
-        files,
-    })
-}
-
-fn git_diff_branch(
-    repo: &Path,
-    base_commit: &str,
-    whitespace_flag: Option<&str>,
-) -> Result<DiffResult> {
-    let mut diff_args = vec!["diff".to_string()];
-    if let Some(flag) = whitespace_flag {
-        diff_args.push(flag.to_string());
-    }
-    diff_args.push(base_commit.to_string());
-    let diff_output = run_git(repo, diff_args.iter().map(String::as_str))?;
-
-    let mut files_args = vec!["diff".to_string(), "--name-status".to_string()];
-    if let Some(flag) = whitespace_flag {
-        files_args.insert(1, flag.to_string());
-    }
-    files_args.push(base_commit.to_string());
-    let files_output = run_git(repo, files_args.iter().map(String::as_str))?;
-    let files = parse_diff_files(&files_output);
-    let short_base = &base_commit[..std::cmp::min(7, base_commit.len())];
-    Ok(DiffResult {
-        diff: format!(
-            "--- Branch comparison vs {} ---\n{}",
-            short_base, diff_output
-        ),
-        files,
-    })
-}
-
-fn merge_diff_files(mut staged: Vec<DiffFile>, mut unstaged: Vec<DiffFile>) -> Vec<DiffFile> {
-    staged.append(&mut unstaged);
-    let mut combined = Vec::new();
-    for file in staged {
-        if !combined
-            .iter()
-            .any(|existing: &DiffFile| existing.path == file.path)
-        {
-            combined.push(file);
-        }
-    }
-    combined
-}
-
-fn run_git<I, S>(repo: &Path, args: I) -> Result<String>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<OsStr>,
-{
-    let args_vec: Vec<OsString> = args
-        .into_iter()
-        .map(|a| a.as_ref().to_os_string())
-        .collect();
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo)
-        .args(&args_vec)
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        Err(TaskError::GitCommand {
-            command: format!(
-                "git -C {} {}",
-                repo.display(),
-                args_vec
-                    .iter()
-                    .map(|arg| arg.to_string_lossy().to_string())
-                    .collect::<Vec<_>>()
-                    .join(" ")
-            ),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
-    }
-}
-
-fn parse_diff_files(output: &str) -> Vec<DiffFile> {
-    output
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let status = parts.next()?;
-            let path = parts.next()?;
-            Some(DiffFile {
-                path: path.to_string(),
-                status: status.to_string(),
-            })
-        })
-        .collect()
-}
-
-fn emit_status(app: &AppHandle, summary: &TaskSummary) {
-    let _ = app.emit("task_status_changed", summary);
-}
-
-pub fn handle_select_base_repo(path: String) -> Result<BaseRepoInfo> {
-    let repo = PathBuf::from(&path);
-    ensure_directory(&repo)?;
-    validate_git_repo(&repo)?;
-    let canonical_path = repo
-        .canonicalize()
-        .unwrap_or_else(|_| repo.clone())
-        .to_string_lossy()
-        .to_string();
-    let current_branch = run_git(&repo, ["rev-parse", "--abbrev-ref", "HEAD"])?;
-    let head = run_git(&repo, ["rev-parse", "HEAD"])?;
-    Ok(BaseRepoInfo {
-        path,
-        canonical_path,
-        current_branch,
-        head,
-    })
-}
+use anyhow::Context;

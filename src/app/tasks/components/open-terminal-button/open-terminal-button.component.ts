@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
+import { LauncherService } from "../../../launcher/launcher.service";
 
 @Component({
   selector: "app-open-terminal-button",
@@ -14,12 +14,14 @@ export class OpenTerminalButtonComponent {
   @Input() title = "Open terminal";
   @Input() ariaLabel = "Open terminal";
 
+  constructor(private readonly launcher: LauncherService) {}
+
   async handleClick(): Promise<void> {
     if (!this.path) {
       return;
     }
     try {
-      await invoke("open_path_terminal", { path: this.path });
+      await this.launcher.openTerminal(this.path);
     } catch (error) {
       console.error("Failed to open terminal", error);
     }

@@ -4,6 +4,7 @@ import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
 import { TaskSidebarComponent } from "./tasks/components/task-sidebar/task-sidebar.component";
 import { TaskViewComponent } from "./tasks/components/task-view/task-view.component";
+import { deriveTitleFromBranch } from "./tasks/title.utils";
 import { TaskStore } from "./tasks/task.store";
 
 @Component({
@@ -99,7 +100,7 @@ export class AppComponent {
       return;
     }
     this.branchNameError = "";
-    const title = this.deriveTitleFromBranch(branch);
+    const title = deriveTitleFromBranch(branch);
     try {
       await this.taskStore.createTask(branch, title, this.baseBranchSelection);
       this.statusMessage = `Task created on ${branch}.`;
@@ -180,25 +181,4 @@ export class AppComponent {
     return fallback;
   }
 
-  private deriveTitleFromBranch(branchName: string): string {
-    const slug = branchName.split("/").pop() ?? branchName;
-    const taskMatch = slug.match(/(\d{3,})/);
-    const taskId = taskMatch ? taskMatch[1] : null;
-    let remainder = slug;
-    if (taskMatch) {
-      remainder = remainder.replace(taskMatch[1], "");
-    }
-    remainder = remainder.replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
-    if (!remainder) {
-      remainder = branchName.replace(/[-_/]+/g, " ").trim();
-    }
-    const human = remainder
-      ? remainder
-          .split(" ")
-          .filter(Boolean)
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-          .join(" ")
-      : branchName;
-    return taskId ? `[${taskId}] ${human}` : human;
-  }
 }

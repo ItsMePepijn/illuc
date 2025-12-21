@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
+import { LauncherService } from "../../../launcher/launcher.service";
 
 @Component({
   selector: "app-open-vscode-button",
@@ -14,12 +14,14 @@ export class OpenVsCodeButtonComponent {
   @Input() title = "Open in VS Code";
   @Input() ariaLabel = "Open in VS Code";
 
+  constructor(private readonly launcher: LauncherService) {}
+
   async handleClick(): Promise<void> {
     if (!this.path) {
       return;
     }
     try {
-      await invoke("open_path_in_vscode", { path: this.path });
+      await this.launcher.openInVsCode(this.path);
     } catch (error) {
       console.error("Failed to open VS Code", error);
     }

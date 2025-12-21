@@ -1,12 +1,15 @@
+mod agents;
+mod error;
+mod launcher;
 mod tasks;
+mod utils;
 
 use tasks::{
-    handle_select_base_repo, list_branches as list_branches_util,
-    open_path_in_vscode as open_path_in_vscode_util,
-    open_path_terminal as open_path_terminal_util, BaseRepoInfo, CreateTaskRequest, DiffPayload,
-    DiffRequest, DiscardTaskRequest, StartTaskRequest, StopTaskRequest, TerminalResizeRequest,
+    handle_select_base_repo, BaseRepoInfo, CreateTaskRequest, DiffPayload, DiffRequest,
+    DiscardTaskRequest, StartTaskRequest, StopTaskRequest, TerminalResizeRequest,
     TerminalWriteRequest, TaskActionRequest, TaskManager, TaskSummary,
 };
+use log::info;
 
 type CommandResult<T> = std::result::Result<T, String>;
 
@@ -112,21 +115,32 @@ async fn open_worktree_terminal(
 
 #[tauri::command]
 async fn open_path_in_vscode(path: String) -> CommandResult<()> {
-    open_path_in_vscode_util(&path).map_err(|err| err.to_string())
+    let target = std::path::PathBuf::from(path);
+    launcher::open_path_in_vscode(target.as_path()).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 async fn open_path_terminal(path: String) -> CommandResult<()> {
-    open_path_terminal_util(&path).map_err(|err| err.to_string())
+    let target = std::path::PathBuf::from(path);
+    launcher::open_path_terminal(target.as_path()).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 async fn list_branches(path: String) -> CommandResult<Vec<String>> {
-    list_branches_util(path).map_err(|err| err.to_string())
+    let repo = std::path::PathBuf::from(&path);
+    tasks::git::list_branches(repo.as_path()).map_err(|err| err.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    dotenvy::dotenv().ok();
+    let _ = env_logger::Builder::from_env(
+        env_logger::Env::default().default_filter_or("illuc=debug,tauri=info"),
+    )
+    .format_timestamp_millis()
+    .try_init();
+    info!("starting illuc tauri app");
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

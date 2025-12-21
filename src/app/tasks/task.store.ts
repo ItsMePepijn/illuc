@@ -10,6 +10,7 @@ import {
   TerminalOutputEvent,
   TaskSummary,
 } from "./task.models";
+import { TaskGitService } from "./git/task-git.service";
 
 @Injectable({
   providedIn: "root",
@@ -35,7 +36,10 @@ export class TaskStore {
     return this.tasksSignal().find((wf) => wf.taskId === id) ?? null;
   });
 
-  constructor(private readonly zone: NgZone) {
+  constructor(
+    private readonly zone: NgZone,
+    private readonly taskGit: TaskGitService,
+  ) {
     this.registerEventListeners();
     window.addEventListener("unload", () => this.teardown());
   }
@@ -235,7 +239,7 @@ export class TaskStore {
 
   private async loadBranches(baseRepoPath: string): Promise<void> {
     try {
-      const branches = await invoke<string[]>("list_branches", { path: baseRepoPath });
+      const branches = await this.taskGit.listBranches(baseRepoPath);
       this.branchOptionsSignal.set(branches);
     } catch (error) {
       console.error("Failed to load branches", error);

@@ -48,6 +48,7 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 .workspace-actions {
@@ -78,11 +79,16 @@
 }
 
 .status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 10.5rem;
   padding: 0.2rem 0.6rem;
   border-radius: 999px;
   font-size: 0.8rem;
   text-transform: capitalize;
   background: rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
 }
 
 .status-pill[data-status="READY"] {
