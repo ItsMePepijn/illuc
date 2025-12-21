@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 #[derive(Debug, Clone)]
 pub struct WorktreeEntry {
@@ -189,7 +191,13 @@ where
         .into_iter()
         .map(|a| a.as_ref().to_os_string())
         .collect();
-    let output = Command::new("git")
+    let mut command = Command::new("git");
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    let output = command
         .arg("-C")
         .arg(repo)
         .args(&args_vec)
