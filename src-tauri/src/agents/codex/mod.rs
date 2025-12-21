@@ -83,6 +83,59 @@ impl CodexAgent {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn to_wsl_path(path: &Path) -> Option<String> {
+    let path_str = path.to_string_lossy().replace('\\', "/");
+    let mut chars = path_str.chars();
+    let drive = chars.next()?.to_ascii_lowercase();
+    if chars.next()? != ':' {
+        return None;
+    }
+    let rest = chars.as_str();
+    Some(format!("/mnt/{}/{}", drive, rest.trim_start_matches('/')))
+}
+
+#[cfg(target_os = "windows")]
+fn bash_escape(value: &str) -> String {
+    let mut escaped = String::from("'");
+    for ch in value.chars() {
+        if ch == '\'' {
+            escaped.push_str("'\"'\"'");
+        } else {
+            escaped.push(ch);
+        }
+    }
+    escaped.push('\'');
+    escaped
+}
+
+#[cfg(target_os = "windows")]
+fn build_wsl_command(
+    worktree_path: &Path,
+    args: &[String],
+    env: &Option<HashMap<String, String>>,
+) -> CommandBuilder {
+    let mut command = CommandBuilder::new("wsl.exe");
+    let wsl_path = to_wsl_path(worktree_path).unwrap_or_else(|| "/".to_string());
+    let mut command_line = format!("cd {} && ", bash_escape(&wsl_path));
+    if let Some(env) = env {
+        for (key, value) in env {
+            command_line.push_str(&format!(
+                "export {}={}; ",
+                key,
+                bash_escape(value)
+            ));
+        }
+    }
+    command_line.push_str("codex");
+    for arg in args {
+        command_line.push(' ');
+        command_line.push_str(&bash_escape(arg));
+    }
+    command.args(["--", "bash", "-lc", command_line.as_str()]);
+    command
+}
+
 impl Agent for CodexAgent {
     fn start(
         &mut self,
@@ -110,14 +163,21 @@ impl Agent for CodexAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         let args = args.unwrap_or_else(|| vec!["resume".to_string()]);
-        let mut command = CommandBuilder::new("codex");
-        command.args(args.iter().map(|s| s.as_str()));
-        command.cwd(worktree_path);
-        if let Some(env) = env {
-            for (key, value) in env {
-                command.env(key, value);
+        #[cfg(target_os = "windows")]
+        let mut command = build_wsl_command(worktree_path, &args, &env);
+
+        #[cfg(not(target_os = "windows"))]
+        let mut command = {
+            let mut command = CommandBuilder::new("codex");
+            command.args(args.iter().map(|s| s.as_str()));
+            command.cwd(worktree_path);
+            if let Some(env) = env {
+                for (key, value) in env {
+                    command.env(key, value);
+                }
             }
-        }
+            command
+        };
 
         let child = pair
             .slave
