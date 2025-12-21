@@ -148,7 +148,22 @@
   white-space: nowrap;
 }
 
-.status[data-status="RUNNING"] {
+.status[data-status="READY"] {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.status[data-status="IDLE"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.status[data-status="AWAITING_APPROVAL"] {
+  background: rgba(255, 201, 87, 0.2);
+  color: #ffd166;
+}
+
+.status[data-status="WORKING"] {
   background: rgba(81, 207, 102, 0.18);
   color: #70e48b;
 }
@@ -158,10 +173,9 @@
   color: #ff8c85;
 }
 
-.status[data-status="READY"],
-.status[data-status="STOPPED"] {
-  background: rgba(255, 255, 255, 0.12);
-  color: #f2f4f8;
+.status[data-status="COMPLETED"] {
+  background: rgba(92, 225, 230, 0.2);
+  color: #9bf2f6;
 }
 
 .row-meta {

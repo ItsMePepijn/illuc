@@ -85,9 +85,34 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.status-pill[data-status="RUNNING"] {
+.status-pill[data-status="READY"] {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.status-pill[data-status="IDLE"] {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.status-pill[data-status="AWAITING_APPROVAL"] {
+  background: rgba(255, 201, 87, 0.2);
+  color: #ffd166;
+}
+
+.status-pill[data-status="WORKING"] {
   background: rgba(81, 207, 102, 0.18);
   color: #70e48b;
+}
+
+.status-pill[data-status="FAILED"] {
+  background: rgba(255, 92, 87, 0.18);
+  color: #ff8c85;
+}
+
+.status-pill[data-status="COMPLETED"] {
+  background: rgba(92, 225, 230, 0.2);
+  color: #9bf2f6;
 }
 
 .split-panels {

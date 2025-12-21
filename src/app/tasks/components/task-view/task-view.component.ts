@@ -36,12 +36,15 @@ export class TaskViewComponent {
   }
 
   canStart(): boolean {
-    return !!this.task &&
-      ["READY", "STOPPED", "COMPLETED", "FAILED"].includes(this.task.status);
+    return (
+      !!this.task &&
+      ["READY", "STOPPED", "COMPLETED", "FAILED"].includes(this.task.status)
+    );
   }
 
   isRunning(): boolean {
-    return this.task?.status === "RUNNING";
+    return !!this.task &&
+      ["IDLE", "AWAITING_APPROVAL", "WORKING"].includes(this.task.status);
   }
 
   titleParts(): TitleParts | null {

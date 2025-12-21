@@ -62,7 +62,11 @@ export class TaskSidebarComponent {
   }
 
   isRunning(status: TaskStatus): boolean {
-    return status === "RUNNING";
+    return (
+      status === "IDLE" ||
+      status === "AWAITING_APPROVAL" ||
+      status === "WORKING"
+    );
   }
 
   titleParts(title: string): TitleParts {

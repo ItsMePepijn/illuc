@@ -9,10 +9,11 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 use thiserror::Error;
 use uuid::Uuid;
+use vte::Parser;
 
 type Result<T> = std::result::Result<T, TaskError>;
 type ChildHandle = Box<dyn Child + Send + Sync>;
@@ -42,13 +43,14 @@ pub enum TaskError {
     Other(#[from] anyhow::Error),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TaskStatus {
     CreatingWorktree,
     Ready,
-    Running,
-    WaitingForInput,
+    Idle,
+    AwaitingApproval,
+    Working,
     Completed,
     Failed,
     Stopped,
@@ -167,6 +169,9 @@ pub struct DiffFile {
 }
 
 struct TaskRecord {
+    last_output: Option<Instant>,
+    screen: Screen,
+    parser: Parser,
     summary: TaskSummary,
     runtime: Option<TaskRuntime>,
     terminal_buffer: String,
@@ -176,6 +181,207 @@ struct TaskRuntime {
     child: Arc<Mutex<ChildHandle>>,
     writer: Arc<Mutex<Box<dyn Write + Send>>>,
     master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+}
+
+#[derive(Debug, Clone)]
+struct Screen {
+    rows: usize,
+    cols: usize,
+    grid: Vec<Vec<char>>,
+    cursor_row: usize,
+    cursor_col: usize,
+}
+
+impl Screen {
+    fn new(rows: usize, cols: usize) -> Self {
+        Self {
+            rows,
+            cols,
+            grid: vec![vec![' '; cols]; rows],
+            cursor_row: 0,
+            cursor_col: 0,
+        }
+    }
+
+    fn resize(&mut self, rows: usize, cols: usize) {
+        let mut new_grid = vec![vec![' '; cols]; rows];
+        let min_rows = rows.min(self.rows);
+        let min_cols = cols.min(self.cols);
+        for r in 0..min_rows {
+            for c in 0..min_cols {
+                new_grid[r][c] = *self.grid.get(r).and_then(|row| row.get(c)).unwrap_or(&' ');
+            }
+        }
+        self.rows = rows;
+        self.cols = cols;
+        self.grid = new_grid;
+        self.cursor_row = self.cursor_row.min(self.rows.saturating_sub(1));
+        self.cursor_col = self.cursor_col.min(self.cols.saturating_sub(1));
+    }
+
+    fn scroll_up(&mut self, lines: usize) {
+        for _ in 0..lines {
+            self.grid.remove(0);
+            self.grid.push(vec![' '; self.cols]);
+        }
+        self.cursor_row = self.cursor_row.saturating_sub(lines);
+    }
+
+    fn clear_screen(&mut self) {
+        for row in &mut self.grid {
+            for cell in row {
+                *cell = ' ';
+            }
+        }
+        self.cursor_row = 0;
+        self.cursor_col = 0;
+    }
+
+    fn clear_line_from_cursor(&mut self) {
+        if self.cursor_row < self.rows {
+            for c in self.cursor_col..self.cols {
+                self.grid[self.cursor_row][c] = ' ';
+            }
+        }
+    }
+
+    fn set_cursor(&mut self, row: usize, col: usize) {
+        self.cursor_row = row.min(self.rows.saturating_sub(1));
+        self.cursor_col = col.min(self.cols.saturating_sub(1));
+    }
+
+    fn full_text(&self) -> String {
+        self.grid
+            .iter()
+            .map(|row| {
+                let mut s: String = row.iter().collect();
+                while s.ends_with(' ') {
+                    s.pop();
+                }
+                s
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+}
+
+struct ScreenPerformer<'a> {
+    screen: &'a mut Screen,
+}
+
+impl<'a> ScreenPerformer<'a> {
+    fn new(screen: &'a mut Screen) -> Self {
+        Self { screen }
+    }
+}
+
+impl<'a> vte::Perform for ScreenPerformer<'a> {
+    fn print(&mut self, c: char) {
+        if self.screen.cursor_row >= self.screen.rows {
+            self.screen.scroll_up(1);
+            self.screen.cursor_row = self.screen.rows.saturating_sub(1);
+        }
+        if self.screen.cursor_col >= self.screen.cols {
+            self.screen.cursor_col = 0;
+            self.screen.cursor_row += 1;
+            if self.screen.cursor_row >= self.screen.rows {
+                self.screen.scroll_up(1);
+                self.screen.cursor_row = self.screen.rows.saturating_sub(1);
+            }
+        }
+        if self.screen.cursor_row < self.screen.rows && self.screen.cursor_col < self.screen.cols {
+            self.screen.grid[self.screen.cursor_row][self.screen.cursor_col] = c;
+            self.screen.cursor_col += 1;
+        }
+    }
+
+    fn execute(&mut self, byte: u8) {
+        match byte {
+            b'\n' => {
+                self.screen.cursor_col = 0;
+                self.screen.cursor_row += 1;
+                if self.screen.cursor_row >= self.screen.rows {
+                    self.screen.scroll_up(1);
+                    self.screen.cursor_row = self.screen.rows.saturating_sub(1);
+                }
+            }
+            b'\r' => self.screen.cursor_col = 0,
+            b'\x08' => {
+                if self.screen.cursor_col > 0 {
+                    self.screen.cursor_col -= 1;
+                }
+            }
+            b'\t' => {
+                let next_tab = ((self.screen.cursor_col / 8) + 1) * 8;
+                self.screen.cursor_col = next_tab.min(self.screen.cols.saturating_sub(1));
+            }
+            _ => {}
+        }
+    }
+
+    fn csi_dispatch(
+        &mut self,
+        params: &vte::Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        action: char,
+    ) {
+        let first_param = |idx: usize, default: usize| -> usize {
+            params
+                .iter()
+                .nth(idx)
+                .and_then(|p| p.get(0))
+                .map(|v| (*v).max(1) as usize)
+                .unwrap_or(default)
+        };
+
+        match action {
+            'A' => {
+                let n = first_param(0, 1);
+                self.screen.cursor_row = self.screen.cursor_row.saturating_sub(n);
+            }
+            'B' => {
+                let n = first_param(0, 1);
+                self.screen.cursor_row = (self.screen.cursor_row + n).min(self.screen.rows - 1);
+            }
+            'C' => {
+                let n = first_param(0, 1);
+                self.screen.cursor_col = (self.screen.cursor_col + n).min(self.screen.cols - 1);
+            }
+            'D' => {
+                let n = first_param(0, 1);
+                self.screen.cursor_col = self.screen.cursor_col.saturating_sub(n);
+            }
+            'H' | 'f' => {
+                let row = first_param(0, 1);
+                let col = first_param(1, 1);
+                self.screen.set_cursor(row.saturating_sub(1), col.saturating_sub(1));
+            }
+            'J' => {
+                let mode = first_param(0, 0);
+                if mode == 2 {
+                    self.screen.clear_screen();
+                } else {
+                    self.screen.clear_line_from_cursor();
+                }
+            }
+            'K' => self.screen.clear_line_from_cursor(),
+            _ => {}
+        }
+    }
+
+    fn hook(
+        &mut self,
+        _params: &vte::Params,
+        _intermediates: &[u8],
+        _ignore: bool,
+        _action: char,
+    ) {
+    }
+
+    fn put(&mut self, _byte: u8) {}
+
+    fn unhook(&mut self) {}
 }
 
 #[derive(Clone, Default)]
@@ -256,6 +462,9 @@ impl TaskManager {
         tasks.insert(
             task_id,
             TaskRecord {
+                last_output: None,
+                screen: Screen::new(40, 120),
+                parser: Parser::new(),
                 summary: summary.clone(),
                 runtime: None,
                 terminal_buffer: String::new(),
@@ -338,7 +547,7 @@ impl TaskManager {
             let record = tasks
                 .get_mut(&task_id)
                 .ok_or(TaskError::NotFound)?;
-            record.summary.status = TaskStatus::Running;
+            record.summary.status = TaskStatus::Idle;
             record.summary.started_at = Some(Utc::now());
             record.summary.exit_code = None;
             record.runtime = Some(TaskRuntime {
@@ -346,6 +555,8 @@ impl TaskManager {
                 writer: writer.clone(),
                 master: master.clone(),
             });
+            record.screen = Screen::new(40, 120);
+            record.parser = Parser::new();
             emit_status(app, &record.summary);
         }
 
@@ -391,7 +602,7 @@ impl TaskManager {
             let record = tasks
                 .get_mut(&task_id)
                 .ok_or(TaskError::NotFound)?;
-            record.summary.status = TaskStatus::Stopped;
+            record.summary.status = TaskStatus::Ready;
             emit_status(app, &record.summary);
             return Ok(record.summary.clone());
         }
@@ -480,6 +691,12 @@ impl TaskManager {
                 pixel_height: 0,
             })
             .context("failed to resize terminal")?;
+        {
+            let mut tasks = self.inner.tasks.write();
+            if let Some(record) = tasks.get_mut(&task_id) {
+                record.screen.resize(req.rows as usize, req.cols as usize);
+            }
+        }
         Ok(())
     }
 
@@ -537,9 +754,75 @@ impl TaskManager {
         }
     }
 
-    fn append_terminal_output(&self, task_id: Uuid, chunk: &str) {
+    fn append_terminal_output(&self, task_id: Uuid, chunk: &str, raw: &[u8], timestamp: Instant) {
         if let Some(record) = self.inner.tasks.write().get_mut(&task_id) {
             record.terminal_buffer.push_str(chunk);
+            record.last_output = Some(timestamp);
+
+            let mut performer = ScreenPerformer::new(&mut record.screen);
+            for byte in raw {
+                record.parser.advance(&mut performer, *byte);
+            }
+        }
+    }
+
+    fn mark_waiting_for_approval(&self, task_id: Uuid, app: &AppHandle) {
+        let mut tasks = self.inner.tasks.write();
+        if let Some(record) = tasks.get_mut(&task_id) {
+            if record.summary.status != TaskStatus::AwaitingApproval {
+                record.summary.status = TaskStatus::AwaitingApproval;
+                emit_status(app, &record.summary);
+            }
+        }
+    }
+
+    fn has_recent_approval_prompt(&self, task_id: Uuid) -> bool {
+        const PROMPT: &str = "would you like to run the following command";
+        let tasks = self.inner.tasks.read();
+        tasks
+            .get(&task_id)
+            .map(|record| {
+                record
+                    .screen
+                    .full_text()
+                    .to_ascii_lowercase()
+                    .contains(PROMPT)
+            })
+            .unwrap_or(false)
+    }
+
+    fn mark_idle_from_awaiting(&self, task_id: Uuid, app: &AppHandle) {
+        let mut tasks = self.inner.tasks.write();
+        if let Some(record) = tasks.get_mut(&task_id) {
+            if record.runtime.is_some() && record.summary.status == TaskStatus::AwaitingApproval {
+                record.summary.status = TaskStatus::Idle;
+                emit_status(app, &record.summary);
+            }
+        }
+    }
+
+    fn mark_working_if_needed(&self, task_id: Uuid, app: &AppHandle) {
+        let mut tasks = self.inner.tasks.write();
+        if let Some(record) = tasks.get_mut(&task_id) {
+            if record.summary.status != TaskStatus::Working {
+                record.summary.status = TaskStatus::Working;
+                emit_status(app, &record.summary);
+            }
+        }
+    }
+
+    fn mark_idle_if_quiet(&self, task_id: Uuid, timestamp: Instant, app: &AppHandle) {
+        let mut tasks = self.inner.tasks.write();
+        if let Some(record) = tasks.get_mut(&task_id) {
+            if let Some(last) = record.last_output {
+                if last <= timestamp
+                    && record.runtime.is_some()
+                    && record.summary.status == TaskStatus::Working
+                {
+                    record.summary.status = TaskStatus::Idle;
+                    emit_status(app, &record.summary);
+                }
+            }
         }
     }
 
@@ -605,6 +888,9 @@ impl TaskManager {
             self.inner.tasks.write().insert(
                 summary.task_id,
                 TaskRecord {
+                    last_output: None,
+                    screen: Screen::new(40, 120),
+                    parser: Parser::new(),
                     summary: summary.clone(),
                     runtime: None,
                     terminal_buffer: String::new(),
@@ -643,6 +929,7 @@ impl TaskManager {
         let target_status = match record.summary.status {
             TaskStatus::Stopped => TaskStatus::Stopped,
             TaskStatus::Discarded => TaskStatus::Discarded,
+            TaskStatus::Ready => TaskStatus::Ready,
             _ if exit_code == 0 => TaskStatus::Completed,
             _ => TaskStatus::Failed,
         };
@@ -663,8 +950,21 @@ fn stream_terminal_output(
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(size) => {
+                let now = Instant::now();
                 let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
-                manager.append_terminal_output(task_id, &chunk);
+                manager.append_terminal_output(task_id, &chunk, &buffer[..size], now);
+                if manager.has_recent_approval_prompt(task_id) {
+                    manager.mark_waiting_for_approval(task_id, &app);
+                } else {
+                    manager.mark_working_if_needed(task_id, &app);
+                    manager.mark_idle_from_awaiting(task_id, &app);
+                    let mgr = manager.clone();
+                    let app_clone = app.clone();
+                    std::thread::spawn(move || {
+                        std::thread::sleep(Duration::from_millis(1000));
+                        mgr.mark_idle_if_quiet(task_id, now, &app_clone);
+                    });
+                }
                 let payload = TerminalOutputPayload {
                     task_id,
                     data: chunk.clone(),
