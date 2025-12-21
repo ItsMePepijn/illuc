@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { FormsModule } from "@angular/forms";
 import { TaskSummary, BaseRepoInfo } from "../../task.models";
 import { parseTitleParts, TitleParts } from "../../title.utils";
 import { TaskTerminalComponent } from "../task-terminal/task-terminal.component";
@@ -7,12 +8,14 @@ import { TaskDiffComponent } from "../task-diff/task-diff.component";
 import { TaskActionButtonComponent } from "../task-action-button/task-action-button.component";
 import { OpenVsCodeButtonComponent } from "../open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../open-terminal-button/open-terminal-button.component";
+import { TaskStore } from "../../task.store";
 
 @Component({
   selector: "app-task-view",
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     TaskTerminalComponent,
     TaskDiffComponent,
     TaskActionButtonComponent,
@@ -30,6 +33,17 @@ export class TaskViewComponent {
   @Output() stopTask = new EventEmitter<string>();
   @Output() discardTask = new EventEmitter<string>();
   @Output() selectBaseRepo = new EventEmitter<void>();
+  showCommitModal = false;
+  showPushModal = false;
+  commitMessage = "";
+  commitStageAll = true;
+  commitError = "";
+  pushRemote = "origin";
+  pushBranch = "";
+  pushSetUpstream = true;
+  pushError = "";
+
+  constructor(private readonly taskStore: TaskStore) {}
 
   statusLabel(): string {
     return this.task?.status.replace(/_/g, " ") ?? "";
@@ -72,11 +86,92 @@ export class TaskViewComponent {
     }
   }
 
+  openCommitModal(): void {
+    if (!this.task) {
+      return;
+    }
+    this.commitMessage = "";
+    this.commitStageAll = true;
+    this.commitError = "";
+    this.showCommitModal = true;
+  }
+
+  closeCommitModal(): void {
+    this.showCommitModal = false;
+    this.commitMessage = "";
+    this.commitError = "";
+  }
+
+  async submitCommit(): Promise<void> {
+    if (!this.task) {
+      return;
+    }
+    if (!this.commitMessage.trim()) {
+      this.commitError = "Commit message is required.";
+      return;
+    }
+    this.commitError = "";
+    try {
+      await this.taskStore.commitTask(
+        this.task.taskId,
+        this.commitMessage.trim(),
+        this.commitStageAll,
+      );
+      this.closeCommitModal();
+    } catch (error: unknown) {
+      this.commitError = this.describeError(error, "Unable to commit changes.");
+    }
+  }
+
+  openPushModal(): void {
+    if (!this.task) {
+      return;
+    }
+    this.pushRemote = "origin";
+    this.pushBranch = this.task.branchName;
+    this.pushSetUpstream = true;
+    this.pushError = "";
+    this.showPushModal = true;
+  }
+
+  closePushModal(): void {
+    this.showPushModal = false;
+    this.pushError = "";
+  }
+
+  async submitPush(): Promise<void> {
+    if (!this.task) {
+      return;
+    }
+    this.pushError = "";
+    try {
+      await this.taskStore.pushTask(
+        this.task.taskId,
+        this.pushRemote.trim() || "origin",
+        this.pushBranch.trim() || this.task.branchName,
+        this.pushSetUpstream,
+      );
+      this.closePushModal();
+    } catch (error: unknown) {
+      this.pushError = this.describeError(error, "Unable to push changes.");
+    }
+  }
+
   onSelectBaseRepo(): void {
     this.selectBaseRepo.emit();
   }
 
   setActivePane(pane: "terminal" | "diff"): void {
     this.activePane = pane;
+  }
+
+  private describeError(error: unknown, fallback: string): string {
+    if (typeof error === "string") {
+      return error;
+    }
+    if (error && typeof error === "object" && "message" in error) {
+      return String((error as { message: string }).message);
+    }
+    return fallback;
   }
 }

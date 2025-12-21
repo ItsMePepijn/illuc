@@ -57,6 +57,91 @@
   margin-right: 0.5rem;
 }
 
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.checkbox input {
+  accent-color: #5ce1e6;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 12, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: min(420px, 90%);
+  background: #0c111d;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  color: #f5f7fb;
+}
+
+.modal-subtitle {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.modal input {
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+}
+
+.modal input:focus {
+  outline: 2px solid rgba(92, 225, 230, 0.4);
+  border-color: transparent;
+}
+
+.input-label {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.modal .ghost,
+.modal .primary {
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.modal .primary {
+  background: rgba(92, 225, 230, 0.2);
+}
+
+.error {
+  color: #ff8c85;
+  font-size: 0.85rem;
+}
+
 .workspace-actions app-open-vscode-button,
 .workspace-actions app-open-terminal-button {
   display: inline-flex;

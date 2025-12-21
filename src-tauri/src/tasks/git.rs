@@ -94,6 +94,26 @@ pub struct DiffResult {
     pub files: Vec<DiffFile>,
 }
 
+pub fn git_commit(repo: &Path, message: &str, stage_all: bool) -> Result<()> {
+    if stage_all {
+        let _ = run_git(repo, ["add", "-A"])?;
+    }
+    run_git(repo, ["commit", "-m", message]).map(|_| ())
+}
+
+pub fn git_push(
+    repo: &Path,
+    remote: &str,
+    branch: &str,
+    set_upstream: bool,
+) -> Result<()> {
+    if set_upstream {
+        run_git(repo, ["push", "-u", remote, branch]).map(|_| ())
+    } else {
+        run_git(repo, ["push", remote, branch]).map(|_| ())
+    }
+}
+
 pub fn git_diff(
     repo: &Path,
     mode: Option<&str>,

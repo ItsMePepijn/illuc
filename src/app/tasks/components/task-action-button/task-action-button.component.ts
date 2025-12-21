@@ -1,7 +1,7 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 
-export type TaskActionButtonType = "start" | "stop" | "discard";
+export type TaskActionButtonType = "start" | "stop" | "discard" | "commit" | "push";
 
 @Component({
   selector: "app-task-action-button",
@@ -39,6 +39,10 @@ export class TaskActionButtonComponent {
         return "Stop task";
       case "discard":
         return "Discard task";
+      case "commit":
+        return "Commit changes";
+      case "push":
+        return "Push changes";
       default:
         return "";
     }

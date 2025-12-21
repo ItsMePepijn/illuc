@@ -21,6 +21,14 @@
   display: block;
 }
 
+.action-btn[data-action="commit"] span,
+.action-btn[data-action="commit"] svg,
+.action-btn[data-action="push"] span,
+.action-btn[data-action="push"] svg {
+  width: 20px;
+  height: 20px;
+}
+
 .action-btn.warn {
   border-color: rgba(255, 92, 87, 0.5);
   color: #ff8c85;

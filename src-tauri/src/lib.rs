@@ -7,7 +7,8 @@ mod utils;
 use tasks::{
     handle_select_base_repo, BaseRepoInfo, CreateTaskRequest, DiffPayload, DiffRequest,
     DiscardTaskRequest, StartTaskRequest, StopTaskRequest, TerminalResizeRequest,
-    TerminalWriteRequest, TaskActionRequest, TaskManager, TaskSummary,
+    TerminalWriteRequest, TaskActionRequest, TaskManager, TaskSummary, CommitTaskRequest,
+    PushTaskRequest,
 };
 use log::info;
 
@@ -87,6 +88,22 @@ async fn get_diff(
 }
 
 #[tauri::command]
+async fn commit_task(
+    manager: tauri::State<'_, TaskManager>,
+    req: CommitTaskRequest,
+) -> CommandResult<()> {
+    manager.commit_task(req).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+async fn push_task(
+    manager: tauri::State<'_, TaskManager>,
+    req: PushTaskRequest,
+) -> CommandResult<()> {
+    manager.push_task(req).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 async fn load_existing_worktrees(
     manager: tauri::State<'_, TaskManager>,
     app_handle: tauri::AppHandle,
@@ -154,6 +171,8 @@ pub fn run() {
             terminal_write,
             terminal_resize,
             get_diff,
+            commit_task,
+            push_task,
             load_existing_worktrees,
             open_worktree_in_vscode,
             open_worktree_terminal,

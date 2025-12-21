@@ -6,9 +6,9 @@ mod repo;
 mod worktree;
 
 pub use models::{
-    BaseRepoInfo, CreateTaskRequest, DiffPayload, DiffRequest, DiscardTaskRequest, StartTaskRequest,
-    StopTaskRequest, TaskActionRequest, TaskStatus, TaskSummary, TerminalResizeRequest,
-    TerminalWriteRequest,
+    BaseRepoInfo, CommitTaskRequest, CreateTaskRequest, DiffPayload, DiffRequest,
+    DiscardTaskRequest, PushTaskRequest, StartTaskRequest, StopTaskRequest, TaskActionRequest,
+    TaskStatus, TaskSummary, TerminalResizeRequest, TerminalWriteRequest,
 };
 pub use repo::handle_select_base_repo;
 
@@ -17,7 +17,8 @@ use crate::agents::codex::CodexAgent;
 use crate::error::{Result, TaskError};
 use crate::launcher;
 use crate::tasks::git::{
-    git_diff, git_diff_branch, get_repo_root, list_worktrees, run_git, validate_git_repo,
+    git_commit, git_diff, git_diff_branch, git_push, get_repo_root, list_worktrees, run_git,
+    validate_git_repo,
 };
 use diff::merge_diff_files;
 use events::{emit_status, emit_terminal_exit, emit_terminal_output};
@@ -416,6 +417,43 @@ impl TaskManager {
                 })
             }
         }
+    }
+
+    pub fn commit_task(&self, req: CommitTaskRequest) -> Result<()> {
+        let task_id = req.task_id;
+        let message = req.message.trim();
+        if message.is_empty() {
+            return Err(TaskError::Message("Commit message is required.".into()));
+        }
+        let stage_all = req.stage_all.unwrap_or(true);
+        let worktree_path = self.worktree_path(task_id)?;
+        debug!(
+            "commit_task task_id={} stage_all={} message_len={}",
+            task_id,
+            stage_all,
+            message.len()
+        );
+        git_commit(worktree_path.as_path(), message, stage_all)
+    }
+
+    pub fn push_task(&self, req: PushTaskRequest) -> Result<()> {
+        let task_id = req.task_id;
+        let (worktree_path, branch_name) = {
+            let tasks = self.inner.tasks.read();
+            let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
+            (
+                PathBuf::from(&record.summary.worktree_path),
+                record.summary.branch_name.clone(),
+            )
+        };
+        let remote = req.remote.unwrap_or_else(|| "origin".to_string());
+        let branch = req.branch.unwrap_or(branch_name);
+        let set_upstream = req.set_upstream.unwrap_or(true);
+        debug!(
+            "push_task task_id={} remote={} branch={} set_upstream={}",
+            task_id, remote, branch, set_upstream
+        );
+        git_push(worktree_path.as_path(), remote.as_str(), branch.as_str(), set_upstream)
     }
 
     fn apply_agent_status(&self, record: &mut TaskRecord, status: TaskStatus, app: &AppHandle) {

@@ -140,6 +140,36 @@ export class TaskStore {
     });
   }
 
+  async commitTask(
+    taskId: string,
+    message: string,
+    stageAll = true,
+  ): Promise<void> {
+    await invoke("commit_task", {
+      req: {
+        taskId,
+        message,
+        stageAll,
+      },
+    });
+  }
+
+  async pushTask(
+    taskId: string,
+    remote = "origin",
+    branch?: string,
+    setUpstream = true,
+  ): Promise<void> {
+    await invoke("push_task", {
+      req: {
+        taskId,
+        remote,
+        branch,
+        setUpstream,
+      },
+    });
+  }
+
   selectTask(taskId: string | null): void {
     this.selectedTaskIdSignal.set(taskId);
   }

@@ -20,6 +20,16 @@
           {{ statusLabel() }}
         </span>
         <app-task-action-button
+          type="commit"
+          [disabled]="!current"
+          (action)="openCommitModal()"
+        ></app-task-action-button>
+        <app-task-action-button
+          type="push"
+          [disabled]="!current"
+          (action)="openPushModal()"
+        ></app-task-action-button>
+        <app-task-action-button
           type="start"
           [disabled]="!canStart()"
           (action)="onStart()"
@@ -59,6 +69,48 @@
     </div>
   </section>
 </ng-container>
+
+<div class="modal-backdrop" *ngIf="showCommitModal">
+  <div class="modal">
+    <h3>Commit changes</h3>
+    <p class="modal-subtitle">Write a commit message for this task.</p>
+    <label class="input-label">Commit message</label>
+    <input
+      type="text"
+      [(ngModel)]="commitMessage"
+      placeholder="e.g. Add task summary view"
+    />
+    <label class="checkbox">
+      <input type="checkbox" [(ngModel)]="commitStageAll" />
+      Stage all changes
+    </label>
+    <div class="error" *ngIf="commitError">{{ commitError }}</div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" (click)="closeCommitModal()">Cancel</button>
+      <button type="button" class="primary" (click)="submitCommit()">Commit</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showPushModal">
+  <div class="modal">
+    <h3>Push changes</h3>
+    <p class="modal-subtitle">Push this task branch to a remote.</p>
+    <label class="input-label">Remote</label>
+    <input type="text" [(ngModel)]="pushRemote" placeholder="origin" />
+    <label class="input-label">Branch</label>
+    <input type="text" [(ngModel)]="pushBranch" />
+    <label class="checkbox">
+      <input type="checkbox" [(ngModel)]="pushSetUpstream" />
+      Set upstream
+    </label>
+    <div class="error" *ngIf="pushError">{{ pushError }}</div>
+    <div class="modal-actions">
+      <button type="button" class="ghost" (click)="closePushModal()">Cancel</button>
+      <button type="button" class="primary" (click)="submitPush()">Push</button>
+    </div>
+  </div>
+</div>
 
 <ng-template #emptyState>
   <div class="empty-view">
