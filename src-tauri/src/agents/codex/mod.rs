@@ -148,7 +148,15 @@ impl CodexAgent {
 
 #[cfg(target_os = "windows")]
 fn to_wsl_path(path: &Path) -> Option<String> {
-    let path_str = path.to_string_lossy().replace('\\', "/");
+    let mut path_str = path.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = path_str.strip_prefix("//?/") {
+        path_str = stripped.to_string();
+    } else if let Some(stripped) = path_str.strip_prefix(r"\\?\") {
+        path_str = stripped.to_string();
+    }
+    if path_str.starts_with("/mnt/") {
+        return Some(path_str);
+    }
     let mut chars = path_str.chars();
     let drive = chars.next()?.to_ascii_lowercase();
     if chars.next()? != ':' {
