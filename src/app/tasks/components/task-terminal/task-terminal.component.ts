@@ -32,6 +32,19 @@ export class TaskTerminalComponent
   private fitAddon?: FitAddon;
   private dataSubscription?: Subscription;
   private resizeObserver?: ResizeObserver;
+  private wheelHandler?: (event: WheelEvent) => void;
+  private altScreenActive = false;
+  private altScreenCarry = "";
+  private readonly altScreenSequences = [
+    "\u001b[?1049h",
+    "\u001b[?1049l",
+    "\u001b[?1047h",
+    "\u001b[?1047l",
+    "\u001b[?47h",
+    "\u001b[?47l",
+  ];
+  private readonly altScreenMaxLen = 8;
+  private readonly isWindows = navigator.userAgent.toLowerCase().includes("windows");
 
   constructor(private readonly taskStore: TaskStore) {}
 
@@ -50,6 +63,9 @@ export class TaskTerminalComponent
   ngOnDestroy(): void {
     this.dataSubscription?.unsubscribe();
     this.resizeObserver?.disconnect();
+    if (this.wheelHandler && this.terminal?.element) {
+      this.terminal.element.removeEventListener("wheel", this.wheelHandler);
+    }
     this.terminal?.dispose();
   }
 
@@ -57,6 +73,8 @@ export class TaskTerminalComponent
     if (this.taskId) {
       this.taskStore.clearTerminal(this.taskId);
     }
+    this.altScreenActive = false;
+    this.altScreenCarry = "";
     this.terminal?.reset();
   }
 
@@ -93,6 +111,12 @@ export class TaskTerminalComponent
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHost.nativeElement);
     this.terminal.focus();
+    this.wheelHandler = (event: WheelEvent) => this.handleTerminalWheel(event);
+    if (this.terminal.element) {
+      this.terminal.element.addEventListener("wheel", this.wheelHandler, {
+        passive: false,
+      });
+    }
     this.terminal.onData((data) => this.handleTerminalInput(data));
     this.terminal.onResize((size) => this.handleResize(size.cols, size.rows));
     this.fitTerminal();
@@ -103,6 +127,8 @@ export class TaskTerminalComponent
       return;
     }
     this.dataSubscription?.unsubscribe();
+    this.altScreenActive = false;
+    this.altScreenCarry = "";
     this.terminal.reset();
 
     if (!this.taskId) {
@@ -117,6 +143,7 @@ export class TaskTerminalComponent
     this.dataSubscription = this.taskStore
       .terminalOutput$(this.taskId)
       .subscribe((chunk) => {
+        this.detectAltScreen(chunk);
         this.terminal?.write(chunk);
       });
     this.fitTerminal();
@@ -153,5 +180,47 @@ export class TaskTerminalComponent
       return;
     }
     void this.taskStore.resizeTaskTerminal(this.taskId, cols, rows);
+  }
+
+  private handleTerminalWheel(event: WheelEvent): boolean {
+    if (!this.isWindows || !this.altScreenActive || !this.taskId) {
+      return true;
+    }
+    event.preventDefault();
+    const sequence = event.deltaY < 0 ? "\u001b[5~" : "\u001b[6~";
+    const repeats = Math.min(3, Math.max(1, Math.round(Math.abs(event.deltaY) / 100)));
+    void this.taskStore.writeToTask(this.taskId, sequence.repeat(repeats));
+    return false;
+  }
+
+  private detectAltScreen(chunk: string): void {
+    if (!this.isWindows) {
+      return;
+    }
+    const combined = this.altScreenCarry + chunk;
+    let lastMatchIndex = -1;
+    let lastMatchValue = "";
+    for (const sequence of this.altScreenSequences) {
+      const index = combined.lastIndexOf(sequence);
+      if (index > lastMatchIndex) {
+        lastMatchIndex = index;
+        lastMatchValue = sequence;
+      }
+    }
+    if (lastMatchIndex >= 0) {
+      this.altScreenActive = lastMatchValue.endsWith("h");
+    }
+    this.altScreenCarry = this.pendingAltScreenSuffix(combined);
+  }
+
+  private pendingAltScreenSuffix(value: string): string {
+    const maxLen = Math.min(this.altScreenMaxLen, value.length);
+    for (let len = maxLen; len > 0; len -= 1) {
+      const suffix = value.slice(value.length - len);
+      if (this.altScreenSequences.some((sequence) => sequence.startsWith(suffix))) {
+        return suffix;
+      }
+    }
+    return "";
   }
 }
