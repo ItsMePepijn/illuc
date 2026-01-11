@@ -1,6 +1,6 @@
 use crate::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
 use crate::tasks::TaskStatus;
-use crate::utils::screen::{Screen, ScreenPerformer};
+use crate::utils::screen::Screen;
 use anyhow::Context;
 use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -10,7 +10,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
-use vte::Parser;
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 120;
@@ -23,7 +22,6 @@ pub struct CodexAgent {
 
 struct CodexAgentState {
     screen: Screen,
-    parser: Parser,
     last_output: Option<Instant>,
     last_status: Option<TaskStatus>,
     prompt_active: bool,
@@ -38,7 +36,6 @@ impl Default for CodexAgent {
         Self {
             state: Arc::new(Mutex::new(CodexAgentState {
                 screen: Screen::new(DEFAULT_ROWS as usize, DEFAULT_COLS as usize),
-                parser: Parser::new(),
                 last_output: None,
                 last_status: None,
                 prompt_active: false,
@@ -55,11 +52,8 @@ impl CodexAgent {
     fn status_from_output(&self, raw: &[u8], timestamp: Instant) -> Option<TaskStatus> {
         let mut state = self.state.lock();
         state.last_output = Some(timestamp);
-        let CodexAgentState { screen, parser, .. } = &mut *state;
-        let mut performer = ScreenPerformer::new(screen);
-        for byte in raw {
-            parser.advance(&mut performer, *byte);
-        }
+        let CodexAgentState { screen, .. } = &mut *state;
+        screen.process(raw);
         let screen_text = screen.full_text().to_ascii_lowercase();
         let prompt_now = screen_text.contains(APPROVAL_PROMPT);
         state.prompt_active = prompt_now;
@@ -149,21 +143,26 @@ impl CodexAgent {
 #[cfg(target_os = "windows")]
 fn to_wsl_path(path: &Path) -> Option<String> {
     let mut path_str = path.to_string_lossy().replace('\\', "/");
-    if let Some(stripped) = path_str.strip_prefix("//?/") {
-        path_str = stripped.to_string();
-    } else if let Some(stripped) = path_str.strip_prefix(r"\\?\") {
-        path_str = stripped.to_string();
+    if path_str.starts_with("//?/") {
+        path_str = path_str.trim_start_matches("//?/").to_string();
     }
     if path_str.starts_with("/mnt/") {
         return Some(path_str);
     }
-    let mut chars = path_str.chars();
-    let drive = chars.next()?.to_ascii_lowercase();
-    if chars.next()? != ':' {
-        return None;
+    if path_str.len() >= 3 {
+        let drive = path_str.chars().next()?;
+        let colon = path_str.chars().nth(1)?;
+        let slash = path_str.chars().nth(2)?;
+        if drive.is_ascii_alphabetic() && colon == ':' && slash == '/' {
+            let rest = &path_str[3..];
+            return Some(format!(
+                "/mnt/{}/{}",
+                drive.to_ascii_lowercase(),
+                rest.trim_start_matches('/')
+            ));
+        }
     }
-    let rest = chars.as_str();
-    Some(format!("/mnt/{}/{}", drive, rest.trim_start_matches('/')))
+    None
 }
 
 #[cfg(target_os = "windows")]
@@ -329,7 +328,6 @@ impl Agent for CodexAgent {
     fn reset(&mut self, rows: usize, cols: usize) {
         let mut state = self.state.lock();
         state.screen = Screen::new(rows, cols);
-        state.parser = Parser::new();
         state.last_output = None;
         state.last_status = None;
         state.prompt_active = false;
