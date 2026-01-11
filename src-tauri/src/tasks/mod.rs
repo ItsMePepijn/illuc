@@ -35,14 +35,63 @@ use uuid::Uuid;
 use worktree::{clean_branch_name, format_title_from_branch, managed_worktree_root};
 
 #[cfg(target_os = "windows")]
+const ALT_SCREEN_SEQUENCES: [&str; 8] = [
+    "\u{1b}[?1049h", // xterm alt screen (save cursor/screen + switch)
+    "\u{1b}[?1049l", // xterm alt screen (restore cursor/screen + switch back)
+    "\u{1b}[?1047h", // DEC private mode alt buffer on
+    "\u{1b}[?1047l", // DEC private mode alt buffer off
+    "\u{1b}[?1048h", // DEC private mode save cursor
+    "\u{1b}[?1048l", // DEC private mode restore cursor
+    "\u{1b}[?47h", // legacy DEC private alt buffer on
+    "\u{1b}[?47l", // legacy DEC private alt buffer off
+];
+
+#[cfg(target_os = "windows")]
+const ALT_SCREEN_MAX_LEN: usize = 8;
+
+#[cfg(target_os = "windows")]
+fn alt_screen_suffix_len(input: &str) -> usize {
+    let bytes = input.as_bytes();
+    let total = bytes.len();
+    let mut best = 0;
+    let max_len = ALT_SCREEN_MAX_LEN.min(total);
+    for len in 1..=max_len {
+        let start = total - len;
+        let suffix = &input[start..];
+        if ALT_SCREEN_SEQUENCES
+            .iter()
+            .any(|sequence| sequence.starts_with(suffix))
+        {
+            best = len;
+        }
+    }
+    best
+}
+
+#[cfg(target_os = "windows")]
 fn strip_alt_screen_sequences(input: &str) -> String {
-    input
-        .replace("\u{1b}[?1049h", "")
-        .replace("\u{1b}[?1049l", "")
-        .replace("\u{1b}[?1047h", "")
-        .replace("\u{1b}[?1047l", "")
-        .replace("\u{1b}[?47h", "")
-        .replace("\u{1b}[?47l", "")
+    let mut output = input.to_string();
+    for sequence in ALT_SCREEN_SEQUENCES {
+        output = output.replace(sequence, "");
+    }
+    output
+}
+
+#[cfg(target_os = "windows")]
+fn filter_terminal_output(chunk: &str, carry: &mut String) -> String {
+    let mut combined = String::new();
+    combined.push_str(carry);
+    combined.push_str(chunk);
+    let suffix_len = alt_screen_suffix_len(&combined);
+    let split_at = combined.len().saturating_sub(suffix_len);
+    let (body, tail) = combined.split_at(split_at);
+    *carry = tail.to_string();
+    strip_alt_screen_sequences(body)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn filter_terminal_output(chunk: &str, _carry: &mut String) -> String {
+    chunk.to_string()
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -66,6 +115,8 @@ struct TaskRecord {
     summary: TaskSummary,
     runtime: Option<TaskRuntime>,
     terminal_buffer: String,
+    #[cfg(target_os = "windows")]
+    terminal_escape_carry: String,
 }
 
 struct TaskRuntime {
@@ -158,6 +209,8 @@ impl TaskManager {
                 summary: summary.clone(),
                 runtime: None,
                 terminal_buffer: String::new(),
+                #[cfg(target_os = "windows")]
+                terminal_escape_carry: String::new(),
             },
         );
         drop(tasks);
@@ -488,13 +541,23 @@ impl TaskManager {
     }
 
     pub fn handle_agent_output(&self, task_id: Uuid, chunk: String, app: &AppHandle) {
-        let chunk = strip_alt_screen_sequences(&chunk);
-        debug!("agent_output task_id={} bytes={}", task_id, chunk.len());
         let mut tasks = self.inner.tasks.write();
+        let mut cleaned = String::new();
         if let Some(record) = tasks.get_mut(&task_id) {
-            record.terminal_buffer.push_str(&chunk);
+            #[cfg(target_os = "windows")]
+            {
+                cleaned = filter_terminal_output(&chunk, &mut record.terminal_escape_carry);
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                cleaned = chunk.clone();
+            }
+            record.terminal_buffer.push_str(&cleaned);
+        } else {
+            cleaned = strip_alt_screen_sequences(&chunk);
         }
-        emit_terminal_output(app, task_id, chunk);
+        debug!("agent_output task_id={} bytes={}", task_id, cleaned.len());
+        emit_terminal_output(app, task_id, cleaned);
     }
 
     pub fn handle_agent_exit(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) {
@@ -575,6 +638,8 @@ impl TaskManager {
                     summary: summary.clone(),
                     runtime: None,
                     terminal_buffer: String::new(),
+                    #[cfg(target_os = "windows")]
+                    terminal_escape_carry: String::new(),
                 },
             );
             emit_status(app, &summary);
