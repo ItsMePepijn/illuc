@@ -53,6 +53,7 @@ export class TaskTerminalComponent
     this.initializeTerminal();
     this.refreshTerminalSession();
     this.setupResizeObserver();
+    this.scheduleFit();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -70,27 +71,6 @@ export class TaskTerminalComponent
     this.terminal?.dispose();
   }
 
-  async clear(): Promise<void> {
-    if (this.taskId) {
-      this.taskStore.clearTerminal(this.taskId);
-    }
-    this.altScreenActive = this.isWindows && this.assumeAltScreenOnWindows;
-    this.altScreenCarry = "";
-    this.terminal?.reset();
-  }
-
-  async copySelection(): Promise<void> {
-    const selection = this.terminal?.getSelection();
-    if (!selection) {
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(selection);
-    } catch (error) {
-      console.warn("Failed to copy terminal selection", error);
-    }
-  }
-
   private initializeTerminal(): void {
     if (!this.terminalHost) {
       return;
@@ -102,9 +82,9 @@ export class TaskTerminalComponent
       fontSize: 13,
       cursorBlink: true,
       theme: {
-        background: "#090b10",
-        foreground: "#f8f9ff",
-        cursor: "#5ce1e6",
+        background: "#f7f3ec",
+        foreground: "#4f4942",
+        cursor: "#b2714a",
       },
     });
 
@@ -112,6 +92,7 @@ export class TaskTerminalComponent
     this.terminal.loadAddon(this.fitAddon);
     this.terminal.open(this.terminalHost.nativeElement);
     this.terminal.focus();
+    this.scheduleFit();
     this.wheelHandler = (event: WheelEvent) => this.handleTerminalWheel(event);
     if (this.terminal.element) {
       this.terminal.element.addEventListener("wheel", this.wheelHandler, {
@@ -120,7 +101,7 @@ export class TaskTerminalComponent
     }
     this.terminal.onData((data) => this.handleTerminalInput(data));
     this.terminal.onResize((size) => this.handleResize(size.cols, size.rows));
-    this.fitTerminal();
+    this.scheduleFit();
   }
 
   private refreshTerminalSession(): void {
@@ -147,18 +128,45 @@ export class TaskTerminalComponent
         this.detectAltScreen(chunk);
         this.terminal?.write(chunk);
       });
-    this.fitTerminal();
+    this.scheduleFit();
   }
 
   private fitTerminal(): void {
     this.fitAddon?.fit();
-    if (this.taskId && this.terminal) {
-      void this.taskStore.resizeTaskTerminal(
-        this.taskId,
-        this.terminal.cols,
-        this.terminal.rows,
-      );
+    if (!this.terminal) {
+      return;
     }
+    const cols = this.terminal.cols;
+    const rows = this.terminal.rows;
+    this.taskStore.recordTerminalSize(this.taskId ?? "", cols, rows);
+    if (this.taskId) {
+      void this.taskStore
+        .resizeTaskTerminal(this.taskId, cols, rows)
+        .catch(() => undefined);
+    }
+  }
+
+  private scheduleFit(): void {
+    this.scheduleFitAttempt(0);
+    if ("fonts" in document) {
+      void (document as Document & { fonts: FontFaceSet }).fonts.ready.then(() => {
+        this.scheduleFitAttempt(0);
+      });
+    }
+  }
+
+  private scheduleFitAttempt(attempt: number): void {
+    const maxAttempts = 30;
+    requestAnimationFrame(() => {
+      const dimensions = this.fitAddon?.proposeDimensions();
+      if (dimensions?.cols && dimensions.rows) {
+        this.fitTerminal();
+        return;
+      }
+      if (attempt < maxAttempts) {
+        this.scheduleFitAttempt(attempt + 1);
+      }
+    });
   }
 
   private setupResizeObserver(): void {

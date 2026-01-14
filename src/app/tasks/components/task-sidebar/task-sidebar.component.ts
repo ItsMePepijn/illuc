@@ -5,6 +5,7 @@ import { parseTitleParts, TitleParts } from "../../title.utils";
 import { TaskActionButtonComponent } from "../task-action-button/task-action-button.component";
 import { OpenVsCodeButtonComponent } from "../open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../open-terminal-button/open-terminal-button.component";
+import { LauncherService } from "../../../launcher/launcher.service";
 
 @Component({
   selector: "app-task-sidebar",
@@ -27,6 +28,8 @@ export class TaskSidebarComponent {
   @Output() stopTask = new EventEmitter<string>();
   @Output() discardTask = new EventEmitter<string>();
   @Output() createTask = new EventEmitter<void>();
+
+  constructor(private readonly launcher: LauncherService) {}
 
   trackById(_: number, task: TaskSummary): string {
     return task.taskId;
@@ -70,5 +73,14 @@ export class TaskSidebarComponent {
 
   titleParts(title: string): TitleParts {
     return parseTitleParts(title);
+  }
+
+  async openInExplorer(event: Event, path: string): Promise<void> {
+    event.preventDefault();
+    try {
+      await this.launcher.openInExplorer(path);
+    } catch (error) {
+      console.error("Failed to open explorer", error);
+    }
   }
 }

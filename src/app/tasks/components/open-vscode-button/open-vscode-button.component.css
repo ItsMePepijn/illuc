@@ -6,7 +6,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--color-border);
   background: transparent;
   color: inherit;
   display: inline-flex;
@@ -22,8 +22,8 @@
 }
 
 .icon-btn:not(:disabled):hover {
-  border-color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--color-border-strong);
+  background: var(--color-surface-strong);
 }
 
 svg {

@@ -30,6 +30,8 @@ pub trait Agent: Send + Sync {
         args: Option<Vec<String>>,
         env: Option<HashMap<String, String>>,
         callbacks: AgentCallbacks,
+        rows: u16,
+        cols: u16,
     ) -> anyhow::Result<AgentRuntime>;
 
     fn reset(&mut self, rows: usize, cols: usize);

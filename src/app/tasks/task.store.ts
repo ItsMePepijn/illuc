@@ -22,6 +22,8 @@ export class TaskStore {
   private readonly branchOptionsSignal = signal<string[]>([]);
   private readonly terminalBuffers = new Map<string, string>();
   private readonly terminalStreams = new Map<string, Subject<string>>();
+  private readonly terminalSizes = new Map<string, { cols: number; rows: number }>();
+  private lastTerminalSize: { cols: number; rows: number } | null = null;
   private readonly unlistenFns: UnlistenFn[] = [];
 
   readonly tasks = this.tasksSignal.asReadonly();
@@ -85,10 +87,13 @@ export class TaskStore {
   }
 
   async startTask(taskId: string, codexArgs?: string[]): Promise<TaskSummary> {
+    const size = this.terminalSizes.get(taskId) ?? this.lastTerminalSize;
     const summary = await invoke<TaskSummary>("start_task", {
       req: {
         taskId,
         codexArgs,
+        cols: size?.cols,
+        rows: size?.rows,
       },
     });
     this.upsertTask(summary);
@@ -195,6 +200,16 @@ export class TaskStore {
     this.terminalBuffers.set(taskId, "");
     const stream = this.ensureTerminalStream(taskId);
     stream.next("\u001bc");
+  }
+
+  recordTerminalSize(taskId: string, cols: number, rows: number): void {
+    if (cols <= 0 || rows <= 0) {
+      return;
+    }
+    this.lastTerminalSize = { cols, rows };
+    if (taskId) {
+      this.terminalSizes.set(taskId, { cols, rows });
+    }
   }
 
   private registerEventListeners(): void {

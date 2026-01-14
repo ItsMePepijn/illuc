@@ -143,6 +143,12 @@ async fn open_path_terminal(path: String) -> CommandResult<()> {
 }
 
 #[tauri::command]
+async fn open_path_in_explorer(path: String) -> CommandResult<()> {
+    let target = std::path::PathBuf::from(path);
+    launcher::open_path_in_explorer(target.as_path()).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 async fn list_branches(path: String) -> CommandResult<Vec<String>> {
     let repo = std::path::PathBuf::from(&path);
     tasks::git::list_branches(repo.as_path()).map_err(|err| err.to_string())
@@ -178,6 +184,7 @@ pub fn run() {
             open_worktree_terminal,
             open_path_in_vscode,
             open_path_terminal,
+            open_path_in_explorer,
             list_branches
         ])
         .run(tauri::generate_context!())

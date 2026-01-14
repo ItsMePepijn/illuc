@@ -3,7 +3,14 @@
     <div class="control-group">
       <label>Base repository</label>
       <div class="repo-info" *ngIf="baseRepo; else noRepo">
-        <span class="path">{{ baseRepo.canonicalPath }}</span>
+        <a
+          href="#"
+          class="path-link"
+          (click)="openInExplorer($event, baseRepo.canonicalPath)"
+          [attr.title]="baseRepo.canonicalPath"
+        >
+          {{ baseRepo.canonicalPath }}
+        </a>
         <span class="branch">Branch: {{ baseRepo.currentBranch }}</span>
       </div>
       <div class="repo-actions" *ngIf="baseRepo">

@@ -2,11 +2,6 @@
   <header class="terminal-toolbar">
     <div>
       <strong>Chat Terminal</strong>
-      <span class="task-label" *ngIf="taskId">#{{ taskId.slice(0, 8) }}</span>
-    </div>
-    <div class="toolbar-actions">
-      <button type="button" (click)="clear()">Clear</button>
-      <button type="button" (click)="copySelection()">Copy</button>
     </div>
   </header>
   <div class="terminal-host" #terminalHost></div>

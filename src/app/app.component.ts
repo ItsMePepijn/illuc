@@ -1,11 +1,13 @@
 import { CommonModule } from "@angular/common";
-import { Component } from "@angular/core";
+import { Component, OnDestroy, OnInit } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TaskSidebarComponent } from "./tasks/components/task-sidebar/task-sidebar.component";
 import { TaskViewComponent } from "./tasks/components/task-view/task-view.component";
 import { deriveTitleFromBranch } from "./tasks/title.utils";
 import { TaskStore } from "./tasks/task.store";
+import { LauncherService } from "./launcher/launcher.service";
 
 @Component({
   selector: "app-root",
@@ -19,7 +21,7 @@ import { TaskStore } from "./tasks/task.store";
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
   statusMessage = "";
   showCreateModal = false;
   branchNameInput = "";
@@ -29,8 +31,28 @@ export class AppComponent {
   confirmDiscardBranch = "";
   confirmDiscardError = "";
   baseBranchSelection = "";
+  private readonly appWindow = getCurrentWindow();
+  isMaximized = false;
+  private unlistenResize?: () => void;
 
-  constructor(public readonly taskStore: TaskStore) {}
+  constructor(
+    public readonly taskStore: TaskStore,
+    private readonly launcher: LauncherService,
+  ) {}
+
+  ngOnInit(): void {
+    void this.refreshMaximizeState();
+    void this.appWindow.onResized(() => {
+      void this.refreshMaximizeState();
+    }).then((unlisten) => {
+      this.unlistenResize = unlisten;
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.unlistenResize?.();
+    this.unlistenResize = undefined;
+  }
 
   tasks() {
     return this.taskStore.tasks();
@@ -169,6 +191,32 @@ export class AppComponent {
         "Unable to discard task.",
       );
     }
+  }
+
+  async minimizeWindow(): Promise<void> {
+    await this.appWindow.minimize();
+  }
+
+  async toggleMaximizeWindow(): Promise<void> {
+    await this.appWindow.toggleMaximize();
+    await this.refreshMaximizeState();
+  }
+
+  async closeWindow(): Promise<void> {
+    await this.appWindow.close();
+  }
+
+  async openInExplorer(event: Event, path: string): Promise<void> {
+    event.preventDefault();
+    try {
+      await this.launcher.openInExplorer(path);
+    } catch (error) {
+      console.error("Failed to open explorer", error);
+    }
+  }
+
+  private async refreshMaximizeState(): Promise<void> {
+    this.isMaximized = await this.appWindow.isMaximized();
   }
 
   private describeError(error: unknown, fallback: string): string {

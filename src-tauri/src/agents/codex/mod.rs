@@ -189,7 +189,7 @@ fn build_wsl_command(
     let mut command = CommandBuilder::new("wsl.exe");
     let wsl_path = to_wsl_path(worktree_path).unwrap_or_else(|| "/".to_string());
     let mut command_line = format!("cd {} && ", bash_escape(&wsl_path));
-    command_line.push_str("codex");
+    command_line.push_str("codex --enable tui2");
     for arg in args {
         command_line.push(' ');
         command_line.push_str(&bash_escape(arg));
@@ -206,11 +206,15 @@ impl Agent for CodexAgent {
         args: Option<Vec<String>>,
         env: Option<HashMap<String, String>>, // TODO remove env entirely
         callbacks: AgentCallbacks,
+        rows: u16,
+        cols: u16,
     ) -> anyhow::Result<AgentRuntime> {
         let pty_system = native_pty_system();
+        let rows = rows.max(1);
+        let cols = cols.max(1);
         let pair = pty_system.openpty(PtySize {
-            rows: DEFAULT_ROWS,
-            cols: DEFAULT_COLS,
+            rows,
+            cols,
             pixel_width: 0,
             pixel_height: 0,
         })?;

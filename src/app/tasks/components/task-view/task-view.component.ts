@@ -9,6 +9,7 @@ import { TaskActionButtonComponent } from "../task-action-button/task-action-but
 import { OpenVsCodeButtonComponent } from "../open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../open-terminal-button/open-terminal-button.component";
 import { TaskStore } from "../../task.store";
+import { LauncherService } from "../../../launcher/launcher.service";
 
 @Component({
   selector: "app-task-view",
@@ -43,7 +44,10 @@ export class TaskViewComponent {
   pushSetUpstream = true;
   pushError = "";
 
-  constructor(private readonly taskStore: TaskStore) {}
+  constructor(
+    private readonly taskStore: TaskStore,
+    private readonly launcher: LauncherService,
+  ) {}
 
   statusLabel(): string {
     return this.task?.status.replace(/_/g, " ") ?? "";
@@ -163,6 +167,15 @@ export class TaskViewComponent {
 
   setActivePane(pane: "terminal" | "diff"): void {
     this.activePane = pane;
+  }
+
+  async openInExplorer(event: Event, path: string): Promise<void> {
+    event.preventDefault();
+    try {
+      await this.launcher.openInExplorer(path);
+    } catch (error) {
+      console.error("Failed to open explorer", error);
+    }
   }
 
   private describeError(error: unknown, fallback: string): string {

@@ -23,17 +23,6 @@
           Branch vs {{ baseBranch || "base" }}
         </button>
       </div>
-      <label>
-        <input
-          type="checkbox"
-          [checked]="ignoreWhitespace"
-          (change)="toggleWhitespace()"
-        />
-        Ignore whitespace
-      </label>
-      <button type="button" [disabled]="!taskId" (click)="refreshNow()">
-        Refresh
-      </button>
     </div>
   </header>
 
@@ -43,15 +32,10 @@
     <div *ngIf="!error && renderedFiles.length; else noDiff" class="diff-content">
       <aside class="file-list" *ngIf="diffPayload?.files?.length; else noFiles">
         <h4>Files</h4>
-        <button
-          type="button"
-          class="file-row"
-          *ngFor="let file of diffPayload?.files"
-          (click)="scrollToFile(file.path)"
-        >
-          <span class="status" [attr.data-status]="file.status">{{ file.status }}</span>
-          <span class="path">{{ file.path }}</span>
-        </button>
+        <app-file-tree
+          [nodes]="fileTree"
+          (selectFile)="scrollToFile($event)"
+        ></app-file-tree>
       </aside>
       <div class="diff-body">
         <div

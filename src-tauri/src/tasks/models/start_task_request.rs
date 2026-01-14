@@ -8,4 +8,6 @@ pub struct StartTaskRequest {
     pub task_id: Uuid,
     pub codex_args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
+    pub cols: Option<u16>,
+    pub rows: Option<u16>,
 }

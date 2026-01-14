@@ -1,15 +1,11 @@
 <ng-container *ngIf="task as current; else emptyState">
   <section class="task-detail">
     <header class="task-header">
-      <div *ngIf="titleParts() as parts">
+      <div class="task-title" *ngIf="titleParts() as parts">
         <h2>
           <span *ngIf="parts.taskId" class="task-pill">#{{ parts.taskId }}</span>
           <span>{{ parts.label }}</span>
         </h2>
-        <p class="meta">
-          Branch: <strong>{{ current.branchName }}</strong> • Worktree:
-          <code>{{ current.worktreePath }}</code>
-        </p>
       </div>
       <div class="header-actions">
         <div class="workspace-actions">

@@ -1,4 +1,57 @@
 <div class="app-shell">
+  <header class="titlebar" data-tauri-drag-region>
+    <div class="titlebar-spacer" data-tauri-drag-region></div>
+    <div class="titlebar-controls">
+      <button
+        type="button"
+        class="titlebar-button"
+        (click)="minimizeWindow()"
+        aria-label="Minimize"
+        data-tauri-drag-region="false"
+      >
+        <svg class="titlebar-icon" viewBox="0 0 10 10" aria-hidden="true">
+          <line x1="2" y1="7.5" x2="8" y2="7.5"></line>
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="titlebar-button"
+        (click)="toggleMaximizeWindow()"
+        aria-label="Maximize"
+        data-tauri-drag-region="false"
+      >
+        <svg
+          *ngIf="!isMaximized"
+          class="titlebar-icon"
+          viewBox="0 0 10 10"
+          aria-hidden="true"
+        >
+          <rect x="2" y="2" width="6" height="6"></rect>
+        </svg>
+        <svg
+          *ngIf="isMaximized"
+          class="titlebar-icon"
+          viewBox="0 0 10 10"
+          aria-hidden="true"
+        >
+          <rect x="3" y="2" width="5" height="5"></rect>
+          <rect x="2" y="3" width="5" height="5"></rect>
+        </svg>
+      </button>
+      <button
+        type="button"
+        class="titlebar-button close"
+        (click)="closeWindow()"
+        aria-label="Close"
+        data-tauri-drag-region="false"
+      >
+        <svg class="titlebar-icon" viewBox="0 0 10 10" aria-hidden="true">
+          <line x1="2.5" y1="2.5" x2="7.5" y2="7.5"></line>
+          <line x1="7.5" y1="2.5" x2="2.5" y2="7.5"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
   <main class="content">
     <app-task-sidebar
       *ngIf="baseRepo() as repo"
@@ -23,8 +76,23 @@
     ></app-task-view>
   </main>
 
-  <footer class="status-bar" *ngIf="statusMessage">
-    {{ statusMessage }}
+  <footer class="status-bar" *ngIf="baseRepo()">
+    <ng-container *ngIf="selectedTask() as currentTask; else statusPlaceholder">
+      <span class="status-meta">
+        Branch: <strong>{{ currentTask.branchName }}</strong> • Worktree:
+        <a
+          href="#"
+          class="path-link"
+          (click)="openInExplorer($event, currentTask.worktreePath)"
+          [attr.title]="currentTask.worktreePath"
+        >
+          {{ currentTask.worktreePath }}
+        </a>
+      </span>
+    </ng-container>
+    <ng-template #statusPlaceholder>
+      <span class="status-meta status-placeholder">Select a task to see branch and worktree details.</span>
+    </ng-template>
   </footer>
 
   <div class="modal-backdrop" *ngIf="showCreateModal">

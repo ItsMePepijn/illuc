@@ -7,16 +7,26 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  color: #f5f7fb;
+  color: var(--color-text);
   overflow: hidden;
+  width: 100%;
 }
 
 .task-header {
+  display: grid;
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: flex-start;
+  gap: 0.35rem 0.75rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.task-title {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  order: 1;
 }
 
 .task-header h2 {
@@ -25,22 +35,24 @@
 
 .meta {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-muted);
+  flex: 1 1 100%;
+  order: 2;
 }
 
 .meta code {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-strong);
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
 }
 
 .task-pill {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--color-pill);
   border-radius: 999px;
   padding: 0.15rem 0.75rem;
   font-size: 0.85rem;
   margin-right: 0.5rem;
-  color: #5ce1e6;
+  color: var(--color-accent);
   letter-spacing: 0.5px;
 }
 
@@ -49,6 +61,9 @@
   gap: 0.5rem;
   align-items: center;
   flex-wrap: nowrap;
+  margin-left: auto;
+  order: 1;
+  flex: 0 0 auto;
 }
 
 .workspace-actions {
@@ -63,57 +78,57 @@
   gap: 0.5rem;
   margin-top: 0.75rem;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--color-muted);
 }
 
 .checkbox input {
-  accent-color: #5ce1e6;
+  accent-color: var(--color-accent);
 }
 
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(4, 7, 12, 0.7);
+  background: rgba(96, 90, 82, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 20;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(3px);
 }
 
 .modal {
   width: min(420px, 90%);
-  background: #0c111d;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  color: #f5f7fb;
+  color: var(--color-text);
 }
 
 .modal-subtitle {
   margin: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-muted);
 }
 
 .modal input {
   padding: 0.45rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-strong);
   color: inherit;
 }
 
 .modal input:focus {
-  outline: 2px solid rgba(92, 225, 230, 0.4);
+  outline: 2px solid var(--color-focus);
   border-color: transparent;
 }
 
 .input-label {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--color-muted);
 }
 
 .modal-actions {
@@ -127,18 +142,19 @@
 .modal .primary {
   border-radius: 6px;
   padding: 0.35rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--color-border);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
 .modal .primary {
-  background: rgba(92, 225, 230, 0.2);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
 }
 
 .error {
-  color: #ff8c85;
+  color: var(--color-danger);
   font-size: 0.85rem;
 }
 
@@ -172,34 +188,34 @@
   border-radius: 999px;
   font-size: 0.8rem;
   text-transform: capitalize;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-surface-strong);
   white-space: nowrap;
 }
 
 
 .status-pill[data-status="IDLE"] {
-  background: rgba(255, 255, 255, 0.16);
-  color: #ffffff;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
 }
 
 .status-pill[data-status="AWAITING_APPROVAL"] {
-  background: rgba(255, 201, 87, 0.2);
-  color: #ffd166;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
 }
 
 .status-pill[data-status="WORKING"] {
-  background: rgba(81, 207, 102, 0.18);
-  color: #70e48b;
+  background: var(--color-success-soft);
+  color: var(--color-success);
 }
 
 .status-pill[data-status="FAILED"] {
-  background: rgba(255, 92, 87, 0.18);
-  color: #ff8c85;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
 }
 
 .status-pill[data-status="COMPLETED"] {
-  background: rgba(92, 225, 230, 0.2);
-  color: #9bf2f6;
+  background: var(--color-info-soft);
+  color: var(--color-info);
 }
 
 .split-panels {
@@ -235,7 +251,7 @@
   top: 0;
   bottom: 0;
   right: 0;
-  width: 70%;
+  width: 75%;
   display: flex;
   min-height: 0;
   overflow: hidden;
@@ -251,17 +267,17 @@
 
 .terminal-column.active {
   z-index: 2;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 32px rgba(96, 90, 82, 0.25);
 }
 
 .diff-column.active {
   z-index: 2;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 18px 32px rgba(96, 90, 82, 0.25);
 }
 
 button {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
   color: inherit;
   border-radius: 4px;
   padding: 0.35rem 0.9rem;
@@ -269,8 +285,8 @@ button {
 }
 
 button.warn {
-  border-color: rgba(255, 92, 87, 0.5);
-  color: #ff8c85;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 button:disabled {
@@ -284,7 +300,7 @@ button:disabled {
   justify-content: center;
   height: 100%;
   width: 100%;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-text);
   padding: 0 1.5rem;
 }
 
@@ -305,15 +321,15 @@ button:disabled {
   margin-top: 1.25rem;
   padding: 0.4rem 1.2rem;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-strong);
+  color: var(--color-text);
   font-size: 0.95rem;
   letter-spacing: 0.05rem;
 }
 
 .landing-action:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-surface-alt);
 }
 
 .compass-logo {
@@ -333,27 +349,27 @@ button:disabled {
 
 .compass-ring {
   fill: none;
-  stroke: rgba(255, 255, 255, 0.15);
+  stroke: var(--color-border);
   stroke-width: 3;
 }
 
 .compass-ring.inner {
-  stroke: rgba(255, 255, 255, 0.1);
+  stroke: rgba(96, 90, 82, 0.15);
   stroke-dasharray: 4 6;
 }
 
 .compass-core {
-  fill: rgba(255, 255, 255, 0.7);
+  fill: var(--color-subtle);
 }
 
 .compass-needle {
-  fill: rgba(255, 255, 255, 0.35);
-  stroke: rgba(255, 255, 255, 0.65);
+  fill: rgba(96, 90, 82, 0.35);
+  stroke: rgba(96, 90, 82, 0.65);
   stroke-width: 1.5;
 }
 
 .compass-axis {
-  stroke: rgba(255, 255, 255, 0.08);
+  stroke: rgba(96, 90, 82, 0.2);
   stroke-width: 2;
 }
 
@@ -368,7 +384,7 @@ button:disabled {
   margin: 0.3rem 0 1.25rem;
   font-size: 0.95rem;
   letter-spacing: 0.08rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-muted);
   font-style: italic;
 }
 
@@ -376,7 +392,7 @@ button:disabled {
   font-size: 1rem;
   line-height: 1.5;
   max-width: 420px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--color-subtle);
 }
 
 @media (max-width: 640px) {

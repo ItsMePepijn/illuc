@@ -3,9 +3,9 @@
   flex-direction: column;
   height: 100%;
   flex: 1;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
-  background: rgba(7, 9, 13, 0.95);
+  background: var(--color-surface);
   overflow: hidden;
 }
 
@@ -14,13 +14,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .task-label {
   font-size: 0.75rem;
   margin-left: 0.5rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--color-muted);
 }
 
 .toolbar-actions {
@@ -35,8 +35,8 @@
 }
 
 button {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--color-surface-strong);
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   color: inherit;
   font-size: 0.75rem;
@@ -45,5 +45,5 @@ button {
 }
 
 button:hover {
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: var(--color-border-strong);
 }

@@ -23,6 +23,7 @@ use crate::tasks::git::{
 use diff::merge_diff_files;
 use events::{emit_status, emit_terminal_exit, emit_terminal_output};
 use crate::utils::fs::ensure_directory;
+use crate::utils::path::normalize_path_string;
 use chrono::Utc;
 use log::{debug, info, warn};
 use parking_lot::{Mutex, RwLock};
@@ -37,6 +38,8 @@ use worktree::{clean_branch_name, format_title_from_branch, managed_worktree_roo
 
 const DEFAULT_SCREEN_ROWS: usize = 40;
 const DEFAULT_SCREEN_COLS: usize = 120;
+const DEFAULT_PTY_ROWS: u16 = 40;
+const DEFAULT_PTY_COLS: u16 = 80;
 
 type MasterHandle = Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>;
 
@@ -107,6 +110,7 @@ impl TaskManager {
         }
 
         let worktree_path_str = worktree_path.to_string_lossy().to_string();
+        let worktree_path_display = normalize_path_string(&worktree_path);
         run_git(
             &repo_root,
             [
@@ -126,10 +130,10 @@ impl TaskManager {
             created_at: timestamp,
             started_at: None,
             ended_at: None,
-            worktree_path: worktree_path_str,
+            worktree_path: worktree_path_display,
             branch_name,
             base_branch: base_ref.clone(),
-            base_repo_path: repo_root.to_string_lossy().to_string(),
+            base_repo_path: normalize_path_string(&repo_root),
             base_commit,
             exit_code: None,
         };
@@ -158,7 +162,19 @@ impl TaskManager {
             task_id,
             codex_args,
             env,
+            cols,
+            rows,
         } = req;
+        let requested_rows = rows.filter(|value| *value > 0);
+        let requested_cols = cols.filter(|value| *value > 0);
+        let screen_rows = requested_rows
+            .map(|value| value as usize)
+            .unwrap_or(DEFAULT_SCREEN_ROWS);
+        let screen_cols = requested_cols
+            .map(|value| value as usize)
+            .unwrap_or(DEFAULT_SCREEN_COLS);
+        let pty_rows = requested_rows.unwrap_or(DEFAULT_PTY_ROWS);
+        let pty_cols = requested_cols.unwrap_or(DEFAULT_PTY_COLS);
         {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -201,10 +217,10 @@ impl TaskManager {
             let record = tasks
                 .get_mut(&task_id)
                 .ok_or(TaskError::NotFound)?;
-            record.agent.reset(DEFAULT_SCREEN_ROWS, DEFAULT_SCREEN_COLS);
+            record.agent.reset(screen_rows, screen_cols);
             record
                 .agent
-                .start(&worktree_path, codex_args, env, callbacks)
+                .start(&worktree_path, codex_args, env, callbacks, pty_rows, pty_cols)
                 .with_context(|| format!("failed to start Codex for task {}", title))?
         };
 
@@ -487,7 +503,7 @@ impl TaskManager {
     }
 
     fn contains_worktree_path(&self, path: &Path) -> bool {
-        let target = path.to_string_lossy();
+        let target = normalize_path_string(path);
         self.inner
             .tasks
             .read()
@@ -529,6 +545,7 @@ impl TaskManager {
             if self.contains_worktree_path(&canonical_path) {
                 continue;
             }
+            let worktree_path_display = normalize_path_string(&canonical_path);
             let branch_name = entry
                 .branch
                 .as_ref()
@@ -544,10 +561,10 @@ impl TaskManager {
                 created_at: Utc::now(),
                 started_at: None,
                 ended_at: None,
-                worktree_path: canonical_path.to_string_lossy().to_string(),
+                worktree_path: worktree_path_display,
                 branch_name,
                 base_branch: base_repo_branch.clone(),
-                base_repo_path: repo_root.to_string_lossy().to_string(),
+                base_repo_path: normalize_path_string(&repo_root),
                 base_commit: base_repo_head.clone(),
                 exit_code: None,
             };

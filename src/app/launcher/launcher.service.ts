@@ -12,4 +12,8 @@ export class LauncherService {
   async openTerminal(path: string): Promise<void> {
     await invoke("open_path_terminal", { path });
   }
+
+  async openInExplorer(path: string): Promise<void> {
+    await invoke("open_path_in_explorer", { path });
+  }
 }

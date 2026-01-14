@@ -31,6 +31,10 @@ import { EMPTY, Subscription, from, timer } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
 import { DiffMode, DiffPayload } from "../../task.models";
 import { TaskStore } from "../../task.store";
+import {
+  FileTreeComponent,
+  FileTreeNode,
+} from "./file-tree/file-tree.component";
 
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("typescript", typescript);
@@ -67,7 +71,7 @@ interface RenderedDiffFile {
 @Component({
   selector: "app-task-diff",
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FileTreeComponent],
   templateUrl: "./task-diff.component.html",
   styleUrl: "./task-diff.component.css",
 })
@@ -78,9 +82,9 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
 
   diffPayload: DiffPayload | null = null;
   renderedFiles: RenderedDiffFile[] = [];
+  fileTree: FileTreeNode[] = [];
   lastUpdated: Date | null = null;
   error: string | null = null;
-  ignoreWhitespace = false;
   diffMode: DiffMode = "worktree";
   private polling?: Subscription;
 
@@ -99,11 +103,6 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     this.stopPolling();
   }
 
-  toggleWhitespace(): void {
-    this.ignoreWhitespace = !this.ignoreWhitespace;
-    this.restartPolling();
-  }
-
   setDiffMode(mode: DiffMode): void {
     if (this.diffMode === mode) {
       return;
@@ -112,14 +111,11 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     this.restartPolling();
   }
 
-  refreshNow(): void {
-    this.fetchDiffOnce();
-  }
-
   private restartPolling(): void {
     this.stopPolling();
     this.diffPayload = null;
     this.renderedFiles = [];
+    this.fileTree = [];
     this.error = null;
     if (!this.taskId) {
       return;
@@ -129,7 +125,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
       .pipe(
         switchMap(() =>
           from(
-            this.taskStore.getDiff(taskId, this.ignoreWhitespace, this.diffMode),
+            this.taskStore.getDiff(taskId, false, this.diffMode),
           ).pipe(
             catchError((err) => {
               this.error =
@@ -143,6 +139,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
       .subscribe((payload) => {
         this.diffPayload = payload;
         this.renderedFiles = this.buildRenderedDiff(payload);
+        this.fileTree = this.buildFileTree(payload.files);
         this.lastUpdated = new Date();
         this.error = null;
       });
@@ -151,23 +148,6 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
   private stopPolling(): void {
     this.polling?.unsubscribe();
     this.polling = undefined;
-  }
-
-  private fetchDiffOnce(): void {
-    if (!this.taskId) {
-      return;
-    }
-    void this.taskStore
-      .getDiff(this.taskId, this.ignoreWhitespace, this.diffMode)
-      .then((payload) => {
-        this.diffPayload = payload;
-        this.renderedFiles = this.buildRenderedDiff(payload);
-        this.lastUpdated = new Date();
-        this.error = null;
-      })
-      .catch((err) => {
-        this.error = err?.message ?? "Unable to refresh diff.";
-      });
   }
 
   scrollToFile(path: string): void {
@@ -211,6 +191,86 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
       });
     }
     return files;
+  }
+
+  private buildFileTree(files: DiffPayload["files"]): FileTreeNode[] {
+    type BuildNode = {
+      name: string;
+      path: string;
+      isFile: boolean;
+      status?: string;
+      children: Map<string, BuildNode>;
+    };
+    const root: BuildNode = {
+      name: "",
+      path: "",
+      isFile: false,
+      children: new Map(),
+    };
+    for (const file of files) {
+      const parts = file.path.split("/").filter(Boolean);
+      let current = root;
+      let currentPath = "";
+      for (let index = 0; index < parts.length; index += 1) {
+        const part = parts[index];
+        currentPath = currentPath ? `${currentPath}/${part}` : part;
+        let child = current.children.get(part);
+        if (!child) {
+          child = {
+            name: part,
+            path: currentPath,
+            isFile: false,
+            children: new Map(),
+          };
+          current.children.set(part, child);
+        }
+        if (index === parts.length - 1) {
+          child.isFile = true;
+          child.status = file.status;
+        }
+        current = child;
+      }
+    }
+    const compressNode = (node: BuildNode): BuildNode => {
+      if (node.isFile) {
+        return node;
+      }
+      const children = Array.from(node.children.values()).map(compressNode);
+      node.children = new Map(children.map((child) => [child.name, child]));
+      let current = node;
+      while (!current.isFile && current.children.size === 1) {
+        const onlyChild = Array.from(current.children.values())[0];
+        if (onlyChild.isFile) {
+          break;
+        }
+        current = {
+          name: current.name ? `${current.name}/${onlyChild.name}` : onlyChild.name,
+          path: onlyChild.path,
+          isFile: false,
+          children: onlyChild.children,
+        };
+      }
+      return current;
+    };
+
+    const toArray = (node: BuildNode, depth: number): FileTreeNode[] => {
+      const children = Array.from(node.children.values()).sort((a, b) => {
+        if (a.isFile !== b.isFile) {
+          return a.isFile ? 1 : -1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      return children.map((child) => ({
+        name: child.name,
+        path: child.path,
+        depth,
+        isFile: child.isFile,
+        status: child.status,
+        children: toArray(child, depth + 1),
+      }));
+    };
+    const compressedRoot = compressNode(root);
+    return toArray(compressedRoot, 0);
   }
 
   private extractPathFromDiffHeader(line: string): string {
