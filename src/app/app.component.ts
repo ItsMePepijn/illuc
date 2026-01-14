@@ -5,6 +5,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TaskSidebarComponent } from "./tasks/components/task-sidebar/task-sidebar.component";
 import { TaskViewComponent } from "./tasks/components/task-view/task-view.component";
+import { AgentKind } from "./tasks/task.models";
 import { deriveTitleFromBranch } from "./tasks/title.utils";
 import { TaskStore } from "./tasks/task.store";
 import { LauncherService } from "./launcher/launcher.service";
@@ -135,9 +136,9 @@ export class AppComponent implements OnInit, OnDestroy {
     }
   }
 
-  async startTask(taskId: string): Promise<void> {
+  async startTask(payload: { taskId: string; agent: AgentKind }): Promise<void> {
     try {
-      await this.taskStore.startTask(taskId);
+      await this.taskStore.startTask(payload.taskId, payload.agent);
       this.statusMessage = "Task started.";
     } catch (error: unknown) {
       this.statusMessage = this.describeError(

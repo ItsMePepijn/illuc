@@ -41,7 +41,6 @@
   text-overflow: ellipsis;
 }
 
-.file-row .status {
 .file-row .path {
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 0.78rem;

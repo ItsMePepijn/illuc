@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import {
+  AgentKind,
   BaseRepoInfo,
   DiffMode,
   DiffPayload,
@@ -86,14 +87,14 @@ export class TaskStore {
     return summary;
   }
 
-  async startTask(taskId: string, codexArgs?: string[]): Promise<TaskSummary> {
+  async startTask(taskId: string, agent?: AgentKind): Promise<TaskSummary> {
     const size = this.terminalSizes.get(taskId) ?? this.lastTerminalSize;
     const summary = await invoke<TaskSummary>("start_task", {
       req: {
         taskId,
-        codexArgs,
         cols: size?.cols,
         rows: size?.rows,
+        agent,
       },
     });
     this.upsertTask(summary);

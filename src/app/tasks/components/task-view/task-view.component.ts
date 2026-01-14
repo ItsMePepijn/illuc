@@ -1,13 +1,14 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { TaskSummary, BaseRepoInfo } from "../../task.models";
+import { AgentKind, TaskSummary, BaseRepoInfo } from "../../task.models";
 import { parseTitleParts, TitleParts } from "../../title.utils";
 import { TaskTerminalComponent } from "../task-terminal/task-terminal.component";
 import { TaskDiffComponent } from "../task-diff/task-diff.component";
 import { TaskActionButtonComponent } from "../task-action-button/task-action-button.component";
 import { OpenVsCodeButtonComponent } from "../open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../open-terminal-button/open-terminal-button.component";
+import { StartAgentDropdownComponent } from "../start-agent-dropdown/start-agent-dropdown.component";
 import { TaskStore } from "../../task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
 
@@ -22,6 +23,7 @@ import { LauncherService } from "../../../launcher/launcher.service";
     TaskActionButtonComponent,
     OpenVsCodeButtonComponent,
     OpenTerminalButtonComponent,
+    StartAgentDropdownComponent,
   ],
   templateUrl: "./task-view.component.html",
   styleUrl: "./task-view.component.css",
@@ -30,7 +32,7 @@ export class TaskViewComponent {
   @Input() task: TaskSummary | null = null;
   @Input() baseRepo: BaseRepoInfo | null = null;
   activePane: "terminal" | "diff" = "terminal";
-  @Output() startTask = new EventEmitter<string>();
+  @Output() startTask = new EventEmitter<{ taskId: string; agent: AgentKind }>();
   @Output() stopTask = new EventEmitter<string>();
   @Output() discardTask = new EventEmitter<string>();
   @Output() selectBaseRepo = new EventEmitter<void>();
@@ -43,6 +45,7 @@ export class TaskViewComponent {
   pushBranch = "";
   pushSetUpstream = true;
   pushError = "";
+  readonly agentKind = AgentKind;
 
   constructor(
     private readonly taskStore: TaskStore,
@@ -72,10 +75,11 @@ export class TaskViewComponent {
     return parseTitleParts(this.task.title);
   }
 
-  onStart(): void {
-    if (this.task) {
-      this.startTask.emit(this.task.taskId);
+  startWith(agent: AgentKind): void {
+    if (!this.task) {
+      return;
     }
+    this.startTask.emit({ taskId: this.task.taskId, agent });
   }
 
   onStop(): void {

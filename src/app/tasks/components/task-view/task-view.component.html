@@ -12,9 +12,17 @@
           <app-open-vscode-button [path]="current.worktreePath"></app-open-vscode-button>
           <app-open-terminal-button [path]="current.worktreePath"></app-open-terminal-button>
         </div>
-        <span class="status-pill" [attr.data-status]="current.status">
-          {{ statusLabel() }}
-        </span>
+        <ng-container *ngIf="current.status !== 'STOPPED'; else startStatus">
+          <span class="status-pill" [attr.data-status]="current.status">
+            {{ statusLabel() }}
+          </span>
+        </ng-container>
+        <ng-template #startStatus>
+          <app-start-agent-dropdown
+            [disabled]="!canStart()"
+            (start)="startWith($event)"
+          ></app-start-agent-dropdown>
+        </ng-template>
         <app-task-action-button
           type="commit"
           [disabled]="!current"
@@ -24,11 +32,6 @@
           type="push"
           [disabled]="!current"
           (action)="openPushModal()"
-        ></app-task-action-button>
-        <app-task-action-button
-          type="start"
-          [disabled]="!canStart()"
-          (action)="onStart()"
         ></app-task-action-button>
         <app-task-action-button
           type="stop"

@@ -24,7 +24,6 @@ export class TaskSidebarComponent {
   @Input() selectedTaskId: string | null = null;
   @Input() baseRepo: BaseRepoInfo | null = null;
   @Output() selectTask = new EventEmitter<string>();
-  @Output() startTask = new EventEmitter<string>();
   @Output() stopTask = new EventEmitter<string>();
   @Output() discardTask = new EventEmitter<string>();
   @Output() createTask = new EventEmitter<void>();
@@ -39,10 +38,6 @@ export class TaskSidebarComponent {
     this.selectTask.emit(taskId);
   }
 
-  onStart(taskId: string): void {
-    this.startTask.emit(taskId);
-  }
-
   onStop(taskId: string): void {
     this.stopTask.emit(taskId);
   }
@@ -53,14 +48,6 @@ export class TaskSidebarComponent {
 
   statusLabel(status: TaskStatus): string {
     return status.replace(/_/g, " ");
-  }
-
-  canStart(status: TaskStatus): boolean {
-    return (
-      status === "STOPPED" ||
-      status === "FAILED" ||
-      status === "COMPLETED"
-    );
   }
 
   isRunning(status: TaskStatus): boolean {

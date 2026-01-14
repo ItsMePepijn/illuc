@@ -8,6 +8,11 @@ export type TaskStatus =
   | "STOPPED"
   | "DISCARDED";
 
+export enum AgentKind {
+  Codex = "codex",
+  Copilot = "copilot",
+}
+
 export interface TaskSummary {
   taskId: string;
   title: string;

@@ -20,6 +20,7 @@ pub use diff_payload::DiffPayload;
 pub use diff_request::DiffRequest;
 pub use discard_task_request::DiscardTaskRequest;
 pub use push_task_request::PushTaskRequest;
+pub use start_task_request::AgentKind;
 pub use start_task_request::StartTaskRequest;
 pub use stop_task_request::StopTaskRequest;
 pub use task_action_request::TaskActionRequest;

@@ -6,7 +6,7 @@ mod repo;
 mod worktree;
 
 pub use models::{
-    BaseRepoInfo, CommitTaskRequest, CreateTaskRequest, DiffPayload, DiffRequest,
+    AgentKind, BaseRepoInfo, CommitTaskRequest, CreateTaskRequest, DiffPayload, DiffRequest,
     DiscardTaskRequest, PushTaskRequest, StartTaskRequest, StopTaskRequest, TaskActionRequest,
     TaskStatus, TaskSummary, TerminalResizeRequest, TerminalWriteRequest,
 };
@@ -14,6 +14,7 @@ pub use repo::handle_select_base_repo;
 
 use crate::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
 use crate::agents::codex::CodexAgent;
+use crate::agents::copilot::CopilotAgent;
 use crate::error::{Result, TaskError};
 use crate::launcher;
 use crate::tasks::git::{
@@ -47,9 +48,24 @@ type WriteHandle = Arc<Mutex<Box<dyn Write + Send>>>;
 
 pub use git::{DiffFile, DiffMode};
 
+fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
+    match agent_kind {
+        AgentKind::Codex => Box::new(CodexAgent::default()),
+        AgentKind::Copilot => Box::new(CopilotAgent::default()),
+    }
+}
+
+fn agent_label(agent_kind: AgentKind) -> &'static str {
+    match agent_kind {
+        AgentKind::Codex => "Codex",
+        AgentKind::Copilot => "Copilot CLI",
+    }
+}
+
 
 struct TaskRecord {
     agent: Box<dyn Agent>,
+    agent_kind: AgentKind,
     summary: TaskSummary,
     runtime: Option<TaskRuntime>,
     terminal_buffer: String,
@@ -142,7 +158,8 @@ impl TaskManager {
         tasks.insert(
             task_id,
             TaskRecord {
-                agent: Box::new(CodexAgent::default()),
+                agent: build_agent(AgentKind::Codex),
+                agent_kind: AgentKind::Codex,
                 summary: summary.clone(),
                 runtime: None,
                 terminal_buffer: String::new(),
@@ -160,10 +177,9 @@ impl TaskManager {
     ) -> Result<TaskSummary> {
         let StartTaskRequest {
             task_id,
-            codex_args,
-            env,
             cols,
             rows,
+            agent,
         } = req;
         let requested_rows = rows.filter(|value| *value > 0);
         let requested_cols = cols.filter(|value| *value > 0);
@@ -217,11 +233,16 @@ impl TaskManager {
             let record = tasks
                 .get_mut(&task_id)
                 .ok_or(TaskError::NotFound)?;
+            if let Some(requested_agent) = agent {
+                record.agent_kind = requested_agent;
+                record.agent = build_agent(requested_agent);
+            }
+            let label = agent_label(record.agent_kind);
             record.agent.reset(screen_rows, screen_cols);
             record
                 .agent
-                .start(&worktree_path, codex_args, env, callbacks, pty_rows, pty_cols)
-                .with_context(|| format!("failed to start Codex for task {}", title))?
+                .start(&worktree_path, callbacks, pty_rows, pty_cols)
+                .with_context(|| format!("failed to start {} for task {}", label, title))?
         };
 
         let AgentRuntime {
@@ -571,7 +592,8 @@ impl TaskManager {
             self.inner.tasks.write().insert(
                 summary.task_id,
                 TaskRecord {
-                    agent: Box::new(CodexAgent::default()),
+                    agent: build_agent(AgentKind::Codex),
+                    agent_kind: AgentKind::Codex,
                     summary: summary.clone(),
                     runtime: None,
                     terminal_buffer: String::new(),

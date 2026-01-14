@@ -1,12 +1,12 @@
 use parking_lot::Mutex;
 use portable_pty::{Child, MasterPty};
-use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use crate::tasks::TaskStatus;
 
 pub mod codex;
+pub mod copilot;
 
 pub type ChildHandle = Box<dyn Child + Send + Sync>;
 
@@ -27,8 +27,6 @@ pub trait Agent: Send + Sync {
     fn start(
         &mut self,
         worktree_path: &Path,
-        args: Option<Vec<String>>,
-        env: Option<HashMap<String, String>>,
         callbacks: AgentCallbacks,
         rows: u16,
         cols: u16,

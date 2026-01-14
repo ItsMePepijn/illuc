@@ -6,70 +6,48 @@ use crate::utils::windows::build_wsl_command;
 use anyhow::Context;
 use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
-const APPROVAL_PROMPT: &str = "would you like to run the following command";
 
 #[derive(Clone)]
-pub struct CodexAgent {
-    state: Arc<Mutex<CodexAgentState>>,
+pub struct CopilotAgent {
+    state: Arc<Mutex<CopilotAgentState>>,
 }
 
-struct CodexAgentState {
+struct CopilotAgentState {
     screen: Screen,
     last_output: Option<Instant>,
     last_status: Option<TaskStatus>,
-    prompt_active: bool,
-    sent_resume_enter: bool,
-    sent_no_sessions_escape: bool,
-    pending_no_sessions_check: bool,
-    writer: Option<Arc<Mutex<Box<dyn Write + Send>>>>,
 }
 
-impl Default for CodexAgent {
+impl Default for CopilotAgent {
     fn default() -> Self {
         Self {
-            state: Arc::new(Mutex::new(CodexAgentState {
+            state: Arc::new(Mutex::new(CopilotAgentState {
                 screen: Screen::new(DEFAULT_ROWS as usize, DEFAULT_COLS as usize),
                 last_output: None,
                 last_status: None,
-                prompt_active: false,
-                sent_resume_enter: false,
-                sent_no_sessions_escape: false,
-                pending_no_sessions_check: false,
-                writer: None,
             })),
         }
     }
 }
 
-impl CodexAgent {
+impl CopilotAgent {
     fn status_from_output(&self, raw: &[u8], timestamp: Instant) -> Option<TaskStatus> {
         let mut state = self.state.lock();
         state.last_output = Some(timestamp);
-        let CodexAgentState { screen, .. } = &mut *state;
-        screen.process(raw);
-        let screen_text = screen.full_text();
-        let prompt_now = screen_text.contains(APPROVAL_PROMPT);
-        state.prompt_active = prompt_now;
-        let status = if prompt_now {
-            TaskStatus::AwaitingApproval
-        } else {
-            TaskStatus::Working
-        };
+        state.screen.process(raw);
+        let status = TaskStatus::Working;
         let status_changed = state.last_status != Some(status);
         if status_changed {
             state.last_status = Some(status);
         }
-        drop(state);
-        self.handle_startup_sequence(&screen_text);
         if status_changed { Some(status) } else { None }
     }
 
@@ -84,65 +62,9 @@ impl CodexAgent {
         }
         None
     }
-
-    fn handle_startup_sequence(&self, screen_text: &str) {
-        let resume_prompt = screen_text.contains("Resume a previous session");
-        let no_sessions = screen_text.contains("No sessions yet");
-        let mut send_enter = false;
-        let mut schedule_no_sessions_check = false;
-        let mut writer: Option<Arc<Mutex<Box<dyn Write + Send>>>> = None;
-
-        {
-            let mut state = self.state.lock();
-            if resume_prompt
-                && !no_sessions
-                && !state.sent_resume_enter
-                && !state.sent_no_sessions_escape
-            {
-                state.sent_resume_enter = true;
-                send_enter = true;
-                writer = state.writer.clone();
-            } else if resume_prompt
-                && no_sessions
-                && !state.sent_no_sessions_escape
-                && !state.pending_no_sessions_check
-            {
-                state.pending_no_sessions_check = true;
-                schedule_no_sessions_check = true;
-                writer = state.writer.clone();
-            }
-        }
-
-        if send_enter {
-            if let Some(writer) = writer {
-                if let Some(mut guard) = writer.try_lock() {
-                    let _ = guard.write_all(b"\r");
-                    let _ = guard.flush();
-                }
-            }
-        } else if schedule_no_sessions_check {
-            if let Some(writer) = writer {
-                let agent = self.clone();
-                std::thread::spawn(move || {
-                    std::thread::sleep(Duration::from_secs(1));
-                    let mut state = agent.state.lock();
-                    let screen_text = state.screen.full_text();
-                    if screen_text.contains("No sessions yet") {
-                        state.sent_no_sessions_escape = true;
-                        state.sent_resume_enter = true;
-                        if let Some(mut guard) = writer.try_lock() {
-                            let _ = guard.write_all(b"\x1b");
-                            let _ = guard.flush();
-                        }
-                    }
-                    state.pending_no_sessions_check = false;
-                });
-            }
-        }
-    }
 }
 
-impl Agent for CodexAgent {
+impl Agent for CopilotAgent {
     fn start(
         &mut self,
         worktree_path: &Path,
@@ -171,16 +93,12 @@ impl Agent for CodexAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
-        let mut command = build_wsl_command(
-            worktree_path,
-            "codex",
-            &["--enable", "tui2", "resume"],
-        );
+        let mut command = build_wsl_command(worktree_path, "copilot", &["--resume"]);
 
         #[cfg(not(target_os = "windows"))]
         let command = {
-            let mut command = CommandBuilder::new("codex");
-            command.args(["resume"]);
+            let mut command = CommandBuilder::new("copilot");
+            command.args(["--resume"]);
             command.cwd(worktree_path);
             command
         };
@@ -188,13 +106,8 @@ impl Agent for CodexAgent {
         let child = pair
             .slave
             .spawn_command(command)
-            .context("failed to start Codex")?;
+            .context("failed to start Copilot")?;
         let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(child));
-        {
-            let mut state = self.state.lock();
-            state.writer = Some(writer.clone());
-            state.sent_resume_enter = false;
-        }
 
         let status_handle = self.clone();
         let output_callbacks = callbacks.clone();
@@ -266,15 +179,9 @@ impl Agent for CodexAgent {
         state.screen = Screen::new(rows, cols);
         state.last_output = None;
         state.last_status = None;
-        state.prompt_active = false;
-        state.sent_resume_enter = false;
-        state.sent_no_sessions_escape = false;
-        state.pending_no_sessions_check = false;
-        state.writer = None;
     }
 
     fn resize(&mut self, rows: usize, cols: usize) {
         self.state.lock().screen.resize(rows, cols);
     }
-
 }

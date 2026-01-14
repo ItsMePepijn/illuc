@@ -66,12 +66,6 @@
         <small class="branch">{{ task.branchName }}</small>
         <div class="actions">
           <app-task-action-button
-            type="start"
-            [disabled]="!canStart(task.status)"
-            [stopPropagation]="true"
-            (action)="onStart(task.taskId)"
-          ></app-task-action-button>
-          <app-task-action-button
             type="stop"
             [disabled]="!isRunning(task.status)"
             [stopPropagation]="true"
