@@ -93,12 +93,11 @@ impl Agent for CopilotAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
-        let mut command = build_wsl_command(worktree_path, "copilot", &["--resume"]);
+        let mut command = build_wsl_command(worktree_path, "copilot", &[]);
 
         #[cfg(not(target_os = "windows"))]
         let command = {
             let mut command = CommandBuilder::new("copilot");
-            command.args(["--resume"]);
             command.cwd(worktree_path);
             command
         };
