@@ -88,6 +88,25 @@ async fn get_diff(
 }
 
 #[tauri::command]
+async fn start_diff_watch(
+    manager: tauri::State<'_, TaskManager>,
+    app_handle: tauri::AppHandle,
+    req: TaskActionRequest,
+) -> CommandResult<()> {
+    manager
+        .start_diff_watch(req, &app_handle)
+        .map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+async fn stop_diff_watch(
+    manager: tauri::State<'_, TaskManager>,
+    req: TaskActionRequest,
+) -> CommandResult<()> {
+    manager.stop_diff_watch(req).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
 async fn commit_task(
     manager: tauri::State<'_, TaskManager>,
     req: CommitTaskRequest,
@@ -177,6 +196,8 @@ pub fn run() {
             terminal_write,
             terminal_resize,
             get_diff,
+            start_diff_watch,
+            stop_diff_watch,
             commit_task,
             push_task,
             load_existing_worktrees,

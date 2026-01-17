@@ -9,6 +9,7 @@ import { AgentKind } from "./tasks/task.models";
 import { deriveTitleFromBranch } from "./tasks/title.utils";
 import { TaskStore } from "./tasks/task.store";
 import { LauncherService } from "./launcher/launcher.service";
+import { LoadingButtonComponent } from "./shared/components/loading-button/loading-button.component";
 
 @Component({
   selector: "app-root",
@@ -18,6 +19,7 @@ import { LauncherService } from "./launcher/launcher.service";
     FormsModule,
     TaskSidebarComponent,
     TaskViewComponent,
+    LoadingButtonComponent,
   ],
   templateUrl: "./app.component.html",
   styleUrl: "./app.component.css",
@@ -35,6 +37,11 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly appWindow = getCurrentWindow();
   isMaximized = false;
   private unlistenResize?: () => void;
+  isSelectingRepo = false;
+  isCreatingTask = false;
+  isDiscardingTask = false;
+  private readonly startingTaskIds = new Set<string>();
+  private readonly stoppingTaskIds = new Set<string>();
 
   constructor(
     public readonly taskStore: TaskStore,
@@ -72,13 +79,21 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   async browseForRepo(): Promise<void> {
-    const selection = await open({
-        directory: true,
-        multiple: false,
-        title: "Select base repository",
-    });
-    if (typeof selection === "string") {
-      await this.loadBaseRepo(selection);
+    if (this.isSelectingRepo) {
+      return;
+    }
+    this.isSelectingRepo = true;
+    try {
+      const selection = await open({
+          directory: true,
+          multiple: false,
+          title: "Select base repository",
+      });
+      if (typeof selection === "string") {
+        await this.loadBaseRepo(selection);
+      }
+    } finally {
+      this.isSelectingRepo = false;
     }
   }
 
@@ -122,8 +137,12 @@ export class AppComponent implements OnInit, OnDestroy {
       this.branchNameError = "Select a base repository first.";
       return;
     }
+    if (this.isCreatingTask) {
+      return;
+    }
     this.branchNameError = "";
     const title = deriveTitleFromBranch(branch);
+    this.isCreatingTask = true;
     try {
       await this.taskStore.createTask(branch, title, this.baseBranchSelection);
       this.statusMessage = `Task created on ${branch}.`;
@@ -133,10 +152,16 @@ export class AppComponent implements OnInit, OnDestroy {
         error,
         "Unable to create task.",
       );
+    } finally {
+      this.isCreatingTask = false;
     }
   }
 
   async startTask(payload: { taskId: string; agent: AgentKind }): Promise<void> {
+    if (this.startingTaskIds.has(payload.taskId)) {
+      return;
+    }
+    this.startingTaskIds.add(payload.taskId);
     try {
       await this.taskStore.startTask(payload.taskId, payload.agent);
       this.statusMessage = "Task started.";
@@ -145,15 +170,23 @@ export class AppComponent implements OnInit, OnDestroy {
         error,
         "Unable to start task.",
       );
+    } finally {
+      this.startingTaskIds.delete(payload.taskId);
     }
   }
 
   async stopTask(taskId: string): Promise<void> {
+    if (this.stoppingTaskIds.has(taskId)) {
+      return;
+    }
+    this.stoppingTaskIds.add(taskId);
     try {
       await this.taskStore.stopTask(taskId);
       this.statusMessage = "Task stopped.";
     } catch (error: unknown) {
       this.statusMessage = this.describeError(error, "Unable to stop task.");
+    } finally {
+      this.stoppingTaskIds.delete(taskId);
     }
   }
 
@@ -182,6 +215,10 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.confirmDiscardTaskId) {
       return;
     }
+    if (this.isDiscardingTask) {
+      return;
+    }
+    this.isDiscardingTask = true;
     try {
       await this.taskStore.discardTask(this.confirmDiscardTaskId);
       this.statusMessage = "Task discarded and cleaned up.";
@@ -191,6 +228,8 @@ export class AppComponent implements OnInit, OnDestroy {
         error,
         "Unable to discard task.",
       );
+    } finally {
+      this.isDiscardingTask = false;
     }
   }
 
@@ -228,6 +267,18 @@ export class AppComponent implements OnInit, OnDestroy {
       return String((error as { message: string }).message);
     }
     return fallback;
+  }
+
+  isStartingTask(taskId: string | null | undefined): boolean {
+    return !!taskId && this.startingTaskIds.has(taskId);
+  }
+
+  isStoppingTask(taskId: string | null | undefined): boolean {
+    return !!taskId && this.stoppingTaskIds.has(taskId);
+  }
+
+  stoppingTasks(): Set<string> {
+    return this.stoppingTaskIds;
   }
 
 }

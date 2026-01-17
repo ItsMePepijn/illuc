@@ -1,6 +1,5 @@
 pub mod git;
 pub mod models;
-mod diff;
 mod events;
 mod repo;
 mod worktree;
@@ -18,15 +17,14 @@ use crate::agents::copilot::CopilotAgent;
 use crate::error::{Result, TaskError};
 use crate::launcher;
 use crate::tasks::git::{
-    git_commit, git_diff, git_diff_branch, git_push, get_repo_root, list_worktrees, run_git,
-    validate_git_repo,
+    git_commit, git_diff, git_push, get_repo_root, list_worktrees, run_git, validate_git_repo,
 };
-use diff::merge_diff_files;
-use events::{emit_status, emit_terminal_exit, emit_terminal_output};
+use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
 use crate::utils::fs::ensure_directory;
 use crate::utils::path::normalize_path_string;
 use chrono::Utc;
 use log::{debug, info, warn};
+use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::{Mutex, RwLock};
 use std::collections::HashMap;
 use std::io::Write;
@@ -77,14 +75,27 @@ struct TaskRuntime {
     master: MasterHandle,
 }
 
+struct DiffWatcher {
+    _watcher: RecommendedWatcher,
+}
+
 #[derive(Clone, Default)]
 pub struct TaskManager {
     inner: Arc<TaskManagerInner>,
 }
 
-#[derive(Default)]
 struct TaskManagerInner {
     tasks: RwLock<HashMap<Uuid, TaskRecord>>,
+    diff_watchers: Mutex<HashMap<Uuid, DiffWatcher>>,
+}
+
+impl Default for TaskManagerInner {
+    fn default() -> Self {
+        Self {
+            tasks: RwLock::new(HashMap::new()),
+            diff_watchers: Mutex::new(HashMap::new()),
+        }
+    }
 }
 
 impl TaskManager {
@@ -307,6 +318,7 @@ impl TaskManager {
     pub fn discard_task(&self, req: DiscardTaskRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
         info!("discard_task task_id={}", task_id);
+        self.remove_diff_watch(task_id);
         let (worktree_path, branch_name, base_repo_path, runtime_exists) = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -413,6 +425,8 @@ impl TaskManager {
             )
         };
 
+        let _ = run_git(worktree_path.as_path(), ["add", "-A"]);
+
         let whitespace_flag = if req.ignore_whitespace.unwrap_or(false) {
             Some("--ignore-all-space")
         } else {
@@ -421,32 +435,16 @@ impl TaskManager {
         let mode = req.mode.unwrap_or(DiffMode::Worktree);
         match mode {
             DiffMode::Worktree => {
-                let staged = git_diff(
-                    worktree_path.as_path(),
-                    Some("--cached"),
-                    "HEAD",
-                    whitespace_flag,
-                )?;
-                let unstaged =
-                    git_diff(worktree_path.as_path(), None, "HEAD", whitespace_flag)?;
-
-                let diff_output = format!("{}\n{}", staged.diff, unstaged.diff)
-                    .trim()
-                    .to_string();
-                let files = merge_diff_files(staged.files, unstaged.files);
-
+                let combined = git_diff(worktree_path.as_path(), "HEAD", whitespace_flag)?;
                 Ok(DiffPayload {
                     task_id,
-                    files,
-                    unified_diff: diff_output,
+                    files: combined.files,
+                    unified_diff: combined.diff,
                 })
             }
             DiffMode::Branch => {
-                let branch_diff = git_diff_branch(
-                    worktree_path.as_path(),
-                    base_commit.as_str(),
-                    whitespace_flag,
-                )?;
+                let branch_diff =
+                    git_diff(worktree_path.as_path(), base_commit.as_str(), whitespace_flag)?;
                 Ok(DiffPayload {
                     task_id,
                     files: branch_diff.files,
@@ -454,6 +452,23 @@ impl TaskManager {
                 })
             }
         }
+    }
+
+    pub fn start_diff_watch(&self, req: TaskActionRequest, app: &AppHandle) -> Result<()> {
+        let task_id = req.task_id;
+        let worktree_path = self.worktree_path(task_id)?;
+        let mut watchers = self.inner.diff_watchers.lock();
+        if watchers.contains_key(&task_id) {
+            return Ok(());
+        }
+        let watcher = DiffWatcher::new(task_id, worktree_path, app.clone())?;
+        watchers.insert(task_id, watcher);
+        Ok(())
+    }
+
+    pub fn stop_diff_watch(&self, req: TaskActionRequest) -> Result<()> {
+        self.remove_diff_watch(req.task_id);
+        Ok(())
     }
 
     pub fn commit_task(&self, req: CommitTaskRequest) -> Result<()> {
@@ -611,6 +626,11 @@ impl TaskManager {
         Ok(PathBuf::from(&record.summary.worktree_path))
     }
 
+    fn remove_diff_watch(&self, task_id: Uuid) {
+        let mut watchers = self.inner.diff_watchers.lock();
+        watchers.remove(&task_id);
+    }
+
     pub fn open_in_vscode(&self, req: TaskActionRequest) -> Result<()> {
         let path = self.worktree_path(req.task_id)?;
         debug!("open_in_vscode task_id={} path={}", req.task_id, path.display());
@@ -647,3 +667,30 @@ impl TaskManager {
 }
 
 use anyhow::Context;
+
+impl DiffWatcher {
+    fn new(task_id: Uuid, path: PathBuf, app: AppHandle) -> Result<Self> {
+        let mut watcher = notify::recommended_watcher(move |res| match res {
+            Ok(event) => {
+                if should_emit_diff_event(&event) {
+                    emit_diff_changed(&app, task_id);
+                }
+            }
+            Err(err) => {
+                warn!("diff watch error task_id={} err={}", task_id, err);
+            }
+        })
+        .with_context(|| format!("failed to create diff watcher for {}", path.display()))?;
+        watcher
+            .watch(&path, RecursiveMode::Recursive)
+            .with_context(|| format!("failed to watch {}", path.display()))?;
+        Ok(Self { _watcher: watcher })
+    }
+}
+
+fn should_emit_diff_event(event: &Event) -> bool {
+    matches!(
+        event.kind,
+        EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
+    )
+}

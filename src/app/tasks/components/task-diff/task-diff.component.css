@@ -115,6 +115,28 @@
   color: var(--color-muted);
 }
 
+.diff-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.diff-spinner {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 5px solid rgba(96, 90, 82, 0.25);
+  border-top-color: var(--color-accent);
+  animation: diff-spin 0.9s linear infinite;
+}
+
+@keyframes diff-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .diff-error {
   padding: 0.75rem;
   color: var(--color-danger);

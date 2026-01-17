@@ -9,6 +9,7 @@ import { TaskActionButtonComponent } from "../task-action-button/task-action-but
 import { OpenVsCodeButtonComponent } from "../open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../open-terminal-button/open-terminal-button.component";
 import { StartAgentDropdownComponent } from "../start-agent-dropdown/start-agent-dropdown.component";
+import { LoadingButtonComponent } from "../../../shared/components/loading-button/loading-button.component";
 import { TaskStore } from "../../task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
 
@@ -24,6 +25,7 @@ import { LauncherService } from "../../../launcher/launcher.service";
     OpenVsCodeButtonComponent,
     OpenTerminalButtonComponent,
     StartAgentDropdownComponent,
+    LoadingButtonComponent,
   ],
   templateUrl: "./task-view.component.html",
   styleUrl: "./task-view.component.css",
@@ -31,6 +33,9 @@ import { LauncherService } from "../../../launcher/launcher.service";
 export class TaskViewComponent {
   @Input() task: TaskSummary | null = null;
   @Input() baseRepo: BaseRepoInfo | null = null;
+  @Input() startLoading = false;
+  @Input() stopLoading = false;
+  @Input() selectRepoLoading = false;
   activePane: "terminal" | "diff" = "terminal";
   @Output() startTask = new EventEmitter<{ taskId: string; agent: AgentKind }>();
   @Output() stopTask = new EventEmitter<string>();
@@ -45,6 +50,8 @@ export class TaskViewComponent {
   pushBranch = "";
   pushSetUpstream = true;
   pushError = "";
+  isCommitting = false;
+  isPushing = false;
   readonly agentKind = AgentKind;
 
   constructor(
@@ -114,11 +121,15 @@ export class TaskViewComponent {
     if (!this.task) {
       return;
     }
+    if (this.isCommitting) {
+      return;
+    }
     if (!this.commitMessage.trim()) {
       this.commitError = "Commit message is required.";
       return;
     }
     this.commitError = "";
+    this.isCommitting = true;
     try {
       await this.taskStore.commitTask(
         this.task.taskId,
@@ -128,6 +139,8 @@ export class TaskViewComponent {
       this.closeCommitModal();
     } catch (error: unknown) {
       this.commitError = this.describeError(error, "Unable to commit changes.");
+    } finally {
+      this.isCommitting = false;
     }
   }
 
@@ -151,7 +164,11 @@ export class TaskViewComponent {
     if (!this.task) {
       return;
     }
+    if (this.isPushing) {
+      return;
+    }
     this.pushError = "";
+    this.isPushing = true;
     try {
       await this.taskStore.pushTask(
         this.task.taskId,
@@ -162,6 +179,8 @@ export class TaskViewComponent {
       this.closePushModal();
     } catch (error: unknown) {
       this.pushError = this.describeError(error, "Unable to push changes.");
+    } finally {
+      this.isPushing = false;
     }
   }
 

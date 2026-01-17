@@ -20,6 +20,7 @@
         <ng-template #startStatus>
           <app-start-agent-dropdown
             [disabled]="!canStart()"
+            [loading]="startLoading"
             (start)="startWith($event)"
           ></app-start-agent-dropdown>
         </ng-template>
@@ -36,6 +37,7 @@
         <app-task-action-button
           type="stop"
           [disabled]="!isRunning()"
+          [loading]="stopLoading"
           (action)="onStop()"
         ></app-task-action-button>
         <app-task-action-button
@@ -85,8 +87,22 @@
     </label>
     <div class="error" *ngIf="commitError">{{ commitError }}</div>
     <div class="modal-actions">
-      <button type="button" class="ghost" (click)="closeCommitModal()">Cancel</button>
-      <button type="button" class="primary" (click)="submitCommit()">Commit</button>
+      <app-loading-button
+        buttonType="button"
+        buttonClass="ghost"
+        [disabled]="isCommitting"
+        (action)="closeCommitModal()"
+      >
+        Cancel
+      </app-loading-button>
+      <app-loading-button
+        buttonType="button"
+        buttonClass="primary"
+        [loading]="isCommitting"
+        (action)="submitCommit()"
+      >
+        Commit
+      </app-loading-button>
     </div>
   </div>
 </div>
@@ -105,8 +121,22 @@
     </label>
     <div class="error" *ngIf="pushError">{{ pushError }}</div>
     <div class="modal-actions">
-      <button type="button" class="ghost" (click)="closePushModal()">Cancel</button>
-      <button type="button" class="primary" (click)="submitPush()">Push</button>
+      <app-loading-button
+        buttonType="button"
+        buttonClass="ghost"
+        [disabled]="isPushing"
+        (action)="closePushModal()"
+      >
+        Cancel
+      </app-loading-button>
+      <app-loading-button
+        buttonType="button"
+        buttonClass="primary"
+        [loading]="isPushing"
+        (action)="submitPush()"
+      >
+        Push
+      </app-loading-button>
     </div>
   </div>
 </div>
@@ -134,14 +164,15 @@
         <p class="subtitle">
           Select a base repository to load managed worktrees, then choose an existing task or create a new branch to get started.
         </p>
-        <button
-          type="button"
-          class="primary landing-action"
+        <app-loading-button
+          buttonType="button"
+          buttonClass="primary landing-action"
           *ngIf="!baseRepo"
-          (click)="onSelectBaseRepo()"
+          [loading]="selectRepoLoading"
+          (action)="onSelectBaseRepo()"
         >
           Select repository
-        </button>
+        </app-loading-button>
       </div>
     </div>
   </div>

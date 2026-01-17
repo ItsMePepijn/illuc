@@ -1,6 +1,7 @@
 import { CommonModule } from "@angular/common";
 import {
   Component,
+  ChangeDetectorRef,
   ElementRef,
   Input,
   OnChanges,
@@ -27,9 +28,8 @@ import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
 import markdown from "highlight.js/lib/languages/markdown";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
-import { EMPTY, Subscription, from, timer } from "rxjs";
-import { catchError, switchMap } from "rxjs/operators";
-import { DiffMode, DiffPayload } from "../../task.models";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { DiffChangedEvent, DiffMode, DiffPayload } from "../../task.models";
 import { TaskStore } from "../../task.store";
 import {
   FileTreeComponent,
@@ -56,6 +56,9 @@ hljs.registerLanguage("cpp", cpp);
 hljs.registerLanguage("markdown", markdown);
 
 type DiffLineType = "add" | "del" | "context" | "meta" | "hunk";
+
+const MAX_HIGHLIGHT_CHARS = 200_000;
+const MAX_HIGHLIGHT_LINES = 4_000;
 
 interface RenderedDiffLine {
   type: DiffLineType;
@@ -85,22 +88,29 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
   fileTree: FileTreeNode[] = [];
   lastUpdated: Date | null = null;
   error: string | null = null;
+  isLoading = false;
+  hasLoaded = false;
   diffMode: DiffMode = "worktree";
-  private polling?: Subscription;
+  private diffWatchUnlisten?: UnlistenFn;
+  private watchingTaskId: string | null = null;
+  private refreshTimer: number | null = null;
+  private refreshInFlight = false;
+  private refreshQueued = false;
 
   constructor(
     private readonly taskStore: TaskStore,
     private readonly sanitizer: DomSanitizer,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["taskId"]) {
-      this.restartPolling();
+      void this.restartDiffWatch();
     }
   }
 
   ngOnDestroy(): void {
-    this.stopPolling();
+    void this.stopDiffWatch();
   }
 
   setDiffMode(mode: DiffMode): void {
@@ -108,46 +118,134 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
       return;
     }
     this.diffMode = mode;
-    this.restartPolling();
-  }
-
-  private restartPolling(): void {
-    this.stopPolling();
     this.diffPayload = null;
     this.renderedFiles = [];
     this.fileTree = [];
     this.error = null;
+    this.isLoading = false;
+    this.hasLoaded = false;
+    void this.refreshDiff();
+  }
+
+  private async restartDiffWatch(): Promise<void> {
+    await this.stopDiffWatch();
+    this.diffPayload = null;
+    this.renderedFiles = [];
+    this.fileTree = [];
+    this.error = null;
+    this.isLoading = false;
+    this.hasLoaded = false;
     if (!this.taskId) {
       return;
     }
     const taskId = this.taskId;
-    this.polling = timer(0, 2000)
-      .pipe(
-        switchMap(() =>
-          from(
-            this.taskStore.getDiff(taskId, false, this.diffMode),
-          ).pipe(
-            catchError((err) => {
-              this.error =
-                err?.message ??
-                "Unable to load diff. The git repository may be inaccessible.";
-              return EMPTY;
-            }),
-          ),
-        ),
-      )
-      .subscribe((payload) => {
-        this.diffPayload = payload;
-        this.renderedFiles = this.buildRenderedDiff(payload);
-        this.fileTree = this.buildFileTree(payload.files);
-        this.lastUpdated = new Date();
-        this.error = null;
-      });
+    await this.refreshDiff();
+    try {
+      await this.taskStore.startDiffWatch(taskId);
+      if (this.taskId !== taskId) {
+        await this.taskStore.stopDiffWatch(taskId);
+        return;
+      }
+      this.watchingTaskId = taskId;
+    } catch (err) {
+      console.error("Failed to start diff watcher", err);
+      return;
+    }
+    this.diffWatchUnlisten = await listen<DiffChangedEvent>(
+      "task_diff_changed",
+      (event) => {
+        if (event.payload.taskId !== taskId) {
+          return;
+        }
+        this.scheduleDiffRefresh();
+      },
+    );
   }
 
-  private stopPolling(): void {
-    this.polling?.unsubscribe();
-    this.polling = undefined;
+  private async stopDiffWatch(): Promise<void> {
+    if (this.diffWatchUnlisten) {
+      try {
+        await this.diffWatchUnlisten();
+      } catch (err) {
+        console.error("Failed to unlisten diff watcher", err);
+      }
+      this.diffWatchUnlisten = undefined;
+    }
+    if (this.watchingTaskId) {
+      try {
+        await this.taskStore.stopDiffWatch(this.watchingTaskId);
+      } catch (err) {
+        console.error("Failed to stop diff watcher", err);
+      }
+      this.watchingTaskId = null;
+    }
+    if (this.refreshTimer !== null) {
+      window.clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    this.refreshInFlight = false;
+    this.refreshQueued = false;
+  }
+
+  private scheduleDiffRefresh(): void {
+    if (!this.taskId) {
+      return;
+    }
+    if (this.refreshTimer !== null) {
+      window.clearTimeout(this.refreshTimer);
+    }
+    this.refreshTimer = window.setTimeout(() => {
+      this.refreshTimer = null;
+      void this.refreshDiff();
+    }, 2000);
+  }
+
+  private async refreshDiff(): Promise<void> {
+    if (!this.taskId) {
+      return;
+    }
+    if (this.refreshInFlight) {
+      this.refreshQueued = true;
+      return;
+    }
+    const taskId = this.taskId;
+    const mode = this.diffMode;
+    this.refreshInFlight = true;
+    this.refreshQueued = false;
+    if (!this.hasLoaded) {
+      this.isLoading = true;
+    }
+    try {
+      const payload = await this.taskStore.getDiff(taskId, false, mode);
+      if (this.taskId !== taskId || this.diffMode !== mode) {
+        return;
+      }
+      this.diffPayload = payload;
+      this.renderedFiles = this.buildRenderedDiff(payload);
+      this.fileTree = this.buildFileTree(payload.files);
+      this.lastUpdated = new Date();
+      this.error = null;
+      this.cdr.detectChanges();
+    } catch (err) {
+      if (this.taskId === taskId && this.diffMode === mode) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Unable to load diff. The git repository may be inaccessible.";
+        this.error = message;
+        this.cdr.detectChanges();
+      }
+    } finally {
+      if (this.taskId === taskId && this.diffMode === mode) {
+        this.hasLoaded = true;
+        this.isLoading = false;
+        this.cdr.detectChanges();
+      }
+      this.refreshInFlight = false;
+      if (this.refreshQueued) {
+        this.scheduleDiffRefresh();
+      }
+    }
   }
 
   scrollToFile(path: string): void {
@@ -167,7 +265,10 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
   private buildRenderedDiff(payload: DiffPayload): RenderedDiffFile[] {
     const files: RenderedDiffFile[] = [];
     const statusMap = new Map(payload.files.map((file) => [file.path, file]));
-    const diffLines = payload.unifiedDiff.split("\n");
+    const diffText = payload.unifiedDiff;
+    const diffLines = diffText.split("\n");
+    const highlightEnabled =
+      diffText.length <= MAX_HIGHLIGHT_CHARS && diffLines.length <= MAX_HIGHLIGHT_LINES;
     let current: RenderedDiffFile | null = null;
     for (const rawLine of diffLines) {
       if (rawLine.startsWith("diff --git ")) {
@@ -187,7 +288,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
       const type = this.resolveLineType(rawLine);
       current.lines.push({
         type,
-        html: this.renderLine(rawLine, current.path, type),
+        html: this.renderLine(rawLine, current.path, type, highlightEnabled),
       });
     }
     return files;
@@ -297,11 +398,18 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     return "context";
   }
 
-  private renderLine(line: string, filePath: string, type: DiffLineType): SafeHtml {
+  private renderLine(
+    line: string,
+    filePath: string,
+    type: DiffLineType,
+    highlightEnabled: boolean,
+  ): SafeHtml {
     if (type === "add" || type === "del" || type === "context") {
       const prefix = line.charAt(0);
       const content = line.slice(1);
-      const highlighted = this.highlightContent(content, filePath);
+      const highlighted = highlightEnabled
+        ? this.highlightContent(content, filePath)
+        : this.escapeHtml(content);
       const safePrefix = prefix === " " ? "&nbsp;" : this.escapeHtml(prefix);
       return this.sanitizer.bypassSecurityTrustHtml(
         `<span class="diff-prefix">${safePrefix}</span><span class="diff-code">${highlighted}</span>`,

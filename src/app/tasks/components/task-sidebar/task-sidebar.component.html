@@ -68,6 +68,7 @@
           <app-task-action-button
             type="stop"
             [disabled]="!isRunning(task.status)"
+            [loading]="stopLoadingIds.has(task.taskId)"
             [stopPropagation]="true"
             (action)="onStop(task.taskId)"
           ></app-task-action-button>

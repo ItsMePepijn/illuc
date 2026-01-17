@@ -23,6 +23,7 @@ export class TaskSidebarComponent {
   @Input({ required: true }) tasks: TaskSummary[] | null = [];
   @Input() selectedTaskId: string | null = null;
   @Input() baseRepo: BaseRepoInfo | null = null;
+  @Input() stopLoadingIds: Set<string> = new Set();
   @Output() selectTask = new EventEmitter<string>();
   @Output() stopTask = new EventEmitter<string>();
   @Output() discardTask = new EventEmitter<string>();

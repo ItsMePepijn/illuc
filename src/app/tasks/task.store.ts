@@ -146,6 +146,14 @@ export class TaskStore {
     });
   }
 
+  async startDiffWatch(taskId: string): Promise<void> {
+    await invoke("start_diff_watch", { req: { taskId } });
+  }
+
+  async stopDiffWatch(taskId: string): Promise<void> {
+    await invoke("stop_diff_watch", { req: { taskId } });
+  }
+
   async commitTask(
     taskId: string,
     message: string,

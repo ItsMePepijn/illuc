@@ -1,12 +1,13 @@
-<button
-  type="button"
-  class="action-btn"
-  [attr.data-action]="type"
-  [class.warn]="type === 'discard'"
+<app-loading-button
+  buttonType="button"
+  [buttonClass]="buttonClass"
+  [dataAction]="type"
   [disabled]="disabled"
-  [attr.title]="computedTitle"
-  [attr.aria-label]="computedAriaLabel"
-  (click)="handleClick($event)"
+  [loading]="loading"
+  [title]="computedTitle"
+  [ariaLabel]="computedAriaLabel"
+  [stopPropagation]="stopPropagation"
+  (action)="handleClick($event)"
 >
   <ng-container [ngSwitch]="type">
     <span *ngSwitchCase="'start'" aria-hidden="true">▶</span>
@@ -57,4 +58,4 @@
       <path d="M8.5 7.5l3.5-3.5 3.5 3.5"></path>
     </svg>
   </ng-container>
-</button>
+</app-loading-button>

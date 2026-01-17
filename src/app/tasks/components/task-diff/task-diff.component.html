@@ -67,6 +67,10 @@
   </ng-template>
 
   <ng-template #noDiff>
-    <p class="diff-empty">Nothing to show yet.</p>
+    <div class="diff-empty diff-loading" *ngIf="isLoading">
+      <span class="diff-spinner" aria-hidden="true"></span>
+    </div>
+    <p class="diff-empty" *ngIf="!isLoading && hasLoaded">No changed files.</p>
+    <p class="diff-empty" *ngIf="!isLoading && !hasLoaded">Nothing to show yet.</p>
   </ng-template>
 </section>

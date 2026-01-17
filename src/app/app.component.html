@@ -58,6 +58,7 @@
       [tasks]="tasks()"
       [selectedTaskId]="taskStore.selectedTaskId()"
       [baseRepo]="repo"
+      [stopLoadingIds]="stoppingTasks()"
       (createTask)="openCreateTaskModal()"
       (selectTask)="selectTask($event)"
       (stopTask)="stopTask($event)"
@@ -68,6 +69,9 @@
       class="task-view"
       [task]="selectedTask()"
       [baseRepo]="baseRepo()"
+      [startLoading]="isStartingTask(selectedTask()?.taskId)"
+      [stopLoading]="isStoppingTask(selectedTask()?.taskId)"
+      [selectRepoLoading]="isSelectingRepo"
       (startTask)="startTask($event)"
       (stopTask)="stopTask($event)"
       (discardTask)="discardTask($event)"
@@ -124,8 +128,22 @@
       </div>
       <div class="error" *ngIf="branchNameError">{{ branchNameError }}</div>
       <div class="modal-actions">
-        <button type="button" class="ghost" (click)="closeCreateTaskModal()">Cancel</button>
-        <button type="button" class="primary" (click)="submitNewTask()">Create Task</button>
+        <app-loading-button
+          buttonType="button"
+          buttonClass="ghost"
+          [disabled]="isCreatingTask"
+          (action)="closeCreateTaskModal()"
+        >
+          Cancel
+        </app-loading-button>
+        <app-loading-button
+          buttonType="button"
+          buttonClass="primary"
+          [loading]="isCreatingTask"
+          (action)="submitNewTask()"
+        >
+          Create Task
+        </app-loading-button>
       </div>
     </div>
   </div>
@@ -140,8 +158,22 @@
       </p>
       <div class="error" *ngIf="confirmDiscardError">{{ confirmDiscardError }}</div>
       <div class="modal-actions">
-        <button type="button" class="ghost" (click)="cancelDiscardTask()">Cancel</button>
-        <button type="button" class="primary warn" (click)="confirmDiscardTask()">Discard</button>
+        <app-loading-button
+          buttonType="button"
+          buttonClass="ghost"
+          [disabled]="isDiscardingTask"
+          (action)="cancelDiscardTask()"
+        >
+          Cancel
+        </app-loading-button>
+        <app-loading-button
+          buttonType="button"
+          buttonClass="primary warn"
+          [loading]="isDiscardingTask"
+          (action)="confirmDiscardTask()"
+        >
+          Discard
+        </app-loading-button>
       </div>
     </div>
   </div>

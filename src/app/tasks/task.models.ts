@@ -48,6 +48,10 @@ export interface DiffPayload {
   unifiedDiff: string;
 }
 
+export interface DiffChangedEvent {
+  taskId: string;
+}
+
 export interface TerminalOutputEvent {
   taskId: string;
   data: string;

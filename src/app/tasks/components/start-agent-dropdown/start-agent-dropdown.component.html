@@ -3,18 +3,18 @@
   [class.open]="menuOpen"
   (click)="$event.stopPropagation()"
 >
-  <button
-    type="button"
-    class="start-trigger"
+  <app-loading-button
+    buttonClass="start-trigger"
+    [loading]="loading"
     [disabled]="disabled"
-    [attr.aria-expanded]="menuOpen"
-    aria-haspopup="menu"
-    (click)="toggleMenu($event)"
+    [ariaExpanded]="menuOpen"
+    ariaHaspopup="menu"
+    (action)="toggleMenu($event)"
   >
     <span class="start-icon" aria-hidden="true">▶</span>
     Start
     <span class="caret" aria-hidden="true">▾</span>
-  </button>
+  </app-loading-button>
   <div
     class="start-menu"
     *ngIf="menuOpen"
@@ -26,6 +26,7 @@
       class="start-menu-item"
       role="menuitem"
       *ngFor="let option of options"
+      [disabled]="disabled || loading"
       (click)="choose(option.kind, $event)"
     >
       <span class="menu-caret" aria-hidden="true">&gt;</span>
