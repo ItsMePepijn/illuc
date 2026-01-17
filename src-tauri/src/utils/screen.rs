@@ -20,6 +20,6 @@ impl Screen {
     }
 
     pub fn full_text(&self) -> String {
-        self.parser.screen().contents().to_string()
+        self.parser.screen().contents()
     }
 }

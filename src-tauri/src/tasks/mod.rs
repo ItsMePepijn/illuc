@@ -66,7 +66,6 @@ struct TaskRecord {
     agent_kind: AgentKind,
     summary: TaskSummary,
     runtime: Option<TaskRuntime>,
-    terminal_buffer: String,
 }
 
 struct TaskRuntime {
@@ -173,7 +172,6 @@ impl TaskManager {
                 agent_kind: AgentKind::Codex,
                 summary: summary.clone(),
                 runtime: None,
-                terminal_buffer: String::new(),
             },
         );
         drop(tasks);
@@ -524,10 +522,6 @@ impl TaskManager {
     }
 
     pub fn handle_agent_output(&self, task_id: Uuid, chunk: String, app: &AppHandle) {
-        let mut tasks = self.inner.tasks.write();
-        if let Some(record) = tasks.get_mut(&task_id) {
-            record.terminal_buffer.push_str(&chunk);
-        }
         debug!("agent_output task_id={} bytes={}", task_id, chunk.len());
         emit_terminal_output(app, task_id, chunk);
     }
@@ -611,7 +605,6 @@ impl TaskManager {
                     agent_kind: AgentKind::Codex,
                     summary: summary.clone(),
                     runtime: None,
-                    terminal_buffer: String::new(),
                 },
             );
             emit_status(app, &summary);
