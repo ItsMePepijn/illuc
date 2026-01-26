@@ -49,7 +49,7 @@ type MasterHandle = Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>;
 
 type WriteHandle = Arc<Mutex<Box<dyn Write + Send>>>;
 
-pub use git::{DiffFile, DiffMode};
+pub use git::DiffMode;
 
 fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
     match agent_kind {

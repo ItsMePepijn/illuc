@@ -6,7 +6,7 @@ pub fn spawn(path: &Path) -> Result<()> {
     #[cfg(target_os = "windows")]
     {
         let path_str = path.to_string_lossy().to_string();
-        let mut attempt_cmd = |mut command: Command| -> Result<bool> {
+        let attempt_cmd = |mut command: Command| -> Result<bool> {
             match command.spawn() {
                 Ok(_) => Ok(true),
                 Err(err) => {

@@ -5,7 +5,9 @@ use crate::utils::screen::Screen;
 use crate::utils::windows::build_wsl_command;
 use anyhow::Context;
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, PtySize};
+#[cfg(not(target_os = "windows"))]
+use portable_pty::CommandBuilder;
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
@@ -103,7 +105,7 @@ impl Agent for CodexAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
-        let mut command = build_wsl_command(
+        let command = build_wsl_command(
             worktree_path,
             "codex",
             &["--enable", "tui2", "--full-auto", "resume", "--last"],

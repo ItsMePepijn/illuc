@@ -3,9 +3,17 @@ use crate::tasks::TaskStatus;
 use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_command;
+#[cfg(target_os = "windows")]
+use crate::utils::windows::build_wsl_process_command;
+#[cfg(target_os = "windows")]
+use crate::utils::windows::to_wsl_path;
 use anyhow::Context;
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
+use portable_pty::{native_pty_system, PtySize};
+#[cfg(not(target_os = "windows"))]
+use portable_pty::CommandBuilder;
+use std::fs;
 use std::io::Read;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -14,6 +22,9 @@ use std::time::{Duration, Instant};
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
+
+const COPILOT_SESSION_DIR: &str = ".copilot/session-state";
+const COPILOT_LEGACY_SESSION_DIR: &str = ".copilot/history-session-state";
 
 #[derive(Clone)]
 pub struct CopilotAgent {
@@ -36,6 +47,156 @@ impl Default for CopilotAgent {
             })),
         }
     }
+}
+
+struct SessionCandidate {
+    session_id: String,
+    timestamp: Option<DateTime<Utc>>,
+}
+
+fn resolve_session_cwd(worktree_path: &Path) -> anyhow::Result<String> {
+    let canonical = fs::canonicalize(worktree_path)
+        .with_context(|| format!("failed to resolve cwd {}", worktree_path.display()))?;
+    #[cfg(target_os = "windows")]
+    if let Some(wsl_path) = to_wsl_path(&canonical) {
+        return Ok(wsl_path);
+    }
+    Ok(canonical.to_string_lossy().to_string())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_home_dir() -> anyhow::Result<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+        .context("failed to resolve home directory")
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_wsl_home_dir(worktree_path: &Path) -> anyhow::Result<std::path::PathBuf> {
+    let output = build_wsl_process_command(
+        worktree_path,
+        "bash",
+        &["-lc", "wslpath -w \"$HOME\""],
+    )
+    .output()
+    .context("failed to query WSL home directory")?;
+    if !output.status.success() {
+        return Err(anyhow::anyhow!("failed to query WSL home directory"));
+    }
+    let home = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if home.is_empty() {
+        return Err(anyhow::anyhow!("WSL home directory is empty"));
+    }
+    Ok(std::path::PathBuf::from(home))
+}
+
+fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
+    let mut normalized = value.trim().to_string();
+    if normalized.ends_with('Z') {
+        normalized = format!("{}+00:00", normalized.trim_end_matches('Z'));
+    }
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(&normalized) {
+        return Some(parsed.with_timezone(&Utc));
+    }
+    if let Ok(naive) = NaiveDateTime::parse_from_str(&normalized, "%Y-%m-%dT%H:%M:%S%.f") {
+        return Some(Utc.from_utc_datetime(&naive));
+    }
+    None
+}
+
+fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate> {
+    let data = fs::read_to_string(path).ok()?;
+    if !data.contains(desired_cwd) {
+        return None;
+    }
+
+    let mut session_id: Option<String> = None;
+    let mut latest_timestamp: Option<DateTime<Utc>> = None;
+
+    for line in data.lines() {
+        let value: serde_json::Value = match serde_json::from_str(line) {
+            Ok(value) => value,
+            Err(_) => continue,
+        };
+        if session_id.is_none() {
+            if value.get("type").and_then(|value| value.as_str()) == Some("session.start") {
+                if let Some(id) = value
+                    .get("data")
+                    .and_then(|value| value.get("sessionId"))
+                    .and_then(|value| value.as_str())
+                {
+                    session_id = Some(id.to_string());
+                }
+            }
+        }
+        if let Some(ts) = value
+            .get("timestamp")
+            .and_then(|value| value.as_str())
+            .and_then(parse_timestamp)
+        {
+            latest_timestamp = match latest_timestamp {
+                Some(current) if current >= ts => Some(current),
+                _ => Some(ts),
+            };
+        }
+    }
+
+    let session_id = session_id.or_else(|| {
+        path.file_stem()
+            .and_then(|value| value.to_str())
+            .map(|value| value.to_string())
+    })?;
+
+    let timestamp = latest_timestamp;
+    Some(SessionCandidate {
+        session_id,
+        timestamp,
+    })
+}
+
+fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
+    let entries = fs::read_dir(dir).ok()?;
+    let mut best: Option<SessionCandidate> = None;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if entry.file_type().map(|ty| ty.is_file()).unwrap_or(false) {
+            if let Some(candidate) = parse_session_file(&path, desired_cwd) {
+                let replace = match (&candidate.timestamp, &best) {
+                    (Some(candidate_ts), Some(best)) => match best.timestamp {
+                        Some(best_ts) => candidate_ts > &best_ts,
+                        None => true,
+                    },
+                    (Some(_), None) => true,
+                    (None, Some(_)) => false,
+                    (None, None) => true,
+                };
+                if replace {
+                    best = Some(candidate);
+                }
+            }
+        }
+    }
+    best.map(|candidate| candidate.session_id)
+}
+
+fn find_latest_session_id(worktree_path: &Path) -> anyhow::Result<Option<String>> {
+    let desired_cwd = resolve_session_cwd(worktree_path)?;
+    #[cfg(target_os = "windows")]
+    let home_dir = resolve_wsl_home_dir(worktree_path)?;
+    #[cfg(not(target_os = "windows"))]
+    let home_dir = resolve_home_dir()?;
+    let primary = home_dir.join(COPILOT_SESSION_DIR);
+    let legacy = home_dir.join(COPILOT_LEGACY_SESSION_DIR);
+
+    if let Some(session_id) = find_latest_session_in_dir(&primary, &desired_cwd) {
+        return Ok(Some(session_id));
+    }
+    if let Some(session_id) = find_latest_session_in_dir(&legacy, &desired_cwd) {
+        return Ok(Some(session_id));
+    }
+
+    Ok(None)
 }
 
 impl CopilotAgent {
@@ -75,6 +236,16 @@ impl Agent for CopilotAgent {
         let pty_system = native_pty_system();
         let rows = rows.max(1);
         let cols = cols.max(1);
+        let maybe_session_id = find_latest_session_id(worktree_path)?;
+        let mut args = vec![
+            "--allow-all-tools".to_string(),
+            "--deny-tool".to_string(),
+            "shell(git push)".to_string(),
+        ];
+        if let Some(session_id) = maybe_session_id {
+            args.push("--resume".to_string());
+            args.push(session_id);
+        }
         let pair = pty_system.openpty(PtySize {
             rows,
             cols,
@@ -93,12 +264,15 @@ impl Agent for CopilotAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
-        let mut command = build_wsl_command(worktree_path, "copilot", &["--allow-all-tools", "--deny-tool", "shell(git push)"]);
+        let command = {
+            let arg_refs: Vec<&str> = args.iter().map(|arg| arg.as_str()).collect();
+            build_wsl_command(worktree_path, "copilot", &arg_refs)
+        };
 
         #[cfg(not(target_os = "windows"))]
         let command = {
             let mut command = CommandBuilder::new("copilot");
-            command.args(["--allow-all-tools", "--deny-tool", "shell(git push)"]);
+            command.args(args.iter().map(|arg| arg.as_str()));
             command.cwd(worktree_path);
             command
         };

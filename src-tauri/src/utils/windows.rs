@@ -1,6 +1,7 @@
 use log::debug;
 use portable_pty::CommandBuilder;
 use std::path::Path;
+use std::process::Command;
 
 pub fn to_wsl_path(path: &Path) -> Option<String> {
     let mut path_str = path.to_string_lossy().replace('\\', "/");
@@ -39,18 +40,48 @@ pub fn bash_escape(value: &str) -> String {
     escaped
 }
 
-pub fn build_wsl_command(
+fn build_wsl_command_parts(
     worktree_path: &Path,
     command: &str,
     args: &[&str],
-) -> CommandBuilder {
-    let mut command_builder = CommandBuilder::new("wsl.exe");
+) -> (String, String) {
     let wsl_path = to_wsl_path(worktree_path).unwrap_or_else(|| "/".to_string());
     let mut command_line = format!("cd {} && {}", bash_escape(&wsl_path), command);
     for arg in args {
         command_line.push(' ');
         command_line.push_str(&bash_escape(arg));
     }
+    (wsl_path, command_line)
+}
+
+pub fn build_wsl_command(
+    worktree_path: &Path,
+    command: &str,
+    args: &[&str],
+) -> CommandBuilder {
+    let mut command_builder = CommandBuilder::new("wsl.exe");
+    let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
+    debug!("WSL command line: {}", command_line);
+    command_builder.args([
+        "-d",
+        "Ubuntu",
+        "--cd",
+        &wsl_path,
+        "--",
+        "bash",
+        "-lc",
+        command_line.as_str(),
+    ]);
+    command_builder
+}
+
+pub fn build_wsl_process_command(
+    worktree_path: &Path,
+    command: &str,
+    args: &[&str],
+) -> Command {
+    let mut command_builder = Command::new("wsl.exe");
+    let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     debug!("WSL command line: {}", command_line);
     command_builder.args([
         "-d",
