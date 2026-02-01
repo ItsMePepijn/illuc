@@ -63,8 +63,6 @@ pub fn build_wsl_command(
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     debug!("WSL command line: {}", command_line);
     command_builder.args([
-        "-d",
-        "Ubuntu",
         "--cd",
         &wsl_path,
         "--",
@@ -84,8 +82,6 @@ pub fn build_wsl_process_command(
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     debug!("WSL command line: {}", command_line);
     command_builder.args([
-        "-d",
-        "Ubuntu",
         "--cd",
         &wsl_path,
         "--",
