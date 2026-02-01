@@ -229,6 +229,11 @@
     padding-bottom: calc(0.75rem + 34px);
 }
 
+.task-detail.shell-collapsed .terminal-column,
+.task-detail.shell-collapsed .diff-column {
+    bottom: 34px;
+}
+
 .terminal-column {
     position: absolute;
     top: 0;
