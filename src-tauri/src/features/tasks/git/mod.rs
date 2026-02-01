@@ -1,11 +1,13 @@
 pub mod commands;
 
 use crate::error::{Result, TaskError};
+use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions,
     RemoteCallbacks, Repository, Signature, WorktreeAddOptions,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
@@ -20,13 +22,13 @@ pub enum DiffMode {
 pub struct DiffFile {
     pub path: String,
     pub status: String,
+    pub lines: Vec<DiffLine>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DiffPayloadResult {
     pub files: Vec<DiffFile>,
-    pub diff: String,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -125,7 +127,7 @@ pub fn remove_worktree(repo_root: &Path, worktree_path: &Path) -> Result<()> {
     let repo = open_repo(repo_root)?;
     let worktrees = repo.worktrees().map_err(map_git_err)?;
     for name in worktrees.iter().flatten() {
-        let mut worktree = repo.find_worktree(name).map_err(map_git_err)?;
+        let worktree = repo.find_worktree(name).map_err(map_git_err)?;
         if worktree.path() == worktree_path {
             worktree.prune(None).map_err(map_git_err)?;
             return Ok(());
@@ -313,6 +315,16 @@ fn map_delta_status(delta: Delta) -> &'static str {
     }
 }
 
+fn map_line_type(origin: char) -> DiffLineType {
+    match origin {
+        '+' => DiffLineType::Add,
+        '-' => DiffLineType::Del,
+        ' ' => DiffLineType::Context,
+        'H' => DiffLineType::Hunk,
+        _ => DiffLineType::Meta,
+    }
+}
+
 pub fn git_diff(
     repo: &Path,
     base_commit: &str,
@@ -334,30 +346,70 @@ pub fn git_diff(
         .diff_tree_to_workdir_with_index(Some(&base_tree), Some(&mut options))
         .map_err(map_git_err)?;
 
-    let mut unified = String::new();
-    diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
-        unified.push_str(&String::from_utf8_lossy(line.content()));
+    let mut files_by_path: HashMap<String, DiffFile> = HashMap::new();
+    let mut file_order: Vec<String> = Vec::new();
+
+    for delta in diff.deltas() {
+        let status = map_delta_status(delta.status()).to_string();
+        let path = match delta
+            .new_file()
+            .path()
+            .or_else(|| delta.old_file().path())
+        {
+            Some(path) => path.to_string_lossy().to_string(),
+            None => continue,
+        };
+        let entry = files_by_path.entry(path.clone());
+        if let std::collections::hash_map::Entry::Vacant(vacant) = entry {
+            file_order.push(path.clone());
+            vacant.insert(DiffFile {
+                path,
+                status,
+                lines: Vec::new(),
+            });
+        } else if let Some(file) = files_by_path.get_mut(&path) {
+            file.status = status;
+        }
+    }
+
+    diff.print(DiffFormat::Patch, |delta, _hunk, line| {
+        let path = match delta
+            .new_file()
+            .path()
+            .or_else(|| delta.old_file().path())
+        {
+            Some(path) => path.to_string_lossy().to_string(),
+            None => return true,
+        };
+        if !files_by_path.contains_key(&path) {
+            file_order.push(path.clone());
+            files_by_path.insert(
+                path.clone(),
+                DiffFile {
+                    path: path.clone(),
+                    status: "M".to_string(),
+                    lines: Vec::new(),
+                },
+            );
+        }
+        let content = String::from_utf8_lossy(line.content());
+        let content = content.trim_end_matches(['\r', '\n']).to_string();
+        if let Some(file) = files_by_path.get_mut(&path) {
+            file.lines.push(DiffLine {
+                line_type: map_line_type(line.origin()),
+                content,
+            });
+        }
         true
     })
     .map_err(map_git_err)?;
 
-    let files = diff
-        .deltas()
-        .filter_map(|delta| {
-            let status = map_delta_status(delta.status()).to_string();
-            let path = delta
-                .new_file()
-                .path()
-                .or_else(|| delta.old_file().path())?;
-            Some(DiffFile {
-                path: path.to_string_lossy().to_string(),
-                status,
-            })
-        })
-        .collect();
+    let mut files = Vec::with_capacity(file_order.len());
+    for path in file_order {
+        if let Some(file) = files_by_path.remove(&path) {
+            files.push(file);
+        }
+    }
 
-    Ok(DiffPayloadResult {
-        files,
-        diff: unified,
-    })
+    Ok(DiffPayloadResult { files })
 }

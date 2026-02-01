@@ -27,7 +27,7 @@
 .file-list {
     width: 248px;
     border-right: 1px solid var(--color-border);
-    padding: 0.5rem;
+    padding: 0.5rem 0;
     overflow-y: auto;
 }
 
@@ -35,12 +35,14 @@
     margin: 0 0 0.35rem 0;
     font-size: 0.85rem;
     color: var(--color-muted);
+    margin-left: 0.5rem;
 }
 
 .diff-body {
     flex: 1;
     padding: 0.5rem;
-    overflow: auto;
+    overflow: hidden;
+    min-height: 0;
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: 0.8rem;
     background: var(--color-surface);
@@ -51,57 +53,113 @@
     transform: translateZ(0);
 }
 
-.diff-file-section {
-    margin-bottom: 1rem;
+.diff-viewport {
+    height: 100%;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    overflow: auto;
+}
+
+.diff-viewport .cdk-virtual-scroll-content-wrapper {
+    min-width: 100%;
 }
 
 .diff-file-header {
     font-weight: 600;
-    margin-bottom: 0.35rem;
     color: var(--color-text);
-}
-
-.diff-lines {
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
+    white-space: nowrap;
     overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
 }
 
-.diff-line {
+.diff-row {
     display: flex;
     gap: 0.5rem;
-    padding: 0.15rem 0.5rem;
-    white-space: pre-wrap;
+    align-items: center;
+    height: 28px;
+    line-height: 28px;
+    padding: 0 0.5rem;
+    white-space: pre;
     backface-visibility: hidden;
     will-change: transform;
+    min-width: 100%;
+    width: max-content;
+    box-sizing: border-box;
 }
 
-.diff-line.add {
+.diff-row.spacer {
+    height: 12px;
+    line-height: 12px;
+    padding: 0;
+    background: transparent;
+}
+
+.diff-spacer {
+    width: 100%;
+    height: 100%;
+}
+
+.diff-row.add {
     background: rgba(111, 143, 108, 0.2);
 }
 
-.diff-line.del {
+.diff-row.del {
     background: rgba(176, 96, 82, 0.2);
 }
 
-.diff-line.context {
+.diff-row.context {
     background: rgba(96, 90, 82, 0.04);
 }
 
-.diff-line.hunk {
+.diff-row.hunk {
     background: rgba(110, 138, 161, 0.2);
     color: var(--color-info);
     font-weight: 600;
 }
 
-.diff-line.meta {
+.diff-row.meta {
     background: rgba(96, 90, 82, 0.06);
     color: var(--color-muted);
 }
 
-.diff-prefix {
+.diff-row.header {
+    background: var(--color-surface-strong);
     font-weight: 600;
-    width: 12px;
+}
+
+.diff-file-header-button {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: var(--color-link);
+    cursor: pointer;
+    text-align: left;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.diff-file-header-button:hover {
+    color: var(--color-link-hover);
+    text-decoration: underline;
+}
+
+.diff-file-header-button:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+.diff-line-content {
+    flex: 1;
+    white-space: inherit;
 }
 
 .diff-code {

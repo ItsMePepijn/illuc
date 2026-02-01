@@ -9,6 +9,14 @@ export class LauncherService {
         await invoke("open_path_in_vscode", { path });
     }
 
+    async openFileInVsCode(
+        path: string,
+        line?: number,
+        column?: number,
+    ): Promise<void> {
+        await invoke("open_file_in_vscode", { req: { path, line, column } });
+    }
+
     async openTerminal(path: string): Promise<void> {
         await invoke("open_path_terminal", { path });
     }

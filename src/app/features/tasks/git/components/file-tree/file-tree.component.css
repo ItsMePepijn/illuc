@@ -51,16 +51,20 @@
     text-overflow: ellipsis;
 }
 
+.file-row {
+    position: relative;
+}
+
 .file-row[data-status="M"] {
-    border-left: 2px solid var(--color-warning);
+    box-shadow: inset 4px 0 0 0 var(--color-warning);
 }
 
 .file-row[data-status="A"] {
-    border-left: 2px solid var(--color-success);
+    box-shadow: inset 4px 0 0 0 var(--color-success);
 }
 
 .file-row[data-status="D"] {
-    border-left: 2px solid var(--color-danger);
+    box-shadow: inset 4px 0 0 0 var(--color-danger);
 }
 
 .file-row[data-status="M"] .path {

@@ -1,15 +1,18 @@
 import { CommonModule } from "@angular/common";
 import {
-    Component,
+    ChangeDetectionStrategy,
     ChangeDetectorRef,
-    ElementRef,
+    Component,
     Input,
     OnChanges,
     OnDestroy,
-    QueryList,
     SimpleChanges,
-    ViewChildren,
+    ViewChild,
 } from "@angular/core";
+import {
+    CdkVirtualScrollViewport,
+    ScrollingModule,
+} from "@angular/cdk/scrolling";
 import hljs from "highlight.js/lib/core";
 import javascript from "highlight.js/lib/languages/javascript";
 import json from "highlight.js/lib/languages/json";
@@ -29,8 +32,9 @@ import cpp from "highlight.js/lib/languages/cpp";
 import markdown from "highlight.js/lib/languages/markdown";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { Subscription } from "rxjs";
-import { DiffMode, DiffPayload } from "../../../task.models";
+import { DiffLineType, DiffMode, DiffPayload } from "../../../task.models";
 import { TaskStore } from "../../../task.store";
+import { LauncherService } from "../../../../launcher/launcher.service";
 import {
     FileTreeComponent,
     FileTreeNode,
@@ -55,51 +59,57 @@ hljs.registerLanguage("c", c);
 hljs.registerLanguage("cpp", cpp);
 hljs.registerLanguage("markdown", markdown);
 
-type DiffLineType = "add" | "del" | "context" | "meta" | "hunk";
-
-const MAX_HIGHLIGHT_CHARS = 200_000;
-const MAX_HIGHLIGHT_LINES = 4_000;
 
 interface RenderedDiffLine {
     type: DiffLineType;
     html: SafeHtml;
 }
 
-interface RenderedDiffFile {
-    path: string;
-    status: string;
-    lines: RenderedDiffLine[];
+type DiffRowKind = "header" | "line" | "spacer";
+
+interface RenderedDiffRow {
+    kind: DiffRowKind;
+    filePath: string;
+    displayName?: string;
+    status?: string;
+    line?: RenderedDiffLine;
 }
 
 @Component({
     selector: "app-task-diff",
     standalone: true,
-    imports: [CommonModule, FileTreeComponent],
+    imports: [CommonModule, FileTreeComponent, ScrollingModule],
     templateUrl: "./task-diff.component.html",
     styleUrl: "./task-diff.component.css",
+    changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TaskDiffComponent implements OnChanges, OnDestroy {
     @Input() taskId: string | null = null;
     @Input() baseBranch: string | null = null;
-    @ViewChildren("diffSection") diffSections?: QueryList<
-        ElementRef<HTMLElement>
-    >;
+    @Input() worktreePath: string | null = null;
+    @ViewChild(CdkVirtualScrollViewport)
+    diffViewport?: CdkVirtualScrollViewport;
 
     diffPayload: DiffPayload | null = null;
-    renderedFiles: RenderedDiffFile[] = [];
+    renderedRows: RenderedDiffRow[] = [];
+    private rowIndexByPath = new Map<string, number>();
     fileTree: FileTreeNode[] = [];
     lastUpdated: Date | null = null;
     error: string | null = null;
     isLoading = false;
     hasLoaded = false;
     diffMode: DiffMode = "worktree";
+    readonly rowHeight = 28;
+    readonly spacerHeight = 12;
     private diffSubscription?: Subscription;
     private diffWatchStop?: () => Promise<void>;
+    private watchVersion = 0;
 
     constructor(
         private readonly taskStore: TaskStore,
         private readonly sanitizer: DomSanitizer,
         private readonly cdr: ChangeDetectorRef,
+        private readonly launcher: LauncherService,
     ) {}
 
     ngOnChanges(changes: SimpleChanges): void {
@@ -118,7 +128,8 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         }
         this.diffMode = mode;
         this.diffPayload = null;
-        this.renderedFiles = [];
+        this.renderedRows = [];
+        this.rowIndexByPath = new Map();
         this.fileTree = [];
         this.error = null;
         this.isLoading = false;
@@ -127,9 +138,14 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     }
 
     private async restartDiffWatch(): Promise<void> {
+        const watchVersion = ++this.watchVersion;
         await this.stopDiffWatch();
+        if (this.watchVersion !== watchVersion) {
+            return;
+        }
         this.diffPayload = null;
-        this.renderedFiles = [];
+        this.renderedRows = [];
+        this.rowIndexByPath = new Map();
         this.fileTree = [];
         this.error = null;
         this.isLoading = false;
@@ -143,9 +159,15 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         const handle = this.taskStore.watchDiff(this.taskId, this.diffMode);
         this.diffWatchStop = handle.stop;
         this.diffSubscription = handle.state$.subscribe((state) => {
+            if (this.watchVersion !== watchVersion) {
+                return;
+            }
+            if (state.payload && state.payload.taskId !== this.taskId) {
+                return;
+            }
             this.diffPayload = state.payload;
-            this.renderedFiles = state.payload
-                ? this.buildRenderedDiff(state.payload)
+            this.renderedRows = state.payload
+                ? this.buildRenderedRows(state.payload)
                 : [];
             this.fileTree = state.payload
                 ? this.buildFileTree(state.payload.files)
@@ -155,6 +177,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             this.isLoading = state.isLoading;
             this.hasLoaded = state.hasLoaded;
             this.cdr.detectChanges();
+            this.diffViewport?.checkViewportSize();
         });
     }
 
@@ -168,61 +191,85 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     }
 
     scrollToFile(path: string): void {
-        this.diffSections
-            ?.find((ref) => ref.nativeElement.dataset["path"] === path)
-            ?.nativeElement.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
+        const index = this.rowIndexByPath.get(path);
+        if (index === undefined) {
+            return;
+        }
+        this.diffViewport?.scrollToIndex(index, "smooth");
     }
 
-    trackByPath(_: number, file: RenderedDiffFile): string {
-        return file.path;
+    async openFileInVsCode(filePath: string, event?: Event): Promise<void> {
+        event?.stopPropagation();
+        const resolved = this.resolveFilePath(filePath);
+        if (!resolved) {
+            return;
+        }
+        try {
+            await this.launcher.openFileInVsCode(resolved, 1, 1);
+        } catch (error) {
+            console.error("Failed to open file in VS Code", error);
+        }
     }
 
-    trackByLine(index: number): number {
+    trackByRow(index: number): number {
         return index;
     }
 
-    private buildRenderedDiff(payload: DiffPayload): RenderedDiffFile[] {
-        const files: RenderedDiffFile[] = [];
-        const statusMap = new Map(
-            payload.files.map((file) => [file.path, file]),
-        );
-        const diffText = payload.unifiedDiff;
-        const diffLines = diffText.split("\n");
-        const highlightEnabled =
-            diffText.length <= MAX_HIGHLIGHT_CHARS &&
-            diffLines.length <= MAX_HIGHLIGHT_LINES;
-        let current: RenderedDiffFile | null = null;
-        for (const rawLine of diffLines) {
-            if (rawLine.startsWith("diff --git ")) {
-                const parsedPath = this.extractPathFromDiffHeader(rawLine);
-                const status = statusMap.get(parsedPath)?.status ?? "M";
-                current = {
-                    path: parsedPath,
-                    status,
-                    lines: [],
-                };
-                files.push(current);
-                continue;
+    private buildRenderedRows(payload: DiffPayload): RenderedDiffRow[] {
+        const highlightEnabled = true;
+        const rows: RenderedDiffRow[] = [];
+        const indexByPath = new Map<string, number>();
+        let firstFile = true;
+        for (const file of payload.files) {
+            if (!firstFile) {
+                rows.push({
+                    kind: "spacer",
+                    filePath: file.path,
+                });
             }
-            if (!current) {
-                continue;
+            firstFile = false;
+            if (!indexByPath.has(file.path)) {
+                indexByPath.set(file.path, rows.length);
             }
-            const type = this.resolveLineType(rawLine);
-            current.lines.push({
-                type,
-                html: this.renderLine(
-                    rawLine,
-                    current.path,
-                    type,
-                    highlightEnabled,
-                ),
+            rows.push({
+                kind: "header",
+                filePath: file.path,
+                status: file.status,
             });
+            for (const line of file.lines) {
+                if (line.type === "meta") {
+                    continue;
+                }
+                rows.push({
+                    kind: "line",
+                    filePath: file.path,
+                    line: {
+                        type: line.type,
+                        html: this.renderLine(
+                            line.content,
+                            file.path,
+                            line.type,
+                            highlightEnabled,
+                        ),
+                    },
+                });
+            }
         }
-        return files;
+        this.rowIndexByPath = indexByPath;
+        return rows;
     }
+
+    private resolveFilePath(filePath: string): string | null {
+        if (!this.worktreePath) {
+            return null;
+        }
+        const base = this.worktreePath.replace(/[\\/]+$/, "");
+        const separator = base.includes("\\") ? "\\" : "/";
+        const normalized =
+            separator === "\\" ? filePath.replace(/\//g, "\\") : filePath;
+        return `${base}${separator}${normalized}`;
+    }
+
 
     private buildFileTree(files: DiffPayload["files"]): FileTreeNode[] {
         type BuildNode = {
@@ -310,35 +357,6 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         return toArray(compressedRoot, 0);
     }
 
-    private extractPathFromDiffHeader(line: string): string {
-        const match = /^diff --git a\/(.+?) b\/(.+)$/.exec(line);
-        if (match && match[2]) {
-            return match[2];
-        }
-        return line.replace("diff --git", "").trim();
-    }
-
-    private resolveLineType(line: string): DiffLineType {
-        if (line.startsWith("+") && !line.startsWith("+++")) {
-            return "add";
-        }
-        if (line.startsWith("-") && !line.startsWith("---")) {
-            return "del";
-        }
-        if (line.startsWith("@@")) {
-            return "hunk";
-        }
-        if (
-            line.startsWith("diff --git") ||
-            line.startsWith("index ") ||
-            line.startsWith("---") ||
-            line.startsWith("+++")
-        ) {
-            return "meta";
-        }
-        return "context";
-    }
-
     private renderLine(
         line: string,
         filePath: string,
@@ -346,15 +364,11 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         highlightEnabled: boolean,
     ): SafeHtml {
         if (type === "add" || type === "del" || type === "context") {
-            const prefix = line.charAt(0);
-            const content = line.slice(1);
             const highlighted = highlightEnabled
-                ? this.highlightContent(content, filePath)
-                : this.escapeHtml(content);
-            const safePrefix =
-                prefix === " " ? "&nbsp;" : this.escapeHtml(prefix);
+                ? this.highlightContent(line, filePath)
+                : this.escapeHtml(line);
             return this.sanitizer.bypassSecurityTrustHtml(
-                `<span class="diff-prefix">${safePrefix}</span><span class="diff-code">${highlighted}</span>`,
+                `<span class="diff-code">${highlighted}</span>`,
             );
         }
         return this.sanitizer.bypassSecurityTrustHtml(

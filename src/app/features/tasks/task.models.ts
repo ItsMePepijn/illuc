@@ -39,14 +39,21 @@ export interface BaseRepoInfo {
 export interface DiffFile {
     path: string;
     status: string;
+    lines: DiffLine[];
 }
 
 export type DiffMode = "worktree" | "branch";
 
+export type DiffLineType = "add" | "del" | "context" | "meta" | "hunk";
+
+export interface DiffLine {
+    type: DiffLineType;
+    content: string;
+}
+
 export interface DiffPayload {
     taskId: string;
     files: DiffFile[];
-    unifiedDiff: string;
 }
 
 export interface DiffChangedEvent {

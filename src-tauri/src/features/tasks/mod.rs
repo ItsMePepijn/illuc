@@ -20,7 +20,10 @@ pub use management::commands::task_stop::Request as StopTaskRequest;
 pub use management::commands::task_terminal_resize::Request as TerminalResizeRequest;
 pub use management::commands::task_terminal_write::Request as TerminalWriteRequest;
 pub use management::commands::task_terminal_start::Request as StartWorktreeTerminalRequest;
-pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
+pub use models::{
+    AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary,
+};
+pub use models::diff_payload::{DiffLine, DiffLineType};
 pub use models::TerminalKind;
 pub use repo::handle_select_base_repo;
 
@@ -545,7 +548,6 @@ impl TaskManager {
                 Ok(DiffPayload {
                     task_id,
                     files: combined.files,
-                    unified_diff: combined.diff,
                 })
             }
             DiffMode::Branch => {
@@ -554,7 +556,6 @@ impl TaskManager {
                 Ok(DiffPayload {
                     task_id,
                     files: branch_diff.files,
-                    unified_diff: branch_diff.diff,
                 })
             }
         }

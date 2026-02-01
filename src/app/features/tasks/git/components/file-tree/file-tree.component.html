@@ -29,7 +29,11 @@
             (click)="handleSelect(node.path)"
         >
             <span class="caret-spacer" aria-hidden="true"></span>
-            <span class="path" [attr.data-status]="node.status">
+            <span
+                class="path"
+                [attr.data-status]="node.status"
+                [title]="node.name"
+            >
                 {{ node.name }}
             </span>
         </button>

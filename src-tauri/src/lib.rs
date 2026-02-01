@@ -4,6 +4,7 @@ mod features;
 mod utils;
 
 use crate::features::launcher::commands::open_path_in_explorer::open_path_in_explorer;
+use crate::features::launcher::commands::open_file_in_vscode::open_file_in_vscode;
 use crate::features::launcher::commands::open_path_in_vscode::open_path_in_vscode;
 use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
@@ -58,6 +59,7 @@ pub fn run() {
             task_open_worktree_in_vscode,
             task_open_worktree_terminal,
             open_path_in_vscode,
+            open_file_in_vscode,
             open_path_terminal,
             open_path_in_explorer,
             task_git_list_branches

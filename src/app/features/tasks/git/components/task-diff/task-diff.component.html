@@ -30,7 +30,7 @@
         <div *ngIf="error" class="diff-error">{{ error }}</div>
 
         <div
-            *ngIf="!error && renderedFiles.length; else noDiff"
+            *ngIf="!error && renderedRows.length; else noDiff"
             class="diff-content"
         >
             <aside
@@ -44,25 +44,44 @@
                 ></app-file-tree>
             </aside>
             <div class="diff-body">
-                <div
-                    class="diff-file-section"
-                    *ngFor="let file of renderedFiles; trackBy: trackByPath"
-                    [attr.data-path]="file.path"
-                    #diffSection
+                <cdk-virtual-scroll-viewport
+                    class="diff-viewport"
+                    [itemSize]="rowHeight"
+                    [minBufferPx]="rowHeight * 20"
+                    [maxBufferPx]="rowHeight * 40"
                 >
-                    <div class="diff-file-header">{{ file.path }}</div>
-                    <div class="diff-lines">
+                    <div
+                        *cdkVirtualFor="let row of renderedRows; trackBy: trackByRow"
+                        class="diff-row"
+                        [class.spacer]="row.kind === 'spacer'"
+                        [class.header]="row.kind === 'header'"
+                        [class.add]="row.kind === 'line' && row.line?.type === 'add'"
+                        [class.del]="row.kind === 'line' && row.line?.type === 'del'"
+                        [class.context]="row.kind === 'line' && row.line?.type === 'context'"
+                        [class.hunk]="row.kind === 'line' && row.line?.type === 'hunk'"
+                        [class.meta]="row.kind === 'line' && row.line?.type === 'meta'"
+                    >
                         <div
-                            class="diff-line"
-                            *ngFor="
-                                let line of file.lines;
-                                trackBy: trackByLine
-                            "
-                            [ngClass]="line.type"
-                            [innerHTML]="line.html"
+                            *ngIf="row.kind === 'header'"
+                            class="diff-file-header"
+                        >
+                            <button
+                                type="button"
+                                class="diff-file-header-button"
+                                [title]="row.filePath"
+                                (click)="openFileInVsCode(row.filePath, $event)"
+                            >
+                                {{ row.filePath }}
+                            </button>
+                        </div>
+                        <div
+                            *ngIf="row.kind === 'line'"
+                            class="diff-line-content"
+                            [innerHTML]="row.line?.html"
                         ></div>
+                        <div *ngIf="row.kind === 'spacer'" class="diff-spacer"></div>
                     </div>
-                </div>
+                </cdk-virtual-scroll-viewport>
             </div>
         </div>
 
