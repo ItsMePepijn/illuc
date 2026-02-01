@@ -1,19 +1,16 @@
+use crate::features::tasks::TaskStatus;
+use crate::utils::pty::{ChildHandle, MasterHandle, WriteHandle};
 use parking_lot::Mutex;
-use portable_pty::{Child, MasterPty};
-use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
-use crate::features::tasks::TaskStatus;
 
 pub mod codex;
 pub mod copilot;
 
-pub type ChildHandle = Box<dyn Child + Send + Sync>;
-
 pub struct AgentRuntime {
     pub child: Arc<Mutex<ChildHandle>>,
-    pub writer: Arc<Mutex<Box<dyn Write + Send>>>,
-    pub master: Arc<Mutex<Box<dyn MasterPty + Send>>>,
+    pub writer: WriteHandle,
+    pub master: MasterHandle,
 }
 
 #[derive(Clone)]

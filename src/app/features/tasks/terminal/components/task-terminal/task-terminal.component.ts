@@ -15,7 +15,7 @@ import { Subscription } from "rxjs";
 import { TaskStore } from "../../../task.store";
 import { TERMINAL_SCROLLBACK } from "../../../terminal.constants";
 import { TerminalFitManager } from "../../../terminal-fit.util";
-import { TerminalKind } from "../../../task.models";
+import { AgentKind, TerminalKind } from "../../../task.models";
 
 @Component({
     selector: "app-task-terminal",
@@ -29,6 +29,7 @@ export class TaskTerminalComponent
 {
     @Input() taskId: string | null = null;
     @Input() mode: "agent" | "worktree" = "agent";
+    @Input() agentKind: AgentKind | null = null;
     @Input() title = "Terminal";
     @Input() showToolbar = true;
     @Input() suspendBackendResize = false;
@@ -290,11 +291,7 @@ export class TaskTerminalComponent
     }
 
     private handleTerminalWheel(event: WheelEvent): boolean {
-        if (
-            !this.isWindows ||
-            (!this.assumeAltScreenOnWindows && !this.altScreenActive) ||
-            !this.taskId
-        ) {
+        if (!this.shouldInterceptWheel() || !this.taskId) {
             return true;
         }
         event.preventDefault();
@@ -307,12 +304,33 @@ export class TaskTerminalComponent
         return false;
     }
 
+    private shouldInterceptWheel(): boolean {
+        if (!this.isWindows) {
+            return false;
+        }
+        if (this.mode === "worktree") {
+            return this.assumeAltScreenOnWindows || this.altScreenActive;
+        }
+        if (this.agentKind === AgentKind.Codex) {
+            return false;
+        }
+        if (!this.assumeAltScreenOnWindows && !this.altScreenActive) {
+            return false;
+        }
+        return true;
+    }
+
     private terminalKind(): TerminalKind {
         return this.mode === "worktree" ? "worktree" : "agent";
     }
 
     private detectAltScreen(chunk: string): void {
         if (!this.isWindows) {
+            return;
+        }
+        if (this.mode === "agent" && this.agentKind === AgentKind.Codex) {
+            this.altScreenActive = false;
+            this.altScreenCarry = "";
             return;
         }
         if (this.assumeAltScreenOnWindows) {

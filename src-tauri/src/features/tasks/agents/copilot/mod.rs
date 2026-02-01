@@ -1,6 +1,7 @@
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::TaskStatus;
 use crate::utils::screen::Screen;
+use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_command;
 #[cfg(target_os = "windows")]
@@ -260,7 +261,7 @@ impl Agent for CopilotAgent {
         let reader = master
             .try_clone_reader()
             .context("failed to clone pty reader")?;
-        let master = Arc::new(Mutex::new(master));
+        let master = wrap_portable_master(master);
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
@@ -281,7 +282,7 @@ impl Agent for CopilotAgent {
             .slave
             .spawn_command(command)
             .context("failed to start Copilot")?;
-        let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(child));
+        let child = wrap_portable_child(child);
 
         let status_handle = self.clone();
         let output_callbacks = callbacks.clone();

@@ -17,6 +17,7 @@ export interface TaskSummary {
     taskId: string;
     title: string;
     status: TaskStatus;
+    agentKind: AgentKind;
     createdAt: string;
     startedAt?: string | null;
     endedAt?: string | null;

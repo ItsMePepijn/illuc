@@ -1,13 +1,16 @@
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::TaskStatus;
 use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
-use crate::utils::windows::build_wsl_command;
+use crate::utils::wsl_pty::spawn_wsl_pty;
+use crate::utils::pty::ReadHandle;
+#[cfg(not(target_os = "windows"))]
+use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
+#[cfg(not(target_os = "windows"))]
 use anyhow::Context;
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, PtySize};
 #[cfg(not(target_os = "windows"))]
-use portable_pty::CommandBuilder;
+use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::Read;
 use std::path::Path;
 use std::sync::Arc;
@@ -84,46 +87,52 @@ impl Agent for CodexAgent {
         rows: u16,
         cols: u16,
     ) -> anyhow::Result<AgentRuntime> {
-        let pty_system = native_pty_system();
         let rows = rows.max(1);
         let cols = cols.max(1);
-        let pair = pty_system.openpty(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })?;
-
-        let master = pair.master;
-        let writer = master
-            .take_writer()
-            .context("failed to obtain pty writer")?;
-        let reader = master
-            .try_clone_reader()
-            .context("failed to clone pty reader")?;
-        let master = Arc::new(Mutex::new(master));
-        let writer = Arc::new(Mutex::new(writer));
-
         #[cfg(target_os = "windows")]
-        let command = build_wsl_command(
-            worktree_path,
-            "codex",
-            &["--full-auto", "resume", "--last"],
-        );
+        let (master, writer, reader, child): (_, _, ReadHandle, _) = {
+            let pty = spawn_wsl_pty(
+                worktree_path,
+                "codex",
+                &["--no-alt-screen", "--full-auto", "resume", "--last"],
+                rows,
+                cols,
+                Some("xterm-256color"),
+            )?;
+            (pty.master, pty.writer, pty.reader, pty.child)
+        };
 
         #[cfg(not(target_os = "windows"))]
-        let command = {
+        let (master, writer, reader, child): (_, _, ReadHandle, _) = {
+            let pty_system = native_pty_system();
+            let pair = pty_system.openpty(PtySize {
+                rows,
+                cols,
+                pixel_width: 0,
+                pixel_height: 0,
+            })?;
+
+            let master = pair.master;
+            let writer = master
+                .take_writer()
+                .context("failed to obtain pty writer")?;
+            let reader = master
+                .try_clone_reader()
+                .context("failed to clone pty reader")?;
+            let master = wrap_portable_master(master);
+            let writer = Arc::new(Mutex::new(writer));
+
             let mut command = CommandBuilder::new("codex");
             command.args(["--full-auto", "resume", "--last"]);
             command.cwd(worktree_path);
-            command
-        };
 
-        let child = pair
-            .slave
-            .spawn_command(command)
-            .context("failed to start Codex")?;
-        let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(child));
+            let child = pair
+                .slave
+                .spawn_command(command)
+                .context("failed to start Codex")?;
+            let child = wrap_portable_child(child);
+            (master, writer, reader, child)
+        };
         let status_handle = self.clone();
         let output_callbacks = callbacks.clone();
         let running = Arc::new(AtomicBool::new(true));

@@ -24,7 +24,7 @@ pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
 pub use models::TerminalKind;
 pub use repo::handle_select_base_repo;
 
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime, ChildHandle};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::agents::codex::CodexAgent;
 use crate::features::tasks::agents::copilot::CopilotAgent;
 use crate::error::{Result, TaskError};
@@ -49,16 +49,16 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use uuid::Uuid;
 use worktree::{clean_branch_name, format_title_from_branch, managed_worktree_root};
+use crate::utils::pty::{
+    ChildHandle, MasterHandle, TerminalSize, WriteHandle, wrap_portable_child,
+    wrap_portable_master,
+};
 
 
 const DEFAULT_SCREEN_ROWS: usize = 40;
 const DEFAULT_SCREEN_COLS: usize = 120;
 const DEFAULT_PTY_ROWS: u16 = 40;
 const DEFAULT_PTY_COLS: u16 = 80;
-
-type MasterHandle = Arc<Mutex<Box<dyn portable_pty::MasterPty + Send>>>;
-
-type WriteHandle = Arc<Mutex<Box<dyn Write + Send>>>;
 
 pub use git::DiffMode;
 
@@ -180,6 +180,7 @@ impl TaskManager {
             task_id,
             title,
             status: TaskStatus::Stopped,
+            agent_kind: AgentKind::Codex,
             created_at: timestamp,
             started_at: None,
             ended_at: None,
@@ -274,6 +275,7 @@ impl TaskManager {
                 record.agent_kind = requested_agent;
                 record.agent = build_agent(requested_agent);
             }
+            record.summary.agent_kind = record.agent_kind;
             let label = agent_label(record.agent_kind);
             record.agent.reset(screen_rows, screen_cols);
             record
@@ -423,11 +425,9 @@ impl TaskManager {
         };
         master
             .lock()
-            .resize(portable_pty::PtySize {
+            .resize(TerminalSize {
                 cols: req.cols,
                 rows: req.rows,
-                pixel_width: 0,
-                pixel_height: 0,
             })
             .with_context(|| "failed to resize terminal")?;
         {
@@ -511,11 +511,9 @@ impl TaskManager {
         };
         master
             .lock()
-            .resize(PtySize {
+            .resize(TerminalSize {
                 cols: req.cols,
                 rows: req.rows,
-                pixel_width: 0,
-                pixel_height: 0,
             })
             .with_context(|| "failed to resize worktree terminal")?;
         Ok(())
@@ -677,7 +675,7 @@ impl TaskManager {
         let reader = master
             .try_clone_reader()
             .context("failed to clone worktree terminal reader")?;
-        let master = Arc::new(Mutex::new(master));
+        let master = wrap_portable_master(master);
         let writer = Arc::new(Mutex::new(writer));
 
         let command = build_worktree_shell_command(worktree_path);
@@ -685,7 +683,7 @@ impl TaskManager {
             .slave
             .spawn_command(command)
             .context("failed to start worktree terminal")?;
-        let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(child));
+        let child = wrap_portable_child(child);
 
         let output_app = app.clone();
         std::thread::spawn(move || {
@@ -784,6 +782,7 @@ impl TaskManager {
                 task_id: Uuid::new_v4(),
                 title: format_title_from_branch(&branch_name),
                 status: TaskStatus::Stopped,
+                agent_kind: AgentKind::Codex,
                 created_at: Utc::now(),
                 started_at: None,
                 ended_at: None,

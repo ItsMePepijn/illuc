@@ -1,4 +1,4 @@
-use crate::features::tasks::models::task_status::TaskStatus;
+use crate::features::tasks::models::{agent_kind::AgentKind, task_status::TaskStatus};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use uuid::Uuid;
@@ -9,6 +9,7 @@ pub struct TaskSummary {
     pub task_id: Uuid,
     pub title: String,
     pub status: TaskStatus,
+    pub agent_kind: AgentKind,
     pub created_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
     pub ended_at: Option<DateTime<Utc>>,
