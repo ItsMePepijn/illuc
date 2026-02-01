@@ -153,7 +153,9 @@ impl TaskManager {
         validate_git_repo(&base_repo)?;
 
         let base_ref = base_ref.unwrap_or_else(|| "HEAD".to_string());
-        let base_commit = run_git(&repo_root, ["rev-parse", base_ref.as_str()])?;
+        let base_commit = run_git(&repo_root, ["rev-parse", base_ref.as_str()])?
+            .trim()
+            .to_string();
 
         let task_id = Uuid::new_v4();
         let title = task_title.unwrap_or_else(|| format!("Task {}", task_id.simple()));
@@ -547,7 +549,7 @@ impl TaskManager {
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
             (
                 PathBuf::from(&record.summary.worktree_path),
-                record.summary.base_commit.clone(),
+                record.summary.base_commit.trim().to_string(),
             )
         };
 
@@ -771,11 +773,12 @@ impl TaskManager {
             .canonicalize()
             .unwrap_or_else(|_| provided_path.clone());
         let managed_root = managed_worktree_root(&repo_root)?;
-        let base_repo_head = run_git(&repo_root, ["rev-parse", "HEAD"])?;
-        let base_repo_branch =
-            run_git(&repo_root, ["rev-parse", "--abbrev-ref", "HEAD"]).unwrap_or_else(|_| {
-                "HEAD".to_string()
-            });
+        let base_repo_head = run_git(&repo_root, ["rev-parse", "HEAD"])?
+            .trim()
+            .to_string();
+        let base_repo_branch = run_git(&repo_root, ["rev-parse", "--abbrev-ref", "HEAD"])
+            .map(|output| output.trim().to_string())
+            .unwrap_or_else(|_| "HEAD".to_string());
         let entries = list_worktrees(&repo_root)?;
         let mut inserted = Vec::new();
         for entry in entries {
