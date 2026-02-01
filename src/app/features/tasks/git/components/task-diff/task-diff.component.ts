@@ -137,6 +137,9 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (!this.taskId) {
             return;
         }
+        this.isLoading = true;
+        this.hasLoaded = false;
+        this.cdr.detectChanges();
         const handle = this.taskStore.watchDiff(this.taskId, this.diffMode);
         this.diffWatchStop = handle.stop;
         this.diffSubscription = handle.state$.subscribe((state) => {

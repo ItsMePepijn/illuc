@@ -1,8 +1,12 @@
 pub mod commands;
 
-use crate::error::Result;
+use crate::error::{Result, TaskError};
+use git2::{
+    BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions,
+    RemoteCallbacks, Repository, Signature, WorktreeAddOptions,
+};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -25,38 +29,287 @@ pub struct DiffPayloadResult {
     pub diff: String,
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct WorktreeEntry {
+    pub path: PathBuf,
+    pub branch: Option<String>,
+    pub head: String,
+}
+
+fn map_git_err(err: git2::Error) -> TaskError {
+    TaskError::Message(err.message().to_string())
+}
+
+fn open_repo(path: &Path) -> Result<Repository> {
+    Repository::discover(path).map_err(map_git_err)
+}
+
+pub fn validate_git_repo(path: &Path) -> Result<()> {
+    let _ = open_repo(path)?;
+    Ok(())
+}
+
+pub fn get_repo_root(path: &Path) -> Result<PathBuf> {
+    let repo = open_repo(path)?;
+    if let Some(workdir) = repo.workdir() {
+        Ok(workdir.to_path_buf())
+    } else {
+        Ok(repo.path().to_path_buf())
+    }
+}
+
+pub fn resolve_commit_id(path: &Path, rev: &str) -> Result<String> {
+    let repo = open_repo(path)?;
+    let object = repo.revparse_single(rev).map_err(map_git_err)?;
+    let commit = object.peel_to_commit().map_err(map_git_err)?;
+    Ok(commit.id().to_string())
+}
+
+pub fn get_head_commit(path: &Path) -> Result<String> {
+    let repo = open_repo(path)?;
+    let head = repo.head().map_err(map_git_err)?;
+    let oid = head
+        .target()
+        .ok_or_else(|| TaskError::Message("HEAD is not a commit.".into()))?;
+    Ok(oid.to_string())
+}
+
+pub fn get_head_branch(path: &Path) -> Result<String> {
+    let repo = open_repo(path)?;
+    let head = repo.head().map_err(map_git_err)?;
+    Ok(head.shorthand().unwrap_or("HEAD").to_string())
+}
+
 pub fn list_branches(path: &Path) -> Result<Vec<String>> {
-    let mut args = vec!["branch".to_string(), "--all".to_string(), "--format".to_string()];
-    args.push("%(refname:short)".to_string());
-    let output = run_git(path, args)?;
-    let mut branches: Vec<String> = output
-        .lines()
-        .map(|line| line.trim().to_string())
-        .filter(|line| !line.is_empty())
-        .filter(|line| !line.contains("HEAD"))
-        .collect();
+    let repo = open_repo(path)?;
+    let mut branches = Vec::new();
+    let iter = repo.branches(None).map_err(map_git_err)?;
+    for branch in iter {
+        let (branch, _) = branch.map_err(map_git_err)?;
+        let name = branch.name().map_err(map_git_err)?.unwrap_or("HEAD");
+        if !name.contains("HEAD") {
+            branches.push(name.to_string());
+        }
+    }
     branches.sort();
     branches.dedup();
     Ok(branches)
 }
 
-pub fn git_commit(repo: &Path, message: &str, stage_all: bool) -> Result<()> {
-    if stage_all {
-        run_git(repo, ["add", "-A"])?;
+pub fn add_worktree(
+    repo_root: &Path,
+    branch_name: &str,
+    worktree_path: &Path,
+    base_ref: &str,
+) -> Result<()> {
+    let repo = open_repo(repo_root)?;
+    let base_object = repo.revparse_single(base_ref).map_err(map_git_err)?;
+    let base_commit = base_object.peel_to_commit().map_err(map_git_err)?;
+    if repo
+        .find_branch(branch_name, BranchType::Local)
+        .is_err()
+    {
+        repo.branch(branch_name, &base_commit, false)
+            .map_err(map_git_err)?;
     }
-    run_git(repo, ["commit", "-m", message]).map(|_| ())
+    let reference_name = format!("refs/heads/{}", branch_name);
+    let reference = repo.find_reference(&reference_name).map_err(map_git_err)?;
+    let mut options = WorktreeAddOptions::new();
+    options.reference(Some(&reference));
+    repo.worktree(branch_name, worktree_path, Some(&options))
+        .map_err(map_git_err)?;
+    Ok(())
 }
 
-pub fn git_push(
-    repo: &Path,
-    remote: &str,
-    branch: &str,
-    set_upstream: bool,
-) -> Result<()> {
-    if set_upstream {
-        run_git(repo, ["push", "-u", remote, branch]).map(|_| ())
+pub fn remove_worktree(repo_root: &Path, worktree_path: &Path) -> Result<()> {
+    let repo = open_repo(repo_root)?;
+    let worktrees = repo.worktrees().map_err(map_git_err)?;
+    for name in worktrees.iter().flatten() {
+        let mut worktree = repo.find_worktree(name).map_err(map_git_err)?;
+        if worktree.path() == worktree_path {
+            worktree.prune(None).map_err(map_git_err)?;
+            return Ok(());
+        }
+    }
+    Ok(())
+}
+
+pub fn delete_branch(repo_root: &Path, branch_name: &str) -> Result<()> {
+    let repo = open_repo(repo_root)?;
+    if let Ok(mut branch) = repo.find_branch(branch_name, BranchType::Local) {
+        branch.delete().map_err(map_git_err)?;
+    }
+    Ok(())
+}
+
+pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
+    let repo = open_repo(repo_root)?;
+    let worktrees = repo.worktrees().map_err(map_git_err)?;
+    let mut entries = Vec::new();
+    for name in worktrees.iter().flatten() {
+        let worktree = repo.find_worktree(name).map_err(map_git_err)?;
+        let path = worktree.path();
+        let worktree_repo = Repository::open(path).map_err(map_git_err)?;
+        let head = worktree_repo.head().map_err(map_git_err)?;
+        let head_oid = head
+            .target()
+            .ok_or_else(|| TaskError::Message("HEAD is not a commit.".into()))?;
+        let branch = if head.is_branch() {
+            head.shorthand().map(|name| name.to_string())
+        } else {
+            None
+        };
+        entries.push(WorktreeEntry {
+            path: path.to_path_buf(),
+            branch,
+            head: head_oid.to_string(),
+        });
+    }
+    Ok(entries)
+}
+
+pub fn git_commit(repo: &Path, message: &str, stage_all: bool) -> Result<()> {
+    let repo = open_repo(repo)?;
+    let mut index = repo.index().map_err(map_git_err)?;
+    if stage_all {
+        index
+            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+            .map_err(map_git_err)?;
+    }
+    index.write().map_err(map_git_err)?;
+    let tree_id = index.write_tree().map_err(map_git_err)?;
+    let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
+
+    let signature = repo.signature().or_else(|_| {
+        Signature::now("illuc", "illuc@local").map_err(map_git_err)
+    })?;
+
+    let mut parents = Vec::new();
+    if let Ok(head) = repo.head() {
+        if let Some(oid) = head.target() {
+            if let Ok(parent) = repo.find_commit(oid) {
+                parents.push(parent);
+            }
+        }
+    }
+    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
+
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        message,
+        &tree,
+        &parent_refs,
+    )
+    .map_err(map_git_err)?;
+
+    Ok(())
+}
+
+pub fn stage_all(repo: &Path) -> Result<()> {
+    let repo = open_repo(repo)?;
+    let mut index = repo.index().map_err(map_git_err)?;
+    index
+        .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+        .map_err(map_git_err)?;
+    index.write().map_err(map_git_err)?;
+    Ok(())
+}
+
+pub fn git_push(repo: &Path, remote_name: &str, branch: &str, set_upstream: bool) -> Result<()> {
+    let repo = open_repo(repo)?;
+    let config = repo.config().map_err(map_git_err)?;
+
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(move |url, username_from_url, allowed| {
+        if allowed.is_ssh_key() {
+            if let Some(username) = username_from_url {
+                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+                    return Ok(cred);
+                }
+            }
+        }
+
+        if allowed.is_user_pass_plaintext() {
+            if let Ok(cred) = Cred::credential_helper(&config, url, username_from_url) {
+                return Ok(cred);
+            }
+            #[cfg(target_os = "windows")]
+            if let Some(cred) = try_gcm_credential(url, username_from_url) {
+                return Ok(cred);
+            }
+            return Err(git2::Error::from_str(
+                "No git credentials configured. Configure credential.helper (e.g. manager-core) or set up SSH.",
+            ));
+        }
+
+        if allowed.is_username() {
+            if let Some(username) = username_from_url {
+                return Cred::username(username);
+            }
+        }
+
+        if allowed.is_default() {
+            return Cred::default();
+        }
+
+        Err(git2::Error::from_str(
+            "No supported credential methods available. Configure SSH or a credential helper.",
+        ))
+    });
+
+    let mut push_options = PushOptions::new();
+    push_options.remote_callbacks(callbacks);
+
+    let mut remote = repo.find_remote(remote_name).map_err(map_git_err)?;
+    let local_ref = if branch.starts_with("refs/") {
+        branch.to_string()
     } else {
-        run_git(repo, ["push", remote, branch]).map(|_| ())
+        format!("refs/heads/{}", branch)
+    };
+    let refspec = format!("{}:refs/heads/{}", local_ref, branch);
+    remote
+        .push(&[refspec.as_str()], Some(&mut push_options))
+        .map_err(map_git_err)?;
+
+    if set_upstream {
+        if let Ok(mut local_branch) = repo.find_branch(branch, BranchType::Local) {
+            let upstream = format!("{}/{}", remote_name, branch);
+            let _ = local_branch.set_upstream(Some(&upstream));
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn try_gcm_credential(url: &str, username: Option<&str>) -> Option<Cred> {
+    let mut config = git2::Config::new().ok()?;
+    for helper in ["manager-core", "manager"] {
+        if config.set_str("credential.helper", helper).is_err() {
+            continue;
+        }
+        if let Ok(cred) = Cred::credential_helper(&config, url, username) {
+            return Some(cred);
+        }
+    }
+    None
+}
+
+fn map_delta_status(delta: Delta) -> &'static str {
+    match delta {
+        Delta::Unmodified => " ",
+        Delta::Added => "A",
+        Delta::Deleted => "D",
+        Delta::Modified => "M",
+        Delta::Renamed => "R",
+        Delta::Copied => "C",
+        Delta::Typechange => "T",
+        Delta::Untracked => "?",
+        Delta::Ignored => "I",
+        Delta::Unreadable => "U",
+        Delta::Conflicted => "U",
     }
 }
 
@@ -65,88 +318,46 @@ pub fn git_diff(
     base_commit: &str,
     ignore_whitespace: Option<&str>,
 ) -> Result<DiffPayloadResult> {
-    let mut diff_args = vec!["diff".to_string()];
-    if let Some(flag) = ignore_whitespace {
-        diff_args.push(flag.to_string());
-    }
-    diff_args.push(base_commit.to_string());
-    let diff = run_git(repo, diff_args)?;
+    let repo = open_repo(repo)?;
+    let base_object = repo.revparse_single(base_commit).map_err(map_git_err)?;
+    let base_commit = base_object.peel_to_commit().map_err(map_git_err)?;
+    let base_tree = base_commit.tree().map_err(map_git_err)?;
 
-    let mut files_args = vec!["diff", "--name-status"].into_iter().map(|s| s.to_string()).collect::<Vec<String>>();
-    if let Some(flag) = ignore_whitespace {
-        files_args.push(flag.to_string());
+    let mut options = DiffOptions::new();
+    if ignore_whitespace.is_some() {
+        options.ignore_whitespace(true);
+        options.ignore_whitespace_change(true);
+        options.ignore_whitespace_eol(true);
     }
-    files_args.push(base_commit.to_string());
-    let files_output = run_git(repo, files_args)?;
-    let files = files_output
-        .lines()
-        .filter_map(|line| {
-            let mut parts = line.split_whitespace();
-            let status = parts.next()?;
-            let path = parts.next()?;
+
+    let diff = repo
+        .diff_tree_to_workdir_with_index(Some(&base_tree), Some(&mut options))
+        .map_err(map_git_err)?;
+
+    let mut unified = String::new();
+    diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
+        unified.push_str(&String::from_utf8_lossy(line.content()));
+        true
+    })
+    .map_err(map_git_err)?;
+
+    let files = diff
+        .deltas()
+        .filter_map(|delta| {
+            let status = map_delta_status(delta.status()).to_string();
+            let path = delta
+                .new_file()
+                .path()
+                .or_else(|| delta.old_file().path())?;
             Some(DiffFile {
-                path: path.to_string(),
-                status: status.to_string(),
+                path: path.to_string_lossy().to_string(),
+                status,
             })
         })
         .collect();
 
-    Ok(DiffPayloadResult { files, diff })
-}
-
-pub fn run_git<I, S>(repo: &Path, args: I) -> Result<String>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<std::ffi::OsStr>,
-{
-    let output = std::process::Command::new("git")
-        .args(args)
-        .current_dir(repo)
-        .output()?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(crate::error::TaskError::Message(stderr).into())
-    }
-}
-
-pub fn get_repo_root(path: &Path) -> Result<std::path::PathBuf> {
-    let output = run_git(path, ["rev-parse", "--show-toplevel"])?;
-    Ok(std::path::PathBuf::from(output.trim()))
-}
-
-pub fn validate_git_repo(path: &Path) -> Result<()> {
-    let _ = run_git(path, ["rev-parse", "--is-inside-work-tree"])?;
-    Ok(())
-}
-
-pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
-    let output = run_git(repo_root, ["worktree", "list", "--porcelain"])?;
-    let mut entries = Vec::new();
-    let mut current = WorktreeEntry::default();
-    for line in output.lines() {
-        if line.starts_with("worktree ") {
-            if !current.path.as_os_str().is_empty() {
-                entries.push(current.clone());
-                current = WorktreeEntry::default();
-            }
-            current.path = std::path::PathBuf::from(line.trim_start_matches("worktree ").trim());
-        } else if let Some(branch) = line.strip_prefix("branch ") {
-            current.branch = Some(branch.trim().to_string());
-        } else if let Some(head) = line.strip_prefix("HEAD ") {
-            current.head = head.trim().to_string();
-        }
-    }
-    if !current.path.as_os_str().is_empty() {
-        entries.push(current);
-    }
-    Ok(entries)
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct WorktreeEntry {
-    pub path: std::path::PathBuf,
-    pub branch: Option<String>,
-    pub head: String,
+    Ok(DiffPayloadResult {
+        files,
+        diff: unified,
+    })
 }

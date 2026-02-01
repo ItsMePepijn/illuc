@@ -30,7 +30,9 @@ use crate::features::tasks::agents::copilot::CopilotAgent;
 use crate::error::{Result, TaskError};
 use crate::features::launcher;
 use crate::features::tasks::git::{
-    git_commit, git_diff, git_push, get_repo_root, list_worktrees, run_git, validate_git_repo,
+    add_worktree, delete_branch, get_head_branch, get_head_commit, get_repo_root, git_commit,
+    git_diff, git_push, list_worktrees, remove_worktree, resolve_commit_id, stage_all,
+    validate_git_repo,
 };
 use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
 use crate::utils::fs::ensure_directory;
@@ -153,9 +155,7 @@ impl TaskManager {
         validate_git_repo(&base_repo)?;
 
         let base_ref = base_ref.unwrap_or_else(|| "HEAD".to_string());
-        let base_commit = run_git(&repo_root, ["rev-parse", base_ref.as_str()])?
-            .trim()
-            .to_string();
+        let base_commit = resolve_commit_id(&repo_root, base_ref.as_str())?;
 
         let task_id = Uuid::new_v4();
         let title = task_title.unwrap_or_else(|| format!("Task {}", task_id.simple()));
@@ -173,19 +173,8 @@ impl TaskManager {
             std::fs::remove_dir_all(&worktree_path).ok();
         }
 
-        let worktree_path_str = worktree_path.to_string_lossy().to_string();
         let worktree_path_display = normalize_path_string(&worktree_path);
-        run_git(
-            &repo_root,
-            [
-                "worktree",
-                "add",
-                "-b",
-                branch_name.as_str(),
-                worktree_path_str.as_str(),
-                base_ref.as_str(),
-            ],
-        )?;
+        add_worktree(&repo_root, branch_name.as_str(), &worktree_path, base_ref.as_str())?;
 
         let summary = TaskSummary {
             task_id,
@@ -382,17 +371,8 @@ impl TaskManager {
             }
         }
 
-        let worktree_path_string = worktree_path.to_string_lossy().to_string();
-        let _ = run_git(
-            &base_repo_path,
-            [
-                "worktree",
-                "remove",
-                "--force",
-                worktree_path_string.as_str(),
-            ],
-        );
-        let _ = run_git(&base_repo_path, ["branch", "-D", branch_name.as_str()]);
+        let _ = remove_worktree(&base_repo_path, &worktree_path);
+        let _ = delete_branch(&base_repo_path, branch_name.as_str());
         if worktree_path.exists() {
             let _ = std::fs::remove_dir_all(&worktree_path);
         }
@@ -553,7 +533,7 @@ impl TaskManager {
             )
         };
 
-        let _ = run_git(worktree_path.as_path(), ["add", "-A"]);
+        let _ = stage_all(worktree_path.as_path());
 
         let whitespace_flag = if req.ignore_whitespace.unwrap_or(false) {
             Some("--ignore-all-space")
@@ -773,12 +753,8 @@ impl TaskManager {
             .canonicalize()
             .unwrap_or_else(|_| provided_path.clone());
         let managed_root = managed_worktree_root(&repo_root)?;
-        let base_repo_head = run_git(&repo_root, ["rev-parse", "HEAD"])?
-            .trim()
-            .to_string();
-        let base_repo_branch = run_git(&repo_root, ["rev-parse", "--abbrev-ref", "HEAD"])
-            .map(|output| output.trim().to_string())
-            .unwrap_or_else(|_| "HEAD".to_string());
+        let base_repo_head = get_head_commit(&repo_root)?;
+        let base_repo_branch = get_head_branch(&repo_root).unwrap_or_else(|_| "HEAD".to_string());
         let entries = list_worktrees(&repo_root)?;
         let mut inserted = Vec::new();
         for entry in entries {
