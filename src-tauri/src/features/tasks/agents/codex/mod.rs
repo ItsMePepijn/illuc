@@ -108,7 +108,7 @@ impl Agent for CodexAgent {
         let command = build_wsl_command(
             worktree_path,
             "codex",
-            &["--enable", "tui2", "--full-auto", "resume", "--last"],
+            &["--full-auto", "resume", "--last"],
         );
 
         #[cfg(not(target_os = "windows"))]
