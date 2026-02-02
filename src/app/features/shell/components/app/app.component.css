@@ -134,6 +134,10 @@
     color: var(--color-muted);
 }
 
+.modal-subtitle.warning {
+    color: var(--color-danger);
+}
+
 .modal input {
     padding: 0.45rem 0.7rem;
     border-radius: 6px;

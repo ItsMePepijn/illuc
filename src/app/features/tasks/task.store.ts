@@ -204,6 +204,12 @@ export class TaskStore {
         });
     }
 
+    async hasUncommittedChanges(taskId: string): Promise<boolean> {
+        return invoke<boolean>("task_git_has_changes", {
+            req: { taskId },
+        });
+    }
+
     async startDiffWatch(taskId: string): Promise<void> {
         await invoke("task_git_diff_watch_start", { req: { taskId } });
     }

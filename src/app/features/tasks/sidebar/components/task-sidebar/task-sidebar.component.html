@@ -76,6 +76,7 @@
                     ></app-task-action-button>
                     <app-task-action-button
                         type="discard"
+                        [loading]="discardLoadingIds.has(task.taskId)"
                         [stopPropagation]="true"
                         (action)="onDiscard(task.taskId)"
                     ></app-task-action-button>

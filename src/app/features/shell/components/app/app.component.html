@@ -67,6 +67,7 @@
             [selectedTaskId]="taskStore.selectedTaskId()"
             [baseRepo]="repo"
             [stopLoadingIds]="stoppingTasks()"
+            [discardLoadingIds]="discardingTasks()"
             (createTask)="openCreateTaskModal()"
             (selectTask)="selectTask($event)"
             (stopTask)="stopTask($event)"
@@ -79,6 +80,7 @@
             [baseRepo]="baseRepo()"
             [startLoading]="isStartingTask(selectedTask()?.taskId)"
             [stopLoading]="isStoppingTask(selectedTask()?.taskId)"
+            [discardLoading]="isDiscardingTaskFor(selectedTask()?.taskId)"
             [selectRepoLoading]="isSelectingRepo"
             (startTask)="startTask($event)"
             (stopTask)="stopTask($event)"
@@ -177,6 +179,9 @@
                 <span *ngIf="confirmDiscardBranch"
                     >({{ confirmDiscardBranch }})</span
                 >. This action cannot be undone.
+            </p>
+            <p class="modal-subtitle warning" *ngIf="confirmDiscardHasChanges">
+                Uncommitted changes were detected and will be lost.
             </p>
             <div class="error" *ngIf="confirmDiscardError">
                 {{ confirmDiscardError }}

@@ -10,6 +10,7 @@ pub use git::commands::task_git_commit::Request as CommitTaskRequest;
 pub use git::commands::task_git_diff_get::Request as DiffRequest;
 pub use git::commands::task_git_diff_watch_start::Request as StartDiffWatchRequest;
 pub use git::commands::task_git_diff_watch_stop::Request as StopDiffWatchRequest;
+pub use git::commands::task_git_has_changes::Request as HasChangesRequest;
 pub use git::commands::task_git_push::Request as PushTaskRequest;
 pub use management::commands::task_create::Request as CreateTaskRequest;
 pub use management::commands::task_discard::Request as DiscardTaskRequest;
@@ -34,8 +35,8 @@ use crate::error::{Result, TaskError};
 use crate::features::launcher;
 use crate::features::tasks::git::{
     add_worktree, delete_branch, get_head_branch, get_head_commit, get_repo_root, git_commit,
-    git_diff, git_push, list_worktrees, remove_worktree, resolve_commit_id, stage_all,
-    validate_git_repo,
+    git_diff, git_push, has_uncommitted_changes, list_worktrees, prune_worktrees,
+    remove_worktree, resolve_commit_id, stage_all, validate_git_repo,
 };
 use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
 use crate::utils::fs::ensure_directory;
@@ -177,7 +178,14 @@ impl TaskManager {
         }
 
         let worktree_path_display = normalize_path_string(&worktree_path);
-        add_worktree(&repo_root, branch_name.as_str(), &worktree_path, base_ref.as_str())?;
+        let worktree_name = task_id.simple().to_string();
+        add_worktree(
+            &repo_root,
+            branch_name.as_str(),
+            &worktree_path,
+            base_ref.as_str(),
+            worktree_name.as_str(),
+        )?;
 
         let summary = TaskSummary {
             task_id,
@@ -561,6 +569,11 @@ impl TaskManager {
         }
     }
 
+    pub fn has_uncommitted_changes(&self, req: HasChangesRequest) -> Result<bool> {
+        let path = self.worktree_path(req.task_id)?;
+        has_uncommitted_changes(path.as_path())
+    }
+
     pub fn start_diff_watch(&self, req: StartDiffWatchRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
         let worktree_path = self.worktree_path(task_id)?;
@@ -751,6 +764,9 @@ impl TaskManager {
         let repo_root = get_repo_root(&provided_path)?
             .canonicalize()
             .unwrap_or_else(|_| provided_path.clone());
+        if let Err(err) = prune_worktrees(&repo_root) {
+            warn!("worktree prune failed: {}", err);
+        }
         let managed_root = managed_worktree_root(&repo_root)?;
         let base_repo_head = get_head_commit(&repo_root)?;
         let base_repo_branch = get_head_branch(&repo_root).unwrap_or_else(|_| "HEAD".to_string());

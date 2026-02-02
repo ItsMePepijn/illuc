@@ -32,6 +32,7 @@ export class AppComponent implements OnInit, OnDestroy {
     confirmDiscardTitle = "";
     confirmDiscardBranch = "";
     confirmDiscardError = "";
+    confirmDiscardHasChanges = false;
     baseBranchSelection = "";
     private readonly appWindow = getCurrentWindow();
     isMaximized = false;
@@ -41,6 +42,7 @@ export class AppComponent implements OnInit, OnDestroy {
     isDiscardingTask = false;
     private readonly startingTaskIds = new Set<string>();
     private readonly stoppingTaskIds = new Set<string>();
+    private readonly discardingTaskIds = new Set<string>();
 
     constructor(
         public readonly taskStore: TaskStore,
@@ -193,13 +195,50 @@ export class AppComponent implements OnInit, OnDestroy {
         }
     }
 
-    discardTask(taskId: string): void {
-        const task =
-            this.taskStore.tasks().find((wf) => wf.taskId === taskId) ?? null;
-        this.confirmDiscardTaskId = taskId;
-        this.confirmDiscardTitle = task?.title ?? "Selected task";
-        this.confirmDiscardBranch = task?.branchName ?? "";
-        this.confirmDiscardError = "";
+    async discardTask(taskId: string): Promise<void> {
+        if (
+            this.discardingTaskIds.has(taskId) ||
+            this.isDiscardingTask
+        ) {
+            return;
+        }
+        this.discardingTaskIds.add(taskId);
+        try {
+            const hasChanges =
+                await this.taskStore.hasUncommittedChanges(taskId);
+            if (!hasChanges) {
+                try {
+                    await this.taskStore.discardTask(taskId);
+                } catch (error: unknown) {
+                    console.error(
+                        this.describeError(error, "Unable to discard task."),
+                    );
+                }
+                return;
+            }
+            const task =
+                this.taskStore.tasks().find((wf) => wf.taskId === taskId) ??
+                null;
+            this.confirmDiscardTaskId = taskId;
+            this.confirmDiscardTitle = task?.title ?? "Selected task";
+            this.confirmDiscardBranch = task?.branchName ?? "";
+            this.confirmDiscardError = "";
+            this.confirmDiscardHasChanges = true;
+        } catch (error: unknown) {
+            this.confirmDiscardError = this.describeError(
+                error,
+                "Unable to check for uncommitted changes.",
+            );
+            const task =
+                this.taskStore.tasks().find((wf) => wf.taskId === taskId) ??
+                null;
+            this.confirmDiscardTaskId = taskId;
+            this.confirmDiscardTitle = task?.title ?? "Selected task";
+            this.confirmDiscardBranch = task?.branchName ?? "";
+            this.confirmDiscardHasChanges = true;
+        } finally {
+            this.discardingTaskIds.delete(taskId);
+        }
     }
 
     selectTask(taskId: string): void {
@@ -211,6 +250,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.confirmDiscardTitle = "";
         this.confirmDiscardBranch = "";
         this.confirmDiscardError = "";
+        this.confirmDiscardHasChanges = false;
     }
 
     async confirmDiscardTask(): Promise<void> {
@@ -220,9 +260,11 @@ export class AppComponent implements OnInit, OnDestroy {
         if (this.isDiscardingTask) {
             return;
         }
+        const taskId = this.confirmDiscardTaskId;
         this.isDiscardingTask = true;
+        this.discardingTaskIds.add(taskId);
         try {
-            await this.taskStore.discardTask(this.confirmDiscardTaskId);
+            await this.taskStore.discardTask(taskId);
             this.cancelDiscardTask();
         } catch (error: unknown) {
             this.confirmDiscardError = this.describeError(
@@ -231,6 +273,7 @@ export class AppComponent implements OnInit, OnDestroy {
             );
         } finally {
             this.isDiscardingTask = false;
+            this.discardingTaskIds.delete(taskId);
         }
     }
 
@@ -280,5 +323,13 @@ export class AppComponent implements OnInit, OnDestroy {
 
     stoppingTasks(): Set<string> {
         return this.stoppingTaskIds;
+    }
+
+    discardingTasks(): Set<string> {
+        return this.discardingTaskIds;
+    }
+
+    isDiscardingTaskFor(taskId: string | null | undefined): boolean {
+        return !!taskId && this.discardingTaskIds.has(taskId);
     }
 }

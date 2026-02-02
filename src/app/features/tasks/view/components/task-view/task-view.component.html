@@ -57,6 +57,8 @@
                 ></app-task-action-button>
                 <app-task-action-button
                     type="discard"
+                    [disabled]="!current"
+                    [loading]="discardLoading"
                     (action)="onDiscard()"
                 ></app-task-action-button>
             </div>

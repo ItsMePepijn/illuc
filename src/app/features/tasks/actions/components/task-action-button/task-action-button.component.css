@@ -16,7 +16,7 @@
         color 0.2s ease;
 }
 
-:host ::ng-deep .action-btn span:not(.button-content),
+:host ::ng-deep .action-btn span:not(.button-content):not(.button-spinner),
 :host ::ng-deep .action-btn svg {
     pointer-events: none;
     width: 16px;
@@ -30,6 +30,19 @@
 :host ::ng-deep .action-btn[data-action="push"] svg {
     width: 20px;
     height: 20px;
+}
+
+:host ::ng-deep .action-btn .button-spinner {
+    width: 18px;
+    height: 18px;
+}
+
+:host ::ng-deep .action-btn.loading {
+    gap: 0;
+}
+
+:host ::ng-deep .action-btn.loading .button-content {
+    display: none;
 }
 
 :host ::ng-deep .action-btn.warn {

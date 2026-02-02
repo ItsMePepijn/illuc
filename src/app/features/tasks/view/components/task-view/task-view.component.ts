@@ -42,6 +42,7 @@ export class TaskViewComponent {
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() startLoading = false;
     @Input() stopLoading = false;
+    @Input() discardLoading = false;
     @Input() selectRepoLoading = false;
     activePane: "terminal" | "diff" = "terminal";
     isShellTerminalOpen = false;

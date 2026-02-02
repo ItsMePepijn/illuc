@@ -9,6 +9,7 @@ use crate::features::launcher::commands::open_path_in_vscode::open_path_in_vscod
 use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
 use crate::features::tasks::git::commands::task_git_diff_get::task_git_diff_get;
+use crate::features::tasks::git::commands::task_git_has_changes::task_git_has_changes;
 use crate::features::tasks::git::commands::task_git_diff_watch_start::task_git_diff_watch_start;
 use crate::features::tasks::git::commands::task_git_diff_watch_stop::task_git_diff_watch_stop;
 use crate::features::tasks::git::commands::task_git_list_branches::task_git_list_branches;
@@ -51,6 +52,7 @@ pub fn run() {
             task_terminal_resize,
             task_terminal_start,
             task_git_diff_get,
+            task_git_has_changes,
             task_git_diff_watch_start,
             task_git_diff_watch_stop,
             task_git_commit,

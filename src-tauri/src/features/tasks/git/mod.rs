@@ -4,7 +4,7 @@ use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions,
-    RemoteCallbacks, Repository, Signature, WorktreeAddOptions,
+    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -103,6 +103,7 @@ pub fn add_worktree(
     branch_name: &str,
     worktree_path: &Path,
     base_ref: &str,
+    worktree_name: &str,
 ) -> Result<()> {
     let repo = open_repo(repo_root)?;
     let base_object = repo.revparse_single(base_ref).map_err(map_git_err)?;
@@ -118,7 +119,7 @@ pub fn add_worktree(
     let reference = repo.find_reference(&reference_name).map_err(map_git_err)?;
     let mut options = WorktreeAddOptions::new();
     options.reference(Some(&reference));
-    repo.worktree(branch_name, worktree_path, Some(&options))
+    repo.worktree(worktree_name, worktree_path, Some(&options))
         .map_err(map_git_err)?;
     Ok(())
 }
@@ -168,6 +169,17 @@ pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
         });
     }
     Ok(entries)
+}
+
+pub fn prune_worktrees(repo_root: &Path) -> Result<()> {
+    let repo = open_repo(repo_root)?;
+    let worktrees = repo.worktrees().map_err(map_git_err)?;
+    for name in worktrees.iter().flatten() {
+        if let Ok(mut worktree) = repo.find_worktree(name) {
+            let _ = worktree.prune(None);
+        }
+    }
+    Ok(())
 }
 
 pub fn git_commit(repo: &Path, message: &str, stage_all: bool) -> Result<()> {
@@ -412,4 +424,19 @@ pub fn git_diff(
     }
 
     Ok(DiffPayloadResult { files })
+}
+
+pub fn has_uncommitted_changes(repo: &Path) -> Result<bool> {
+    let repo = open_repo(repo)?;
+    let mut options = StatusOptions::new();
+    options
+        .include_untracked(true)
+        .recurse_untracked_dirs(true)
+        .include_ignored(false)
+        .include_unmodified(false)
+        .exclude_submodules(true);
+    let statuses = repo.statuses(Some(&mut options)).map_err(map_git_err)?;
+    Ok(statuses
+        .iter()
+        .any(|entry| entry.status() != Status::CURRENT))
 }
