@@ -24,6 +24,7 @@ export class TaskStore {
     private readonly baseRepoSignal = signal<BaseRepoInfo | null>(null);
     private readonly selectedTaskIdSignal = signal<string | null>(null);
     private readonly branchOptionsSignal = signal<string[]>([]);
+    private readonly viewModeSignal = signal<"task" | "home">("task");
     private readonly terminalBuffers = new Map<string, string>();
     private readonly terminalStreams = new Map<string, Subject<string>>();
     private readonly terminalSizes = new Map<
@@ -51,6 +52,7 @@ export class TaskStore {
     readonly baseRepo = this.baseRepoSignal.asReadonly();
     readonly selectedTaskId = this.selectedTaskIdSignal.asReadonly();
     readonly branchOptions = this.branchOptionsSignal.asReadonly();
+    readonly viewMode = this.viewModeSignal.asReadonly();
     readonly selectedTask = computed(() => {
         const id = this.selectedTaskIdSignal();
         if (!id) {
@@ -75,6 +77,7 @@ export class TaskStore {
         };
         this.baseRepoSignal.set(normalized);
         this.tasksSignal.set([]);
+        this.viewModeSignal.set("home");
         this.selectedTaskIdSignal.set(null);
         this.branchOptionsSignal.set([]);
         this.terminalBuffers.clear();
@@ -270,7 +273,17 @@ export class TaskStore {
     }
 
     selectTask(taskId: string | null): void {
-        this.selectedTaskIdSignal.set(taskId);
+        if (taskId) {
+            this.viewModeSignal.set("task");
+            this.selectedTaskIdSignal.set(taskId);
+            return;
+        }
+        this.selectHome();
+    }
+
+    selectHome(): void {
+        this.viewModeSignal.set("home");
+        this.selectedTaskIdSignal.set(null);
     }
 
     branches(): string[] {
@@ -364,17 +377,23 @@ export class TaskStore {
                 a.createdAt.localeCompare(b.createdAt),
             );
         });
-        if (!this.selectedTaskIdSignal()) {
+        if (!this.selectedTaskIdSignal() && this.viewModeSignal() !== "home") {
             this.selectedTaskIdSignal.set(summary.taskId);
         }
     }
 
     private removeTask(taskId: string): void {
-        this.tasksSignal.update((items) =>
-            items.filter((item) => item.taskId !== taskId),
-        );
+        let remaining: TaskSummary[] = [];
+        this.tasksSignal.update((items) => {
+            remaining = items.filter((item) => item.taskId !== taskId);
+            return remaining;
+        });
         if (this.selectedTaskIdSignal() === taskId) {
-            this.selectedTaskIdSignal.set(null);
+            this.selectedTaskIdSignal.set(
+                this.viewModeSignal() === "task"
+                    ? remaining[0]?.taskId ?? null
+                    : null,
+            );
         }
         this.terminalBuffers.delete(taskId);
         this.terminalStreams.delete(taskId);

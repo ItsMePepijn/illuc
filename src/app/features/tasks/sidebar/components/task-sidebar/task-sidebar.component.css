@@ -79,6 +79,26 @@
     font-weight: 600;
 }
 
+.home-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 1rem;
+    border-bottom: 1px solid rgba(96, 90, 82, 0.12);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s ease;
+}
+
+.home-row:hover {
+    background: var(--color-hover);
+}
+
+.home-row.selected {
+    background: var(--color-accent-soft);
+}
+
+
 .title-group {
     display: flex;
     align-items: center;

@@ -26,6 +26,7 @@ export class TaskSidebarComponent {
     @Input() stopLoadingIds: Set<string> = new Set();
     @Input() discardLoadingIds: Set<string> = new Set();
     @Output() selectTask = new EventEmitter<string>();
+    @Output() selectHome = new EventEmitter<void>();
     @Output() stopTask = new EventEmitter<string>();
     @Output() discardTask = new EventEmitter<string>();
     @Output() createTask = new EventEmitter<void>();
@@ -38,6 +39,10 @@ export class TaskSidebarComponent {
 
     onSelect(taskId: string): void {
         this.selectTask.emit(taskId);
+    }
+
+    onSelectHome(): void {
+        this.selectHome.emit();
     }
 
     onStop(taskId: string): void {

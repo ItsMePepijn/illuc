@@ -18,6 +18,7 @@ import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vs
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { StartAgentDropdownComponent } from "../../../agents/components/start-agent-dropdown/start-agent-dropdown.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
+import { TaskHomeDashboardComponent } from "../../../home/components/task-home-dashboard/task-home-dashboard.component";
 import { TaskStore } from "../../../task.store";
 
 @Component({
@@ -33,6 +34,7 @@ import { TaskStore } from "../../../task.store";
         OpenTerminalButtonComponent,
         StartAgentDropdownComponent,
         LoadingButtonComponent,
+        TaskHomeDashboardComponent,
     ],
     templateUrl: "./task-view.component.html",
     styleUrl: "./task-view.component.css",

@@ -31,6 +31,14 @@
         </div>
     </div>
 
+    <div
+        class="home-row"
+        [class.selected]="!selectedTaskId"
+        (click)="onSelectHome()"
+    >
+        <span class="home-label">Dashboard</span>
+    </div>
+
     <div class="sidebar-header">
         <div class="title-group">
             <span class="title">Tasks</span>

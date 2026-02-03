@@ -1,0 +1,111 @@
+<ng-container *ngIf="baseRepo; else landing">
+    <section class="home-view">
+        <header class="home-header">
+            <div>
+                <p class="eyebrow">Dashboard</p>
+                <h2>Weekly focus</h2>
+                <div class="range-nav">
+                    <button type="button" (click)="prevWeek()">
+                        <span aria-hidden="true">&lt;</span>
+                    </button>
+                    <p class="range">{{ weekRangeLabel() }}</p>
+                    <button
+                        type="button"
+                        (click)="nextWeek()"
+                        [disabled]="!canGoNext()"
+                    >
+                        <span aria-hidden="true">&gt;</span>
+                    </button>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="summary-pill" *ngIf="weekTotalSeconds()">
+                    <span class="summary-label">Tracked</span>
+                    <span class="summary-value">
+                        {{ formatDuration(weekTotalSeconds()) }}
+                    </span>
+                </div>
+            </div>
+        </header>
+
+        <div class="time-grid-wrap" *ngIf="rows().length; else emptyState">
+            <div class="time-grid">
+                <div class="grid-header">
+                    <div class="cell task-cell">Task</div>
+                    <div class="cell" *ngFor="let day of weekDays()">
+                        <div class="day-label">
+                            <span>{{ day.label }}</span>
+                            <small>{{ day.dateLabel }}</small>
+                        </div>
+                    </div>
+                    <div class="cell total-cell">Total</div>
+                </div>
+                <div
+                    class="grid-row"
+                    *ngFor="let row of rows(); trackBy: trackByTaskId"
+                >
+                    <div class="cell task-cell">
+                        <div class="task-title">{{ row.title }}</div>
+                        <div class="task-branch" *ngIf="row.branchName">
+                            {{ row.branchName }}
+                        </div>
+                    </div>
+                    <div class="cell" *ngFor="let day of weekDays()">
+                        {{ formatDuration(row.byDate[day.key]) }}
+                    </div>
+                    <div class="cell total-cell">
+                        {{ formatDuration(row.total) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <ng-template #emptyState>
+            <div class="empty-dashboard">
+                <h3>No tracked focus yet</h3>
+                <p>
+                    Spend time inside a task view to start building your weekly
+                    timeline.
+                </p>
+            </div>
+        </ng-template>
+    </section>
+</ng-container>
+
+<ng-template #landing>
+    <div class="empty-view">
+        <div class="landing-card">
+            <div class="compass-logo" aria-hidden="true">
+                <svg viewBox="0 0 200 200" role="presentation" focusable="false">
+                    <circle class="compass-ring outer" cx="100" cy="100" r="70" />
+                    <circle class="compass-ring inner" cx="100" cy="100" r="48" />
+                    <line class="compass-axis" x1="100" y1="20" x2="100" y2="180" />
+                    <line class="compass-axis" x1="20" y1="100" x2="180" y2="100" />
+                    <path
+                        class="compass-needle"
+                        d="M100 40 L124 100 L100 160 L76 100 Z"
+                        transform="rotate(45 100 100)"
+                    />
+                    <circle class="compass-core" cx="100" cy="100" r="6" />
+                </svg>
+            </div>
+            <div class="landing-text">
+                <h1>illuc</h1>
+                <p class="etymology">"thither, to that place, to there"</p>
+                <p class="subtitle">
+                    Select a base repository to load managed worktrees, then
+                    choose an existing task or create a new branch to get
+                    started.
+                </p>
+                <app-loading-button
+                    buttonType="button"
+                    buttonClass="primary landing-action"
+                    [loading]="selectRepoLoading"
+                    (action)="onSelectBaseRepo()"
+                >
+                    Select repository
+                </app-loading-button>
+            </div>
+        </div>
+    </div>
+</ng-template>

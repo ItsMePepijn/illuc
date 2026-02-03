@@ -25,6 +25,8 @@ use crate::features::tasks::management::commands::task_stop::task_stop;
 use crate::features::tasks::management::commands::task_terminal_start::task_terminal_start;
 use crate::features::tasks::management::commands::task_terminal_resize::task_terminal_resize;
 use crate::features::tasks::management::commands::task_terminal_write::task_terminal_write;
+use crate::features::time_tracking::commands::task_time_tracking_get::task_time_tracking_get;
+use crate::features::time_tracking::commands::task_time_tracking_record::task_time_tracking_record;
 use crate::features::tasks::TaskManager;
 use log::info;
 
@@ -64,7 +66,9 @@ pub fn run() {
             open_file_in_vscode,
             open_path_terminal,
             open_path_in_explorer,
-            task_git_list_branches
+            task_git_list_branches,
+            task_time_tracking_get,
+            task_time_tracking_record
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -73,3 +73,14 @@ export interface TerminalExitEvent {
     exitCode: number;
     kind: TerminalKind;
 }
+
+export interface TimeTrackingEntry {
+    branchName: string;
+    title?: string | null;
+    byDate: Record<string, number>;
+}
+
+export interface TimeTrackingPayload {
+    version: number;
+    branches: Record<string, TimeTrackingEntry>;
+}

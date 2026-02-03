@@ -175,7 +175,7 @@ pub fn prune_worktrees(repo_root: &Path) -> Result<()> {
     let repo = open_repo(repo_root)?;
     let worktrees = repo.worktrees().map_err(map_git_err)?;
     for name in worktrees.iter().flatten() {
-        if let Ok(mut worktree) = repo.find_worktree(name) {
+        if let Ok(worktree) = repo.find_worktree(name) {
             let _ = worktree.prune(None);
         }
     }

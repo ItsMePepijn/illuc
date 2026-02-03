@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnDestroy, OnInit } from "@angular/core";
+import { Component, OnDestroy, OnInit, effect } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -10,6 +10,7 @@ import { deriveTitleFromBranch } from "../../../tasks/title.utils";
 import { TaskStore } from "../../../tasks/task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
 import { LoadingButtonComponent } from "../../../../shared/components/loading-button/loading-button.component";
+import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
 
 @Component({
     selector: "app-root",
@@ -47,7 +48,24 @@ export class AppComponent implements OnInit, OnDestroy {
     constructor(
         public readonly taskStore: TaskStore,
         private readonly launcher: LauncherService,
-    ) {}
+        private readonly timeTracking: TaskTimeTrackingService,
+    ) {
+        effect(() => {
+            const baseRepoPath = this.taskStore.baseRepo()?.path ?? null;
+            const task = this.taskStore.selectedTask();
+            void this.timeTracking.syncContext(
+                baseRepoPath,
+                task
+                    ? {
+                          taskId: task.taskId,
+                          branchName: task.branchName,
+                          title: task.title,
+                          baseRepoPath: task.baseRepoPath,
+                      }
+                    : null,
+            );
+        });
+    }
 
     ngOnInit(): void {
         void this.refreshMaximizeState();
@@ -243,6 +261,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
     selectTask(taskId: string): void {
         this.taskStore.selectTask(taskId);
+    }
+
+    selectHome(): void {
+        this.taskStore.selectHome();
     }
 
     cancelDiscardTask(): void {

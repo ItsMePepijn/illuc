@@ -69,6 +69,7 @@
             [stopLoadingIds]="stoppingTasks()"
             [discardLoadingIds]="discardingTasks()"
             (createTask)="openCreateTaskModal()"
+            (selectHome)="selectHome()"
             (selectTask)="selectTask($event)"
             (stopTask)="stopTask($event)"
             (discardTask)="discardTask($event)"
