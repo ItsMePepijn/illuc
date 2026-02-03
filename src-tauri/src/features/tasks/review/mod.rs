@@ -40,9 +40,27 @@ pub struct ReviewComment {
     pub line_number_old: Option<u32>,
     pub line_number_new: Option<u32>,
     pub line_type: ReviewLineType,
+    #[serde(default)]
+    pub status: ReviewCommentStatus,
     pub body: String,
     pub author: String,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ReviewCommentStatus {
+    Active,
+    Pending,
+    Resolved,
+    WontFix,
+    Closed,
+}
+
+impl Default for ReviewCommentStatus {
+    fn default() -> Self {
+        Self::Active
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]

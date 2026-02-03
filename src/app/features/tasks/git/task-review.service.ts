@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
     DiffLineType,
     ReviewComment,
+    ReviewCommentStatus,
     ReviewStore,
 } from "../task.models";
 
@@ -26,6 +27,14 @@ export class TaskReviewService {
 
     async addComment(req: AddReviewCommentRequest): Promise<ReviewComment> {
         return invoke<ReviewComment>("task_review_add_comment", { req });
+    }
+
+    async updateCommentStatus(
+        req: UpdateReviewCommentStatusRequest,
+    ): Promise<ReviewComment> {
+        return invoke<ReviewComment>("task_review_update_comment_status", {
+            req,
+        });
     }
 
     getUserDisplayName(): Promise<string> {
@@ -59,4 +68,11 @@ export interface AddReviewCommentRequest {
     lineNumberNew?: number | null;
     lineType: DiffLineType;
     body: string;
+}
+
+export interface UpdateReviewCommentStatusRequest {
+    worktreePath: string;
+    taskId: string;
+    commentId: string;
+    status: ReviewCommentStatus;
 }

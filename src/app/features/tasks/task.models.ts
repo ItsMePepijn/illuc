@@ -93,10 +93,18 @@ export interface ReviewComment {
     lineNumberOld?: number | null;
     lineNumberNew?: number | null;
     lineType: DiffLineType;
+    status: ReviewCommentStatus;
     body: string;
     author: string;
     createdAt: string;
 }
+
+export type ReviewCommentStatus =
+    | "active"
+    | "pending"
+    | "resolved"
+    | "wont-fix"
+    | "closed";
 
 export interface ReviewTaskEntry {
     taskId: string;

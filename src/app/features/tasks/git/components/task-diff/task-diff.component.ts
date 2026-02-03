@@ -42,6 +42,7 @@ import {
     DiffMode,
     DiffPayload,
     ReviewComment,
+    ReviewCommentStatus,
     ReviewStore,
 } from "../../../task.models";
 import { TaskStore } from "../../../task.store";
@@ -76,6 +77,20 @@ marked.setOptions({
     gfm: true,
 });
 
+type ReviewStatusOption = {
+    value: ReviewCommentStatus;
+    label: string;
+};
+
+const REVIEW_STATUS_OPTIONS: ReadonlyArray<ReviewStatusOption> = [
+    { value: "active", label: "Active" },
+    { value: "pending", label: "Pending" },
+    { value: "resolved", label: "Resolved" },
+    { value: "wont-fix", label: "Won't Fix" },
+    { value: "closed", label: "Closed" },
+];
+
+const DEFAULT_REVIEW_STATUS: ReviewCommentStatus = "active";
 
 interface RenderedDiffLine {
     type: DiffLineType;
@@ -155,9 +170,12 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     activeThreadKey: string | null = null;
     isSubmittingComment = false;
     userDisplayName = "User";
+    readonly reviewStatusOptions = REVIEW_STATUS_OPTIONS;
     private readonly collapsedThreads = new Set<string>();
     private readonly commentDrafts = new Map<string, string>();
     private readonly commentBodyCache = new Map<string, SafeHtml>();
+    private readonly commentStatusUpdating = new Set<string>();
+    private shouldAutoCollapseThreads = true;
 
     constructor(
         private readonly taskStore: TaskStore,
@@ -174,6 +192,8 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (changes["taskId"] || changes["worktreePath"]) {
             this.activeThreadKey = null;
             this.commentDrafts.clear();
+            this.collapsedThreads.clear();
+            this.shouldAutoCollapseThreads = true;
             void this.refreshReviewStore();
         }
         if (changes["taskId"]) {
@@ -496,6 +516,42 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         );
     }
 
+    isStatusUpdating(comment: ReviewComment): boolean {
+        return this.commentStatusUpdating.has(comment.id);
+    }
+
+    async updateCommentStatus(
+        comment: ReviewComment,
+        status: ReviewCommentStatus,
+    ): Promise<void> {
+        if (!this.taskId || !this.worktreePath) {
+            return;
+        }
+        const nextStatus = status ?? DEFAULT_REVIEW_STATUS;
+        if (comment.status === nextStatus) {
+            return;
+        }
+        const previousStatus = comment.status ?? DEFAULT_REVIEW_STATUS;
+        this.updateLocalCommentStatus(comment.id, nextStatus);
+        this.commentStatusUpdating.add(comment.id);
+        this.cdr.detectChanges();
+        try {
+            const updated = await this.reviewService.updateCommentStatus({
+                worktreePath: this.worktreePath,
+                taskId: this.taskId,
+                commentId: comment.id,
+                status: nextStatus,
+            });
+            this.replaceLocalComment(comment.id, updated);
+        } catch (error) {
+            console.error("Failed to update review comment status", error);
+            this.updateLocalCommentStatus(comment.id, previousStatus);
+        } finally {
+            this.commentStatusUpdating.delete(comment.id);
+            this.cdr.detectChanges();
+        }
+    }
+
     toggleThread(row: RenderedDiffRow, event?: Event): void {
         event?.stopPropagation();
         const key = this.buildLineKey(row);
@@ -575,6 +631,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 lineNumberOld: target.lineNumberOld ?? null,
                 lineNumberNew: target.lineNumberNew ?? null,
                 lineType: target.lineType,
+                status: DEFAULT_REVIEW_STATUS,
                 body: draft,
                 author: "user",
                 createdAt: new Date().toISOString(),
@@ -633,6 +690,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             lineNumberOld: row.lineNumberOld ?? null,
             lineNumberNew: row.lineNumberNew ?? null,
             lineType,
+            status: DEFAULT_REVIEW_STATUS,
             body: draft,
             author: "user",
             createdAt: new Date().toISOString(),
@@ -864,6 +922,33 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         this.refreshRenderedRows();
     }
 
+    private updateLocalCommentStatus(
+        commentId: string,
+        status: ReviewCommentStatus,
+    ): void {
+        const store = this.reviewStore ?? { ...this.emptyReviewStore };
+        const taskId = this.taskId ?? "";
+        const entry = store.tasks[taskId];
+        if (!entry?.comments?.length) {
+            return;
+        }
+        const nextComments = entry.comments.map((comment) =>
+            comment.id === commentId ? { ...comment, status } : comment,
+        );
+        this.reviewStore = {
+            ...store,
+            tasks: {
+                ...store.tasks,
+                [taskId]: {
+                    ...entry,
+                    comments: nextComments,
+                },
+            },
+        };
+        this.rebuildThreads();
+        this.refreshRenderedRows();
+    }
+
     private buildOptimisticId(): string {
         return `optimistic-${Date.now()}-${Math.random()
             .toString(36)
@@ -921,11 +1006,33 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             threads.set(key, list);
         }
         this.commentThreads = threads;
+        if (this.shouldAutoCollapseThreads) {
+            for (const [key, comments] of threads) {
+                if (this.shouldCollapseThread(comments)) {
+                    this.collapsedThreads.add(key);
+                }
+            }
+            this.shouldAutoCollapseThreads = false;
+        }
         for (const key of Array.from(this.collapsedThreads)) {
             if (!threads.has(key)) {
                 this.collapsedThreads.delete(key);
             }
         }
+    }
+
+    private shouldCollapseThread(comments: ReviewComment[]): boolean {
+        if (!comments.length) {
+            return false;
+        }
+        return comments.every((comment) => {
+            const status = comment.status ?? DEFAULT_REVIEW_STATUS;
+            return (
+                status === "resolved" ||
+                status === "closed" ||
+                status === "wont-fix"
+            );
+        });
     }
 
     private refreshRenderedRows(): void {

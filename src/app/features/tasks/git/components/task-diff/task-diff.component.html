@@ -162,21 +162,77 @@
                                         class="diff-comment"
                                     >
                                         <div class="diff-comment-meta">
-                                            <span
-                                                class="diff-comment-author"
+                                            <div
+                                                class="diff-comment-meta-left"
                                             >
-                                                {{
-                                                    displayNameFor(
-                                                        comment.author
-                                                    )
-                                                }}
-                                            </span>
-                                            <span class="diff-comment-time">
-                                                {{
-                                                    comment.createdAt
-                                                        | date: "short"
-                                                }}
-                                            </span>
+                                                <span
+                                                    class="diff-comment-author"
+                                                >
+                                                    {{
+                                                        displayNameFor(
+                                                            comment.author
+                                                        )
+                                                    }}
+                                                </span>
+                                            </div>
+                                            <div
+                                                class="diff-comment-meta-right"
+                                            >
+                                                <div
+                                                    class="select-wrapper diff-comment-status-wrap"
+                                                >
+                                                    <select
+                                                        class="diff-comment-status"
+                                                        [attr.data-status]="
+                                                            comment.status ||
+                                                            'active'
+                                                        "
+                                                        [ngModelOptions]="{
+                                                            standalone: true
+                                                        }"
+                                                        [ngModel]="
+                                                            comment.status ||
+                                                            'active'
+                                                        "
+                                                        (ngModelChange)="
+                                                            updateCommentStatus(
+                                                                comment,
+                                                                $event
+                                                            )
+                                                        "
+                                                        [disabled]="
+                                                            isStatusUpdating(
+                                                                comment
+                                                            )
+                                                        "
+                                                    >
+                                                        <option
+                                                            *ngFor="
+                                                                let option of
+                                                                    reviewStatusOptions
+                                                            "
+                                                            [ngValue]="
+                                                                option.value
+                                                            "
+                                                        >
+                                                            {{
+                                                                option.label
+                                                            }}
+                                                        </option>
+                                                    </select>
+                                                    <span
+                                                        class="select-arrow diff-comment-status-arrow"
+                                                        aria-hidden="true"
+                                                        >⌄</span
+                                                    >
+                                                </div>
+                                                <span class="diff-comment-time">
+                                                    {{
+                                                        comment.createdAt
+                                                            | date: "short"
+                                                    }}
+                                                </span>
+                                            </div>
                                         </div>
                                         <div class="diff-comment-body">
                                             <div

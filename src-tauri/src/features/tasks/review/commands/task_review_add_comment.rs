@@ -1,6 +1,6 @@
 use crate::commands::CommandResult;
 use crate::features::tasks::review::{
-    load_store, save_store, ReviewComment, ReviewLineType, TaskReviewEntry,
+    load_store, save_store, ReviewComment, ReviewCommentStatus, ReviewLineType, TaskReviewEntry,
 };
 use chrono::Utc;
 use serde::Deserialize;
@@ -47,6 +47,7 @@ pub async fn task_review_add_comment(req: Request) -> CommandResult<ReviewCommen
         line_number_old: req.line_number_old,
         line_number_new: req.line_number_new,
         line_type: req.line_type,
+        status: ReviewCommentStatus::Active,
         body,
         author: "user".to_string(),
         created_at: Utc::now(),

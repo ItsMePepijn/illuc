@@ -30,6 +30,7 @@ use crate::features::time_tracking::commands::task_time_tracking_record::task_ti
 use crate::features::tasks::review::commands::task_review_add_comment::task_review_add_comment;
 use crate::features::tasks::review::commands::task_review_get::task_review_get;
 use crate::features::tasks::review::commands::task_review_get_user_display_name::task_review_get_user_display_name;
+use crate::features::tasks::review::commands::task_review_update_comment_status::task_review_update_comment_status;
 use crate::features::tasks::TaskManager;
 use log::info;
 
@@ -74,7 +75,8 @@ pub fn run() {
             task_time_tracking_record,
             task_review_get,
             task_review_add_comment,
-            task_review_get_user_display_name
+            task_review_get_user_display_name,
+            task_review_update_comment_status
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

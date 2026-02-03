@@ -152,40 +152,6 @@
     border-color: transparent;
 }
 
-.select-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.select-wrapper select {
-    width: 100%;
-    padding: 0.45rem 2.25rem 0.45rem 0.7rem;
-    border-radius: 6px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
-    color: inherit;
-    appearance: none;
-}
-
-.select-wrapper select option,
-.select-wrapper select optgroup {
-    background-color: var(--color-surface);
-    color: var(--color-text);
-}
-
-.select-wrapper select:focus {
-    outline: 2px solid var(--color-focus);
-    border-color: transparent;
-}
-
-.select-arrow {
-    position: absolute;
-    right: 0.75rem;
-    pointer-events: none;
-    font-size: 1rem;
-    color: var(--color-muted);
-}
 
 .input-label {
     font-size: 0.85rem;
