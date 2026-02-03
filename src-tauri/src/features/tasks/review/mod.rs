@@ -29,6 +29,19 @@ impl Default for ReviewStore {
 #[serde(rename_all = "camelCase")]
 pub struct TaskReviewEntry {
     pub task_id: String,
+    pub threads: Vec<ReviewThread>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReviewThread {
+    pub file_path: String,
+    pub line_number_old: Option<u32>,
+    pub line_number_new: Option<u32>,
+    pub line_type: ReviewLineType,
+    #[serde(default)]
+    pub status: ReviewCommentStatus,
+    #[serde(default)]
     pub comments: Vec<ReviewComment>,
 }
 
@@ -36,12 +49,6 @@ pub struct TaskReviewEntry {
 #[serde(rename_all = "camelCase")]
 pub struct ReviewComment {
     pub id: String,
-    pub file_path: String,
-    pub line_number_old: Option<u32>,
-    pub line_number_new: Option<u32>,
-    pub line_type: ReviewLineType,
-    #[serde(default)]
-    pub status: ReviewCommentStatus,
     pub body: String,
     pub author: String,
     pub created_at: DateTime<Utc>,
@@ -100,4 +107,27 @@ fn review_path(worktree_root: &Path) -> Result<PathBuf> {
         std::fs::create_dir_all(&illuc_dir)?;
     }
     Ok(illuc_dir.join(REVIEW_FILE))
+}
+
+pub fn thread_key(file_path: &str, line_number_old: Option<u32>, line_number_new: Option<u32>) -> String {
+    let old = line_number_old
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "x".to_string());
+    let new = line_number_new
+        .map(|value| value.to_string())
+        .unwrap_or_else(|| "x".to_string());
+    format!("{file_path}::{old}::{new}")
+}
+
+pub fn find_thread_mut<'a>(
+    entry: &'a mut TaskReviewEntry,
+    file_path: &str,
+    line_number_old: Option<u32>,
+    line_number_new: Option<u32>,
+) -> Option<&'a mut ReviewThread> {
+    entry.threads.iter_mut().find(|thread| {
+        thread.file_path == file_path
+            && thread.line_number_old == line_number_old
+            && thread.line_number_new == line_number_new
+    })
 }

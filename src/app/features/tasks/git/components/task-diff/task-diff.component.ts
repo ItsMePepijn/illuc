@@ -41,6 +41,7 @@ import {
     DiffPayload,
     ReviewComment,
     ReviewCommentStatus,
+    ReviewThread,
     ReviewStore,
 } from "../../../task.models";
 import { TaskStore } from "../../../task.store";
@@ -86,6 +87,9 @@ const REVIEW_STATUS_OPTIONS: ReadonlyArray<ReviewStatusOption> = [
 ];
 
 const DEFAULT_REVIEW_STATUS: ReviewCommentStatus = "active";
+const THREAD_CLOSE_DELAY_MS = 120;
+const THREAD_CLOSE_ANIMATION_MS = 180;
+const THREAD_CLOSE_TOTAL_MS = THREAD_CLOSE_DELAY_MS + THREAD_CLOSE_ANIMATION_MS;
 
 const DIFF_MIN_BUFFER_PX = 400;
 const DIFF_MAX_BUFFER_PX = 800;
@@ -144,14 +148,18 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     };
 
     reviewStore: ReviewStore | null = null;
-    commentThreads = new Map<string, ReviewComment[]>();
+    commentThreads = new Map<string, ReviewThread>();
     activeThreadKey: string | null = null;
     isSubmittingComment = false;
     userDisplayName = "User";
     readonly reviewStatusOptions = REVIEW_STATUS_OPTIONS;
     private readonly collapsedThreads = new Set<string>();
     private readonly commentDrafts = new Map<string, string>();
-    readonly commentStatusUpdating = new Set<string>();
+    readonly threadStatusUpdating = new Set<string>();
+    readonly editingCommentIds = new Set<string>();
+    readonly deletingCommentIds = new Set<string>();
+    readonly closingThreadKeys = new Set<string>();
+    private readonly closingThreadTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private shouldAutoCollapseThreads = true;
 
     constructor(
@@ -170,7 +178,9 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             this.activeThreadKey = null;
             this.commentDrafts.clear();
             this.collapsedThreads.clear();
-            this.commentStatusUpdating.clear();
+            this.threadStatusUpdating.clear();
+            this.editingCommentIds.clear();
+            this.deletingCommentIds.clear();
             this.shouldAutoCollapseThreads = true;
             void this.refreshReviewStore();
         }
@@ -180,6 +190,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.clearClosingThreadTimers();
         void this.stopDiffWatch();
     }
 
@@ -324,7 +335,8 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                     line.lineNumberOld ?? null,
                     line.lineNumberNew ?? null,
                 );
-                const hasThread = (this.commentThreads.get(key)?.length ?? 0) > 0;
+                const hasThread =
+                    (this.commentThreads.get(key)?.comments?.length ?? 0) > 0;
                 const isActive = this.activeThreadKey === key;
                 if ((hasThread && !this.collapsedThreads.has(key)) || isActive) {
                     rows.push({
@@ -454,7 +466,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (!key) {
             return 0;
         }
-        return this.commentThreads.get(key)?.length ?? 0;
+        return this.commentThreads.get(key)?.comments?.length ?? 0;
     }
 
     hasComments(row: RenderedDiffRow): boolean {
@@ -472,6 +484,18 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     isThreadOpen(row: RenderedDiffRow): boolean {
         const key = this.buildLineKey(row);
         return !!key && this.activeThreadKey === key;
+    }
+
+    isThreadClosing(row: RenderedDiffRow): boolean {
+        if (row.kind !== "thread" || !row.threadTarget) {
+            return false;
+        }
+        const key = this.buildLineKeyFromParts(
+            row.threadTarget.filePath,
+            row.threadTarget.lineNumberOld ?? null,
+            row.threadTarget.lineNumberNew ?? null,
+        );
+        return this.closingThreadKeys.has(key);
     }
 
     commentsFor(row: RenderedDiffRow): ReviewComment[] {
@@ -494,34 +518,47 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         );
     }
 
-    async updateCommentStatus(
-        comment: ReviewComment,
+    async updateThreadStatus(
+        row: RenderedDiffRow,
         status: ReviewCommentStatus,
     ): Promise<void> {
         if (!this.taskId || !this.worktreePath) {
             return;
         }
-        const nextStatus = status ?? DEFAULT_REVIEW_STATUS;
-        if (comment.status === nextStatus) {
+        const key = this.draftKeyForRow(row);
+        if (!key || row.kind !== "thread" || !row.threadTarget) {
             return;
         }
-        const previousStatus = comment.status ?? DEFAULT_REVIEW_STATUS;
-        this.updateLocalCommentStatus(comment.id, nextStatus);
-        this.commentStatusUpdating.add(comment.id);
+        const nextStatus = status ?? DEFAULT_REVIEW_STATUS;
+        const previousStatus = this.threadStatusForKey(key);
+        const previousWasCollapsed = this.collapsedThreads.has(key);
+        const previousActiveThreadKey = this.activeThreadKey;
+        if (previousStatus === nextStatus) {
+            return;
+        }
+        this.updateLocalThreadStatus(key, nextStatus);
+        this.syncThreadCollapseStateForStatus(key, nextStatus);
+        this.threadStatusUpdating.add(key);
         this.cdr.detectChanges();
         try {
-            const updated = await this.reviewService.updateCommentStatus({
+            await this.reviewService.updateThreadStatus({
                 worktreePath: this.worktreePath,
                 taskId: this.taskId,
-                commentId: comment.id,
+                filePath: row.threadTarget.filePath,
+                lineNumberOld: row.threadTarget.lineNumberOld ?? null,
+                lineNumberNew: row.threadTarget.lineNumberNew ?? null,
                 status: nextStatus,
             });
-            this.replaceLocalComment(comment.id, updated);
         } catch (error) {
-            console.error("Failed to update review comment status", error);
-            this.updateLocalCommentStatus(comment.id, previousStatus);
+            console.error("Failed to update review thread status", error);
+            this.updateLocalThreadStatus(key, previousStatus);
+            this.restoreThreadCollapseState(
+                key,
+                previousWasCollapsed,
+                previousActiveThreadKey,
+            );
         } finally {
-            this.commentStatusUpdating.delete(comment.id);
+            this.threadStatusUpdating.delete(key);
             this.cdr.detectChanges();
         }
     }
@@ -532,6 +569,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (!key) {
             return;
         }
+        this.cancelScheduledThreadCollapse(key);
         if (this.activeThreadKey === key) {
             this.activeThreadKey = null;
         } else {
@@ -553,6 +591,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             row.threadTarget.lineNumberOld ?? null,
             row.threadTarget.lineNumberNew ?? null,
         );
+        this.cancelScheduledThreadCollapse(key);
         if (this.collapsedThreads.has(key)) {
             this.collapsedThreads.delete(key);
         } else {
@@ -573,6 +612,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (!key) {
             return;
         }
+        this.cancelScheduledThreadCollapse(key);
         if (this.collapsedThreads.has(key)) {
             this.collapsedThreads.delete(key);
         }
@@ -601,16 +641,16 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             const optimisticId = this.buildOptimisticId();
             const optimisticComment: ReviewComment = {
                 id: optimisticId,
-                filePath: target.filePath,
-                lineNumberOld: target.lineNumberOld ?? null,
-                lineNumberNew: target.lineNumberNew ?? null,
-                lineType: target.lineType,
-                status: DEFAULT_REVIEW_STATUS,
                 body: draft,
                 author: "user",
                 createdAt: new Date().toISOString(),
             };
-            this.applyLocalComment(optimisticComment);
+            this.applyLocalComment(optimisticComment, {
+                filePath: target.filePath,
+                lineNumberOld: target.lineNumberOld ?? null,
+                lineNumberNew: target.lineNumberNew ?? null,
+                lineType: target.lineType,
+            });
             this.clearDraft(row);
             this.activeThreadKey = this.buildLineKeyFromParts(
                 target.filePath,
@@ -630,10 +670,19 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                     lineType: target.lineType,
                     body: draft,
                 });
-                this.replaceLocalComment(optimisticId, comment);
+                this.replaceLocalComment(optimisticId, comment, {
+                    filePath: target.filePath,
+                    lineNumberOld: target.lineNumberOld ?? null,
+                    lineNumberNew: target.lineNumberNew ?? null,
+                    lineType: target.lineType,
+                });
             } catch (error) {
                 console.error("Failed to add review comment", error);
-                this.removeLocalComment(optimisticId);
+                this.removeLocalComment(optimisticId, {
+                    filePath: target.filePath,
+                    lineNumberOld: target.lineNumberOld ?? null,
+                    lineNumberNew: target.lineNumberNew ?? null,
+                });
             } finally {
                 this.isSubmittingComment = false;
                 this.cdr.detectChanges();
@@ -660,16 +709,16 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         const optimisticId = this.buildOptimisticId();
         const optimisticComment: ReviewComment = {
             id: optimisticId,
-            filePath: row.filePath,
-            lineNumberOld: row.lineNumberOld ?? null,
-            lineNumberNew: row.lineNumberNew ?? null,
-            lineType,
-            status: DEFAULT_REVIEW_STATUS,
             body: draft,
             author: "user",
             createdAt: new Date().toISOString(),
         };
-        this.applyLocalComment(optimisticComment);
+        this.applyLocalComment(optimisticComment, {
+            filePath: row.filePath,
+            lineNumberOld: row.lineNumberOld ?? null,
+            lineNumberNew: row.lineNumberNew ?? null,
+            lineType,
+        });
         this.clearDraft(row);
         this.activeThreadKey = this.buildLineKey(row);
         this.cdr.detectChanges();
@@ -685,12 +734,106 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 lineType,
                 body: draft,
             });
-            this.replaceLocalComment(optimisticId, comment);
+            this.replaceLocalComment(optimisticId, comment, {
+                filePath: row.filePath,
+                lineNumberOld: row.lineNumberOld ?? null,
+                lineNumberNew: row.lineNumberNew ?? null,
+                lineType,
+            });
         } catch (error) {
             console.error("Failed to add review comment", error);
-            this.removeLocalComment(optimisticId);
+            this.removeLocalComment(optimisticId, {
+                filePath: row.filePath,
+                lineNumberOld: row.lineNumberOld ?? null,
+                lineNumberNew: row.lineNumberNew ?? null,
+            });
         } finally {
             this.isSubmittingComment = false;
+            this.cdr.detectChanges();
+        }
+    }
+
+    async editComment(
+        row: RenderedDiffRow,
+        event: { comment: ReviewComment; body: string },
+    ): Promise<void> {
+        if (!this.taskId || !this.worktreePath || !row.threadTarget) {
+            return;
+        }
+        const nextBody = event.body.trim();
+        if (!nextBody) {
+            return;
+        }
+        const commentId = event.comment.id;
+        const threadKey = this.buildLineKeyFromParts(
+            row.threadTarget.filePath,
+            row.threadTarget.lineNumberOld ?? null,
+            row.threadTarget.lineNumberNew ?? null,
+        );
+        const previousBody = event.comment.body;
+        if (previousBody === nextBody) {
+            return;
+        }
+        this.updateLocalCommentBody(threadKey, commentId, nextBody);
+        this.editingCommentIds.add(commentId);
+        this.cdr.detectChanges();
+        try {
+            const updated = await this.reviewService.editComment({
+                worktreePath: this.worktreePath,
+                taskId: this.taskId,
+                filePath: row.threadTarget.filePath,
+                lineNumberOld: row.threadTarget.lineNumberOld ?? null,
+                lineNumberNew: row.threadTarget.lineNumberNew ?? null,
+                commentId,
+                body: nextBody,
+            });
+            this.replaceCommentById(threadKey, commentId, updated);
+        } catch (error) {
+            console.error("Failed to edit review comment", error);
+            this.updateLocalCommentBody(threadKey, commentId, previousBody);
+        } finally {
+            this.editingCommentIds.delete(commentId);
+            this.cdr.detectChanges();
+        }
+    }
+
+    async deleteComment(row: RenderedDiffRow, comment: ReviewComment): Promise<void> {
+        if (!this.taskId || !this.worktreePath || !row.threadTarget) {
+            return;
+        }
+        const commentId = comment.id;
+        const threadKey = this.buildLineKeyFromParts(
+            row.threadTarget.filePath,
+            row.threadTarget.lineNumberOld ?? null,
+            row.threadTarget.lineNumberNew ?? null,
+        );
+        const removed = this.removeCommentById(threadKey, commentId);
+        if (!removed) {
+            return;
+        }
+        this.deletingCommentIds.add(commentId);
+        this.cdr.detectChanges();
+        try {
+            await this.reviewService.deleteComment({
+                worktreePath: this.worktreePath,
+                taskId: this.taskId,
+                filePath: row.threadTarget.filePath,
+                lineNumberOld: row.threadTarget.lineNumberOld ?? null,
+                lineNumberNew: row.threadTarget.lineNumberNew ?? null,
+                commentId,
+            });
+        } catch (error) {
+            console.error("Failed to delete review comment", error);
+            this.restoreComment(
+                threadKey,
+                comment,
+                row.threadTarget.filePath,
+                row.threadTarget.lineNumberOld ?? null,
+                row.threadTarget.lineNumberNew ?? null,
+                row.threadTarget.lineType,
+            );
+        } finally {
+            this.deletingCommentIds.delete(commentId);
             this.cdr.detectChanges();
         }
     }
@@ -780,7 +923,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             lineNumberOld,
             lineNumberNew,
         );
-        return this.commentThreads.get(key) ?? [];
+        return this.commentThreads.get(key)?.comments ?? [];
     }
 
 
@@ -788,21 +931,56 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         return type === "add" || type === "del" || type === "context";
     }
 
-    private applyLocalComment(comment: ReviewComment): void {
+    private applyLocalComment(
+        comment: ReviewComment,
+        target: {
+            filePath: string;
+            lineNumberOld: number | null;
+            lineNumberNew: number | null;
+            lineType: DiffLineType;
+        },
+    ): void {
         const store = this.reviewStore ?? { ...this.emptyReviewStore };
         const taskId = this.taskId ?? "";
         const entry =
             store.tasks[taskId] ?? {
                 taskId,
-                comments: [],
+                threads: [],
             };
+        const threadKey = this.buildLineKeyFromParts(
+            target.filePath,
+            target.lineNumberOld,
+            target.lineNumberNew,
+        );
+        const nextThreads = entry.threads.some(
+            (thread) => this.threadKeyForThread(thread) === threadKey,
+        )
+            ? entry.threads.map((thread) =>
+                  this.threadKeyForThread(thread) === threadKey
+                      ? {
+                            ...thread,
+                            comments: [...(thread.comments ?? []), comment],
+                        }
+                      : thread,
+              )
+            : [
+                  ...entry.threads,
+                  {
+                      filePath: target.filePath,
+                      lineNumberOld: target.lineNumberOld,
+                      lineNumberNew: target.lineNumberNew,
+                      lineType: target.lineType,
+                      status: DEFAULT_REVIEW_STATUS,
+                      comments: [comment],
+                  },
+              ];
         const updatedStore: ReviewStore = {
             ...store,
             tasks: {
                 ...store.tasks,
                 [taskId]: {
                     ...entry,
-                    comments: [...entry.comments, comment],
+                    threads: nextThreads,
                 },
             },
         };
@@ -814,29 +992,60 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     private replaceLocalComment(
         optimisticId: string,
         comment: ReviewComment,
+        target: {
+            filePath: string;
+            lineNumberOld: number | null;
+            lineNumberNew: number | null;
+            lineType: DiffLineType;
+        },
     ): void {
         const store = this.reviewStore ?? { ...this.emptyReviewStore };
         const taskId = this.taskId ?? "";
         const entry =
             store.tasks[taskId] ?? {
                 taskId,
-                comments: [],
+                threads: [],
             };
-        const comments = entry.comments ?? [];
-        const index = comments.findIndex((item) => item.id === optimisticId);
-        const nextComments =
-            index >= 0
-                ? comments.map((item, idx) =>
-                      idx === index ? comment : item,
-                  )
-                : [...comments, comment];
+        const threadKey = this.buildLineKeyFromParts(
+            target.filePath,
+            target.lineNumberOld,
+            target.lineNumberNew,
+        );
+        const nextThreads = entry.threads.some(
+            (thread) => this.threadKeyForThread(thread) === threadKey,
+        )
+            ? entry.threads.map((thread) => {
+                  if (this.threadKeyForThread(thread) !== threadKey) {
+                      return thread;
+                  }
+                  const comments = thread.comments ?? [];
+                  const index = comments.findIndex((item) => item.id === optimisticId);
+                  const nextComments =
+                      index >= 0
+                          ? comments.map((item, idx) =>
+                                idx === index ? comment : item,
+                            )
+                          : [...comments, comment];
+                  return { ...thread, comments: nextComments };
+              })
+            : [
+                  ...entry.threads,
+                  {
+                      filePath: target.filePath,
+                      lineNumberOld: target.lineNumberOld,
+                      lineNumberNew: target.lineNumberNew,
+                      lineType: target.lineType,
+                      status: DEFAULT_REVIEW_STATUS,
+                      comments: [comment],
+                  },
+              ];
         this.reviewStore = {
             ...store,
             tasks: {
                 ...store.tasks,
                 [taskId]: {
                     ...entry,
-                    comments: nextComments,
+                    threads: nextThreads,
                 },
             },
         };
@@ -844,28 +1053,47 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         this.refreshRenderedRows();
     }
 
-    private removeLocalComment(optimisticId: string): void {
+    private removeLocalComment(
+        optimisticId: string,
+        target: {
+            filePath: string;
+            lineNumberOld: number | null;
+            lineNumberNew: number | null;
+        },
+    ): void {
         const store = this.reviewStore ?? { ...this.emptyReviewStore };
         const taskId = this.taskId ?? "";
         const entry =
             store.tasks[taskId] ?? {
                 taskId,
-                comments: [],
+                threads: [],
             };
-        const comments = entry.comments ?? [];
-        if (!comments.length) {
+        if (!entry.threads.length) {
             return;
         }
-        const nextComments = comments.filter(
-            (item) => item.id !== optimisticId,
+        const threadKey = this.buildLineKeyFromParts(
+            target.filePath,
+            target.lineNumberOld,
+            target.lineNumberNew,
         );
+        const nextThreads = entry.threads
+            .map((thread) => {
+                if (this.threadKeyForThread(thread) !== threadKey) {
+                    return thread;
+                }
+                const nextComments = (thread.comments ?? []).filter(
+                    (item) => item.id !== optimisticId,
+                );
+                return { ...thread, comments: nextComments };
+            })
+            .filter((thread) => (thread.comments?.length ?? 0) > 0);
         this.reviewStore = {
             ...store,
             tasks: {
                 ...store.tasks,
                 [taskId]: {
                     ...entry,
-                    comments: nextComments,
+                    threads: nextThreads,
                 },
             },
         };
@@ -873,18 +1101,20 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         this.refreshRenderedRows();
     }
 
-    private updateLocalCommentStatus(
-        commentId: string,
+    private updateLocalThreadStatus(
+        threadKey: string,
         status: ReviewCommentStatus,
     ): void {
         const store = this.reviewStore ?? { ...this.emptyReviewStore };
         const taskId = this.taskId ?? "";
         const entry = store.tasks[taskId];
-        if (!entry?.comments?.length) {
+        if (!entry) {
             return;
         }
-        const nextComments = entry.comments.map((comment) =>
-            comment.id === commentId ? { ...comment, status } : comment,
+        const nextThreads = entry.threads.map((thread) =>
+            this.threadKeyForThread(thread) === threadKey
+                ? { ...thread, status }
+                : thread,
         );
         this.reviewStore = {
             ...store,
@@ -892,7 +1122,168 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 ...store.tasks,
                 [taskId]: {
                     ...entry,
-                    comments: nextComments,
+                    threads: nextThreads,
+                },
+            },
+        };
+        this.rebuildThreads();
+        this.refreshRenderedRows();
+    }
+
+    private updateLocalCommentBody(
+        threadKey: string,
+        commentId: string,
+        body: string,
+    ): void {
+        const store = this.reviewStore ?? { ...this.emptyReviewStore };
+        const taskId = this.taskId ?? "";
+        const entry = store.tasks[taskId];
+        if (!entry) {
+            return;
+        }
+        const nextThreads = entry.threads.map((thread) =>
+            this.threadKeyForThread(thread) !== threadKey
+                ? thread
+                : {
+                      ...thread,
+                      comments: (thread.comments ?? []).map((comment) =>
+                          comment.id === commentId ? { ...comment, body } : comment,
+                      ),
+                  },
+        );
+        this.reviewStore = {
+            ...store,
+            tasks: {
+                ...store.tasks,
+                [taskId]: {
+                    ...entry,
+                    threads: nextThreads,
+                },
+            },
+        };
+        this.rebuildThreads();
+        this.refreshRenderedRows();
+    }
+
+    private replaceCommentById(
+        threadKey: string,
+        commentId: string,
+        updated: ReviewComment,
+    ): void {
+        const store = this.reviewStore ?? { ...this.emptyReviewStore };
+        const taskId = this.taskId ?? "";
+        const entry = store.tasks[taskId];
+        if (!entry) {
+            return;
+        }
+        const nextThreads = entry.threads.map((thread) =>
+            this.threadKeyForThread(thread) !== threadKey
+                ? thread
+                : {
+                      ...thread,
+                      comments: (thread.comments ?? []).map((comment) =>
+                          comment.id === commentId ? updated : comment,
+                      ),
+                  },
+        );
+        this.reviewStore = {
+            ...store,
+            tasks: {
+                ...store.tasks,
+                [taskId]: {
+                    ...entry,
+                    threads: nextThreads,
+                },
+            },
+        };
+        this.rebuildThreads();
+        this.refreshRenderedRows();
+    }
+
+    private removeCommentById(threadKey: string, commentId: string): boolean {
+        const store = this.reviewStore ?? { ...this.emptyReviewStore };
+        const taskId = this.taskId ?? "";
+        const entry = store.tasks[taskId];
+        if (!entry) {
+            return false;
+        }
+        let removed = false;
+        const nextThreads = entry.threads
+            .map((thread) => {
+                if (this.threadKeyForThread(thread) !== threadKey) {
+                    return thread;
+                }
+                const nextComments = (thread.comments ?? []).filter((comment) => {
+                    const keep = comment.id !== commentId;
+                    if (!keep) {
+                        removed = true;
+                    }
+                    return keep;
+                });
+                return { ...thread, comments: nextComments };
+            })
+            .filter((thread) => (thread.comments?.length ?? 0) > 0);
+        if (!removed) {
+            return false;
+        }
+        this.reviewStore = {
+            ...store,
+            tasks: {
+                ...store.tasks,
+                [taskId]: {
+                    ...entry,
+                    threads: nextThreads,
+                },
+            },
+        };
+        this.rebuildThreads();
+        this.refreshRenderedRows();
+        return true;
+    }
+
+    private restoreComment(
+        threadKey: string,
+        comment: ReviewComment,
+        filePath: string,
+        lineNumberOld: number | null,
+        lineNumberNew: number | null,
+        lineType: DiffLineType,
+    ): void {
+        const store = this.reviewStore ?? { ...this.emptyReviewStore };
+        const taskId = this.taskId ?? "";
+        const entry = store.tasks[taskId];
+        if (!entry) {
+            return;
+        }
+        const nextThreads = entry.threads.some(
+            (thread) => this.threadKeyForThread(thread) === threadKey,
+        )
+            ? entry.threads.map((thread) =>
+                  this.threadKeyForThread(thread) !== threadKey
+                      ? thread
+                      : {
+                            ...thread,
+                            comments: [...(thread.comments ?? []), comment],
+                        },
+              )
+            : [
+                  ...entry.threads,
+                  {
+                      filePath,
+                      lineNumberOld,
+                      lineNumberNew,
+                      lineType,
+                      status: DEFAULT_REVIEW_STATUS,
+                      comments: [comment],
+                  },
+              ];
+        this.reviewStore = {
+            ...store,
+            tasks: {
+                ...store.tasks,
+                [taskId]: {
+                    ...entry,
+                    threads: nextThreads,
                 },
             },
         };
@@ -933,33 +1324,24 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     }
 
     private rebuildThreads(): void {
-        const threads = new Map<string, ReviewComment[]>();
+        const threads = new Map<string, ReviewThread>();
         if (!this.taskId || !this.reviewStore) {
             this.commentThreads = threads;
             return;
         }
         const entry = this.reviewStore.tasks[this.taskId];
-        if (!entry || !entry.comments?.length) {
+        if (!entry || !entry.threads?.length) {
             this.commentThreads = threads;
             return;
         }
-        for (const comment of entry.comments) {
-            if (comment.lineNumberOld == null && comment.lineNumberNew == null) {
-                continue;
-            }
-            const key = this.buildLineKeyFromParts(
-                comment.filePath,
-                comment.lineNumberOld ?? null,
-                comment.lineNumberNew ?? null,
-            );
-            const list = threads.get(key) ?? [];
-            list.push(comment);
-            threads.set(key, list);
+        for (const thread of entry.threads) {
+            const key = this.threadKeyForThread(thread);
+            threads.set(key, thread);
         }
         this.commentThreads = threads;
         if (this.shouldAutoCollapseThreads) {
-            for (const [key, comments] of threads) {
-                if (this.shouldCollapseThread(comments)) {
+            for (const key of threads.keys()) {
+                if (this.shouldCollapseThread(key)) {
                     this.collapsedThreads.add(key);
                 }
             }
@@ -972,18 +1354,108 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         }
     }
 
-    private shouldCollapseThread(comments: ReviewComment[]): boolean {
-        if (!comments.length) {
-            return false;
+    private shouldCollapseThread(threadKey: string): boolean {
+        const status = this.threadStatusForKey(threadKey);
+        return this.isCollapsingStatus(status);
+    }
+
+    threadStatusForRow(row: RenderedDiffRow): ReviewCommentStatus {
+        const key = this.draftKeyForRow(row);
+        if (!key) {
+            return DEFAULT_REVIEW_STATUS;
         }
-        return comments.every((comment) => {
-            const status = comment.status ?? DEFAULT_REVIEW_STATUS;
-            return (
-                status === "resolved" ||
-                status === "closed" ||
-                status === "wont-fix"
-            );
-        });
+        return this.threadStatusForKey(key);
+    }
+
+    isThreadStatusUpdating(row: RenderedDiffRow): boolean {
+        const key = this.draftKeyForRow(row);
+        return !!key && this.threadStatusUpdating.has(key);
+    }
+
+    private threadStatusForKey(threadKey: string): ReviewCommentStatus {
+        return this.commentThreads.get(threadKey)?.status ?? DEFAULT_REVIEW_STATUS;
+    }
+
+    private isCollapsingStatus(status: ReviewCommentStatus): boolean {
+        return (
+            status === "resolved" ||
+            status === "closed" ||
+            status === "wont-fix"
+        );
+    }
+
+    private syncThreadCollapseStateForStatus(
+        threadKey: string,
+        status: ReviewCommentStatus,
+    ): void {
+        if (this.isCollapsingStatus(status)) {
+            this.scheduleThreadCollapse(threadKey);
+            return;
+        }
+        this.cancelScheduledThreadCollapse(threadKey);
+    }
+
+    private restoreThreadCollapseState(
+        threadKey: string,
+        wasCollapsed: boolean,
+        previousActiveThreadKey: string | null,
+    ): void {
+        this.cancelScheduledThreadCollapse(threadKey);
+        if (wasCollapsed) {
+            this.collapsedThreads.add(threadKey);
+        } else {
+            this.collapsedThreads.delete(threadKey);
+        }
+        this.activeThreadKey = previousActiveThreadKey;
+        this.refreshRenderedRows();
+    }
+
+    private scheduleThreadCollapse(threadKey: string): void {
+        if (this.collapsedThreads.has(threadKey)) {
+            return;
+        }
+        if (this.closingThreadKeys.has(threadKey)) {
+            return;
+        }
+        this.closingThreadKeys.add(threadKey);
+        this.refreshRenderedRows();
+        const timer = setTimeout(() => {
+            this.closingThreadTimers.delete(threadKey);
+            this.closingThreadKeys.delete(threadKey);
+            this.collapsedThreads.add(threadKey);
+            if (this.activeThreadKey === threadKey) {
+                this.activeThreadKey = null;
+            }
+            this.refreshRenderedRows();
+        }, THREAD_CLOSE_TOTAL_MS);
+        this.closingThreadTimers.set(threadKey, timer);
+    }
+
+    private cancelScheduledThreadCollapse(threadKey: string): void {
+        const timer = this.closingThreadTimers.get(threadKey);
+        if (timer) {
+            clearTimeout(timer);
+            this.closingThreadTimers.delete(threadKey);
+        }
+        if (this.closingThreadKeys.delete(threadKey)) {
+            this.refreshRenderedRows();
+        }
+    }
+
+    private clearClosingThreadTimers(): void {
+        for (const timer of this.closingThreadTimers.values()) {
+            clearTimeout(timer);
+        }
+        this.closingThreadTimers.clear();
+        this.closingThreadKeys.clear();
+    }
+
+    private threadKeyForThread(thread: ReviewThread): string {
+        return this.buildLineKeyFromParts(
+            thread.filePath,
+            thread.lineNumberOld ?? null,
+            thread.lineNumberNew ?? null,
+        );
     }
 
     private refreshRenderedRows(): void {

@@ -89,14 +89,18 @@ export interface TimeTrackingPayload {
 
 export interface ReviewComment {
     id: string;
+    body: string;
+    author: string;
+    createdAt: string;
+}
+
+export interface ReviewThread {
     filePath: string;
     lineNumberOld?: number | null;
     lineNumberNew?: number | null;
     lineType: DiffLineType;
     status: ReviewCommentStatus;
-    body: string;
-    author: string;
-    createdAt: string;
+    comments: ReviewComment[];
 }
 
 export type ReviewCommentStatus =
@@ -108,7 +112,7 @@ export type ReviewCommentStatus =
 
 export interface ReviewTaskEntry {
     taskId: string;
-    comments: ReviewComment[];
+    threads: ReviewThread[];
 }
 
 export interface ReviewStore {

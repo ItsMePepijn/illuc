@@ -31,24 +31,28 @@
     </button>
     <div class="diff-comment-thread-inner">
         <div *ngIf="comments.length; else noComments" class="diff-comment-list">
-            <div *ngFor="let comment of comments" class="diff-comment">
+            <div *ngFor="let comment of comments; let index = index" class="diff-comment">
                 <div class="diff-comment-meta">
                     <div class="diff-comment-meta-left">
                         <span class="diff-comment-author">
                             {{ displayNameFor(comment.author) }}
                         </span>
+                        <span class="diff-comment-time">
+                            {{ comment.createdAt | date: "short" }}
+                        </span>
                     </div>
                     <div class="diff-comment-meta-right">
-                        <div class="select-wrapper diff-comment-status-wrap">
+                        <div
+                            *ngIf="index === 0"
+                            class="select-wrapper diff-comment-status-wrap"
+                        >
                             <select
                                 class="diff-comment-status"
-                                [attr.data-status]="comment.status || 'active'"
+                                [attr.data-status]="threadStatus || 'active'"
                                 [ngModelOptions]="{ standalone: true }"
-                                [ngModel]="comment.status || 'active'"
-                                (ngModelChange)="
-                                    onStatusChange(comment, $event)
-                                "
-                                [disabled]="statusUpdatingIds.has(comment.id)"
+                                [ngModel]="threadStatus || 'active'"
+                                (ngModelChange)="onStatusChange($event)"
+                                [disabled]="isThreadStatusUpdating"
                             >
                                 <option
                                     *ngFor="let option of reviewStatusOptions"
@@ -63,14 +67,94 @@
                                 >⌄</span
                             >
                         </div>
-                        <span class="diff-comment-time">
-                            {{ comment.createdAt | date: "short" }}
-                        </span>
+                        <button
+                            type="button"
+                            class="diff-comment-action"
+                            (click)="startEditing(comment)"
+                            aria-label="Edit comment"
+                            title="Edit comment"
+                            [disabled]="
+                                isEditing(comment) ||
+                                editingCommentIds.has(comment.id) ||
+                                deletingCommentIds.has(comment.id)
+                            "
+                        >
+                            <svg
+                                class="diff-comment-action-icon"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    d="M4 20h4l10-10-4-4L4 16v4zm13.7-11.3 1.6-1.6a1 1 0 0 0 0-1.4l-1.3-1.3a1 1 0 0 0-1.4 0L15 6.1l2.7 2.6z"
+                                    fill="currentColor"
+                                />
+                            </svg>
+                        </button>
+                        <button
+                            type="button"
+                            class="diff-comment-action danger"
+                            (click)="onDeleteComment(comment)"
+                            aria-label="Delete comment"
+                            title="Delete comment"
+                            [disabled]="
+                                deletingCommentIds.has(comment.id) ||
+                                editingCommentIds.has(comment.id)
+                            "
+                        >
+                            <svg
+                                class="diff-comment-action-icon"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.6"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                viewBox="0 0 24 24"
+                                aria-hidden="true"
+                            >
+                                <path d="M3 6h18"></path>
+                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                                <path d="M10 11v6"></path>
+                                <path d="M14 11v6"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
-                <div class="diff-comment-body">
+                <div
+                    *ngIf="isEditing(comment); else commentBody"
+                    class="diff-comment-edit"
+                >
+                    <textarea
+                        class="diff-comment-edit-input"
+                        rows="3"
+                        [ngModelOptions]="{ standalone: true }"
+                        [ngModel]="editDraft"
+                        (ngModelChange)="editDraft = $event"
+                    ></textarea>
+                    <div class="diff-comment-edit-actions">
+                        <button
+                            type="button"
+                            class="diff-comment-edit-btn secondary"
+                            (click)="cancelEditing()"
+                            [disabled]="editingCommentIds.has(comment.id)"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            class="diff-comment-edit-btn"
+                            (click)="onSaveEdit(comment)"
+                            [disabled]="!canSaveEdit(comment)"
+                        >
+                            Save
+                        </button>
+                    </div>
+                </div>
+                <ng-template #commentBody>
+                    <div class="diff-comment-body">
                     <div [innerHTML]="renderCommentBody(comment)"></div>
                 </div>
+                </ng-template>
             </div>
         </div>
         <ng-template #noComments>

@@ -61,6 +61,7 @@
                         [class.meta]="row.kind === 'line' && row.line?.type === 'meta'"
                         [class.has-comment]="row.kind === 'line' && hasComments(row)"
                         [class.thread-open]="row.kind === 'line' && isThreadOpen(row)"
+                        [class.thread-closing]="row.kind === 'thread' && isThreadClosing(row)"
                     >
                         <div
                             *ngIf="row.kind === 'header'"
@@ -117,18 +118,18 @@
                             [comments]="commentsFor(row)"
                             [draft]="getDraft(row)"
                             [canSubmit]="canSubmitComment(row)"
+                            [threadStatus]="threadStatusForRow(row)"
+                            [isThreadStatusUpdating]="isThreadStatusUpdating(row)"
+                            [editingCommentIds]="editingCommentIds"
+                            [deletingCommentIds]="deletingCommentIds"
                             [reviewStatusOptions]="reviewStatusOptions"
-                            [statusUpdatingIds]="commentStatusUpdating"
                             [userDisplayName]="userDisplayName"
                             (collapseThread)="toggleThreadCollapsed(row, $event)"
                             (submitComment)="submitComment(row, $event)"
                             (draftChange)="setDraft(row, $event)"
-                            (statusChange)="
-                                updateCommentStatus(
-                                    $event.comment,
-                                    $event.status
-                                )
-                            "
+                            (statusChange)="updateThreadStatus(row, $event)"
+                            (editComment)="editComment(row, $event)"
+                            (deleteComment)="deleteComment(row, $event)"
                         ></app-task-diff-thread>
                         <div *ngIf="row.kind === 'spacer'" class="diff-spacer"></div>
                     </div>

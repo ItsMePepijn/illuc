@@ -37,20 +37,28 @@ export class TaskDiffThreadComponent {
     @Input() comments: ReviewComment[] = [];
     @Input() draft = "";
     @Input() canSubmit = false;
+    @Input() threadStatus: ReviewCommentStatus = "active";
+    @Input() isThreadStatusUpdating = false;
+    @Input() editingCommentIds: ReadonlySet<string> = new Set();
+    @Input() deletingCommentIds: ReadonlySet<string> = new Set();
     @Input() reviewStatusOptions: ReadonlyArray<ReviewStatusOption> = [];
-    @Input() statusUpdatingIds: ReadonlySet<string> = new Set();
     @Input() userDisplayName = "User";
 
     @Output() collapseThread = new EventEmitter<Event>();
     @Output() submitComment = new EventEmitter<Event>();
     @Output() draftChange = new EventEmitter<string>();
     @Output()
-    statusChange = new EventEmitter<{
+    statusChange = new EventEmitter<ReviewCommentStatus>();
+    @Output()
+    editComment = new EventEmitter<{
         comment: ReviewComment;
-        status: ReviewCommentStatus;
+        body: string;
     }>();
+    @Output() deleteComment = new EventEmitter<ReviewComment>();
 
     private readonly commentBodyCache = new Map<string, SafeHtml>();
+    editingCommentId: string | null = null;
+    editDraft = "";
 
     constructor(private readonly sanitizer: DomSanitizer) {}
 
@@ -77,7 +85,48 @@ export class TaskDiffThreadComponent {
         return safe;
     }
 
-    onStatusChange(comment: ReviewComment, status: ReviewCommentStatus): void {
-        this.statusChange.emit({ comment, status });
+    onStatusChange(status: ReviewCommentStatus): void {
+        this.statusChange.emit(status);
+    }
+
+    startEditing(comment: ReviewComment): void {
+        this.editingCommentId = comment.id;
+        this.editDraft = comment.body;
+    }
+
+    cancelEditing(): void {
+        this.editingCommentId = null;
+        this.editDraft = "";
+    }
+
+    isEditing(comment: ReviewComment): boolean {
+        return this.editingCommentId === comment.id;
+    }
+
+    canSaveEdit(comment: ReviewComment): boolean {
+        const draft = this.editDraft.trim();
+        return (
+            draft.length > 0 &&
+            draft !== comment.body.trim() &&
+            !this.editingCommentIds.has(comment.id)
+        );
+    }
+
+    onSaveEdit(comment: ReviewComment): void {
+        if (!this.canSaveEdit(comment)) {
+            return;
+        }
+        this.editComment.emit({
+            comment,
+            body: this.editDraft.trim(),
+        });
+        this.cancelEditing();
+    }
+
+    onDeleteComment(comment: ReviewComment): void {
+        if (this.isEditing(comment)) {
+            this.cancelEditing();
+        }
+        this.deleteComment.emit(comment);
     }
 }

@@ -108,6 +108,18 @@
     min-width: 100%;
 }
 
+.diff-row.thread.thread-closing {
+    pointer-events: none;
+}
+
+.diff-row.thread.thread-closing app-task-diff-thread {
+    display: block;
+    transform-origin: top;
+    overflow: hidden;
+    animation: diff-thread-slide-close 180ms ease forwards;
+    animation-delay: 120ms;
+}
+
 .diff-row.spacer {
     height: 12px;
     line-height: 12px;
@@ -283,6 +295,19 @@
 @keyframes diff-spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+@keyframes diff-thread-slide-close {
+    from {
+        max-height: 480px;
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        max-height: 0;
+        opacity: 0;
+        transform: translateY(-6px);
     }
 }
 

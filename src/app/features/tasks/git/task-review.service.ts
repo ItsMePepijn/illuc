@@ -4,6 +4,8 @@ import {
     DiffLineType,
     ReviewComment,
     ReviewCommentStatus,
+    ReviewTaskEntry,
+    ReviewThread,
     ReviewStore,
 } from "../task.models";
 
@@ -29,12 +31,27 @@ export class TaskReviewService {
         return invoke<ReviewComment>("task_review_add_comment", { req });
     }
 
-    async updateCommentStatus(
-        req: UpdateReviewCommentStatusRequest,
-    ): Promise<ReviewComment> {
-        return invoke<ReviewComment>("task_review_update_comment_status", {
+    async editComment(req: EditReviewCommentRequest): Promise<ReviewComment> {
+        return invoke<ReviewComment>("task_review_edit_comment", { req });
+    }
+
+    async deleteComment(
+        req: DeleteReviewCommentRequest,
+    ): Promise<DeleteReviewCommentResponse> {
+        return invoke<DeleteReviewCommentResponse>("task_review_delete_comment", {
             req,
         });
+    }
+
+    async updateThreadStatus(
+        req: UpdateReviewThreadStatusRequest,
+    ): Promise<UpdateReviewThreadStatusResponse> {
+        return invoke<UpdateReviewThreadStatusResponse>(
+            "task_review_update_thread_status",
+            {
+            req,
+            },
+        );
     }
 
     getUserDisplayName(): Promise<string> {
@@ -53,9 +70,36 @@ export class TaskReviewService {
         if (!payload || typeof payload !== "object") {
             return { ...DEFAULT_REVIEW_STORE };
         }
+        const normalizedTasks: ReviewStore["tasks"] = {};
+        for (const [taskId, entry] of Object.entries(payload.tasks ?? {})) {
+            normalizedTasks[taskId] = this.normalizeTaskEntry(taskId, entry);
+        }
         return {
             version: payload.version ?? DEFAULT_REVIEW_STORE.version,
-            tasks: payload.tasks ?? {},
+            tasks: normalizedTasks,
+        };
+    }
+
+    private normalizeTaskEntry(
+        taskId: string,
+        entry: ReviewTaskEntry | null | undefined,
+    ): ReviewTaskEntry {
+        return {
+            taskId: entry?.taskId ?? taskId,
+            threads: (entry?.threads ?? []).map((thread) =>
+                this.normalizeThread(thread),
+            ),
+        };
+    }
+
+    private normalizeThread(thread: ReviewThread): ReviewThread {
+        return {
+            filePath: thread.filePath,
+            lineNumberOld: thread.lineNumberOld ?? null,
+            lineNumberNew: thread.lineNumberNew ?? null,
+            lineType: thread.lineType,
+            status: thread.status ?? "active",
+            comments: thread.comments ?? [],
         };
     }
 }
@@ -70,9 +114,39 @@ export interface AddReviewCommentRequest {
     body: string;
 }
 
-export interface UpdateReviewCommentStatusRequest {
+export interface UpdateReviewThreadStatusRequest {
     worktreePath: string;
     taskId: string;
-    commentId: string;
+    filePath: string;
+    lineNumberOld?: number | null;
+    lineNumberNew?: number | null;
     status: ReviewCommentStatus;
+}
+
+export interface UpdateReviewThreadStatusResponse {
+    threadKey: string;
+    status: ReviewCommentStatus;
+}
+
+export interface EditReviewCommentRequest {
+    worktreePath: string;
+    taskId: string;
+    filePath: string;
+    lineNumberOld?: number | null;
+    lineNumberNew?: number | null;
+    commentId: string;
+    body: string;
+}
+
+export interface DeleteReviewCommentRequest {
+    worktreePath: string;
+    taskId: string;
+    filePath: string;
+    lineNumberOld?: number | null;
+    lineNumberNew?: number | null;
+    commentId: string;
+}
+
+export interface DeleteReviewCommentResponse {
+    commentId: string;
 }
