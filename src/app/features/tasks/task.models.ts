@@ -49,6 +49,8 @@ export type DiffLineType = "add" | "del" | "context" | "meta" | "hunk";
 export interface DiffLine {
     type: DiffLineType;
     content: string;
+    lineNumberOld?: number | null;
+    lineNumberNew?: number | null;
 }
 
 export interface DiffPayload {
@@ -83,4 +85,25 @@ export interface TimeTrackingEntry {
 export interface TimeTrackingPayload {
     version: number;
     branches: Record<string, TimeTrackingEntry>;
+}
+
+export interface ReviewComment {
+    id: string;
+    filePath: string;
+    lineNumberOld?: number | null;
+    lineNumberNew?: number | null;
+    lineType: DiffLineType;
+    body: string;
+    author: string;
+    createdAt: string;
+}
+
+export interface ReviewTaskEntry {
+    taskId: string;
+    comments: ReviewComment[];
+}
+
+export interface ReviewStore {
+    version: number;
+    tasks: Record<string, ReviewTaskEntry>;
 }

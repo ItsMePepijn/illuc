@@ -11,6 +11,10 @@
     --color-accent: #b2714a;
     --color-accent-strong: #8f5a3a;
     --color-accent-soft: rgba(178, 113, 74, 0.2);
+    --color-primary: #f2994a;
+    --color-primary-hover: #f5a55f;
+    --color-primary-active: #e78935;
+    --color-primary-contrast: #1f1300;
     --color-success: #6f8f6c;
     --color-success-soft: rgba(111, 143, 108, 0.2);
     --color-warning: #b18a4a;
@@ -24,6 +28,7 @@
     --color-focus: rgba(178, 113, 74, 0.35);
     --color-link: rgba(96, 90, 82, 0.75);
     --color-link-hover: rgba(96, 90, 82, 0.95);
+    --color-code-bg: #e4e4e4;
     --scrollbar-track: rgba(96, 90, 82, 0.12);
     --scrollbar-thumb: rgba(96, 90, 82, 0.35);
     --scrollbar-thumb-hover: rgba(96, 90, 82, 0.5);

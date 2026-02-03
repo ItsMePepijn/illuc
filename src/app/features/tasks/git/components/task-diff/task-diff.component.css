@@ -7,6 +7,7 @@
     min-height: 0;
     background: var(--color-surface);
     overflow: hidden;
+    --diff-row-height: 28px;
 }
 
 .diff-header {
@@ -59,6 +60,7 @@
     border: 1px solid var(--color-border);
     border-radius: 6px;
     overflow: auto;
+    container-type: inline-size;
 }
 
 .diff-viewport .cdk-virtual-scroll-content-wrapper {
@@ -79,8 +81,8 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    height: 28px;
-    line-height: 28px;
+    height: var(--diff-row-height);
+    line-height: var(--diff-row-height);
     padding: 0 0.5rem;
     white-space: pre;
     backface-visibility: hidden;
@@ -88,6 +90,22 @@
     min-width: 100%;
     width: max-content;
     box-sizing: border-box;
+    position: relative;
+    overflow: visible;
+}
+
+.diff-row.thread {
+    z-index: 3;
+    height: auto;
+    line-height: normal;
+    align-items: stretch;
+    padding: 0;
+    white-space: normal;
+}
+
+.diff-row.thread {
+    width: 100%;
+    min-width: 100%;
 }
 
 .diff-row.spacer {
@@ -130,6 +148,14 @@
     font-weight: 600;
 }
 
+.diff-row.has-comment {
+    box-shadow: inset 3px 0 0 rgba(96, 90, 82, 0.35);
+}
+
+.diff-row.thread-open {
+    z-index: 2;
+}
+
 .diff-file-header-button {
     appearance: none;
     border: none;
@@ -164,6 +190,305 @@
 
 .diff-code {
     flex: 1;
+}
+
+.diff-comment-count {
+    font-weight: 600;
+    color: var(--color-accent);
+}
+
+.diff-comment-gutter {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    opacity: 0;
+    pointer-events: none;
+    border: 1px solid rgba(96, 90, 82, 0.35);
+    background: var(--color-surface);
+    border-radius: 999px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.7rem;
+    color: var(--color-text);
+}
+
+.diff-row:hover .diff-comment-gutter,
+.diff-row.thread-open .diff-comment-gutter,
+.diff-comment-gutter.has-comments {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.diff-comment-plus {
+    font-weight: 600;
+    line-height: 1;
+}
+
+.diff-comment-gutter.has-comments {
+    border-color: rgba(96, 90, 82, 0.5);
+}
+
+.diff-thread-collapsed {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-strong);
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.7rem;
+    color: var(--color-text);
+    z-index: 3;
+}
+
+.diff-thread-collapsed-icon {
+    font-size: 0.75rem;
+}
+
+.diff-thread-collapsed-count {
+    font-weight: 600;
+    color: var(--color-accent);
+}
+
+.diff-comment-thread {
+    position: relative;
+    width: min(100%, 100cqw);
+    max-width: 100cqw;
+    box-sizing: border-box;
+    margin-right: 0;
+    background: var(--color-surface);
+    border-top: 1px solid #dcdcdc;
+    border-bottom: 1px solid #dcdcdc;
+    border-left: 3px solid var(--color-accent);
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+    z-index: 4;
+    white-space: normal;
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+}
+
+.diff-comment-thread-inner {
+    padding: 0.5rem 0.75rem 0.55rem 0;
+    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
+}
+
+.diff-thread-collapse {
+    position: static;
+    align-self: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 0.8rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.diff-thread-collapse:hover {
+    color: var(--color-text);
+}
+
+.diff-thread-collapse-glyph {
+    display: block;
+    width: 18px;
+    height: 30px;
+}
+
+.diff-comment-thread-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-muted);
+    margin-bottom: 0.35rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+
+.diff-comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 0.05rem;
+    max-height: none;
+    overflow: visible;
+}
+
+.diff-comment {
+    border: none;
+    border-radius: 0;
+    padding: 0.35rem 0;
+    background: var(--color-surface);
+    box-shadow: none;
+}
+
+.diff-comment + .diff-comment {
+    border-top: 1px solid var(--color-border);
+    padding-top: 0.5rem;
+    margin-top: 0.2rem;
+}
+
+.diff-comment-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: var(--color-muted);
+    margin-bottom: 0.15rem;
+    gap: 0.5rem;
+}
+
+.diff-comment-author {
+    font-weight: 700;
+    color: var(--color-text);
+    font-size: 0.8rem;
+}
+
+.diff-comment-body {
+    font-size: 0.8rem;
+    line-height: 1.15rem;
+    white-space: pre-wrap;
+    margin-left: 0;
+}
+
+:host ::ng-deep .diff-comment-body :where(p, ul, ol, pre, blockquote) {
+    margin: 0;
+}
+
+:host ::ng-deep .diff-comment-body :where(ul, ol) {
+    padding-left: 1.1rem;
+}
+
+:host ::ng-deep .diff-comment-body :where(code) {
+    background: var(--color-code-bg);
+    border-radius: 4px;
+    padding: 0.1rem 0.25rem;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.75rem;
+}
+
+:host ::ng-deep .diff-comment-body :where(pre) {
+    background: var(--color-code-bg);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    overflow: auto;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+:host ::ng-deep .diff-comment-body :where(pre code) {
+    padding: 0;
+    background: transparent;
+    font-size: 0.75rem;
+    display: block;
+}
+
+:host ::ng-deep .diff-comment-body :where(a) {
+    color: var(--color-link);
+    text-decoration: underline;
+}
+
+.diff-comment-empty {
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    margin-bottom: 0.45rem;
+}
+
+.diff-comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    position: relative;
+}
+
+.diff-comment-input {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.2rem 0.6rem 0.35rem 0.6rem;
+    font-family: inherit;
+    font-size: 0.8rem;
+    line-height: 1.2rem;
+    resize: vertical;
+    height: 1.6rem;
+    min-height: 1.6rem;
+    background: var(--color-surface-strong);
+    color: var(--color-text);
+    box-shadow: inset 0 0 0 1px var(--color-border);
+    transition: height 120ms ease, min-height 120ms ease;
+}
+
+.diff-comment-input:focus {
+    height: 4.2rem;
+    min-height: 4.2rem;
+    outline: 2px solid var(--color-focus);
+    outline-offset: 1px;
+    box-shadow: none;
+}
+
+.diff-comment-actions {
+    display: flex;
+    justify-content: flex-end;
+    position: absolute;
+    right: 0.5rem;
+    bottom: 0.35rem;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease;
+}
+
+.diff-comment-form:focus-within .diff-comment-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.diff-comment-form.has-draft .diff-comment-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.diff-comment-submit {
+    font-size: 0.75rem;
+    padding: 0.22rem 0.7rem;
+    background: var(--color-primary);
+    border: 1px solid var(--color-primary);
+    color: var(--color-primary-contrast);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.diff-comment-submit:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
+}
+
+.diff-comment-submit:active:not(:disabled) {
+    background: var(--color-primary-active);
+    border-color: var(--color-primary-active);
+}
+
+.diff-comment-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .diff-empty {

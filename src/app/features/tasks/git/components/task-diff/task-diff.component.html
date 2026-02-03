@@ -47,19 +47,20 @@
                 <cdk-virtual-scroll-viewport
                     class="diff-viewport"
                     [itemSize]="rowHeight"
-                    [minBufferPx]="rowHeight * 20"
-                    [maxBufferPx]="rowHeight * 40"
                 >
                     <div
                         *cdkVirtualFor="let row of renderedRows; trackBy: trackByRow"
                         class="diff-row"
                         [class.spacer]="row.kind === 'spacer'"
                         [class.header]="row.kind === 'header'"
+                        [class.thread]="row.kind === 'thread'"
                         [class.add]="row.kind === 'line' && row.line?.type === 'add'"
                         [class.del]="row.kind === 'line' && row.line?.type === 'del'"
                         [class.context]="row.kind === 'line' && row.line?.type === 'context'"
                         [class.hunk]="row.kind === 'line' && row.line?.type === 'hunk'"
                         [class.meta]="row.kind === 'line' && row.line?.type === 'meta'"
+                        [class.has-comment]="row.kind === 'line' && hasComments(row)"
+                        [class.thread-open]="row.kind === 'line' && isThreadOpen(row)"
                     >
                         <div
                             *ngIf="row.kind === 'header'"
@@ -79,6 +80,148 @@
                             class="diff-line-content"
                             [innerHTML]="row.line?.html"
                         ></div>
+                        <button
+                            *ngIf="row.kind === 'line' && isCommentableRow(row)"
+                            type="button"
+                            class="diff-comment-gutter"
+                            [class.has-comments]="hasComments(row)"
+                            (click)="toggleThread(row, $event)"
+                        >
+                            <span class="diff-comment-plus">+</span>
+                            <span
+                                *ngIf="commentCount(row) > 0"
+                                class="diff-comment-count"
+                            >
+                                {{ commentCount(row) }}
+                            </span>
+                        </button>
+                        <button
+                            *ngIf="
+                                row.kind === 'line' &&
+                                isThreadCollapsed(row) &&
+                                commentCount(row) > 0
+                            "
+                            type="button"
+                            class="diff-thread-collapsed"
+                            (click)="openCollapsedThread(row, $event)"
+                            title="Expand thread"
+                            aria-label="Expand thread"
+                        >
+                            <span class="diff-thread-collapsed-icon">▸</span>
+                            <span class="diff-thread-collapsed-count">
+                                {{ commentCount(row) }}
+                            </span>
+                        </button>
+                        <div
+                            *ngIf="row.kind === 'thread' && row.threadTarget"
+                            class="diff-comment-thread"
+                            (click)="$event.stopPropagation()"
+                        >
+                            <button
+                                type="button"
+                                class="diff-thread-collapse"
+                                (click)="toggleThreadCollapsed(row, $event)"
+                                aria-label="Collapse thread"
+                                title="Collapse thread"
+                            >
+                                <svg
+                                    class="diff-thread-collapse-glyph"
+                                    viewBox="0 0 12 16"
+                                    aria-hidden="true"
+                                >
+                                    <polyline
+                                        points="3,2 6,6 9,2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2.5"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                    <polyline
+                                        points="3,14 6,10 9,14"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2.5"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                    />
+                                </svg>
+                            </button>
+                            <div
+                                class="diff-comment-thread-inner"
+                            >
+                                <div
+                                    *ngIf="
+                                        commentsFor(row).length;
+                                        else noComments
+                                    "
+                                    class="diff-comment-list"
+                                >
+                                    <div
+                                        *ngFor="let comment of commentsFor(row)"
+                                        class="diff-comment"
+                                    >
+                                        <div class="diff-comment-meta">
+                                            <span
+                                                class="diff-comment-author"
+                                            >
+                                                {{
+                                                    displayNameFor(
+                                                        comment.author
+                                                    )
+                                                }}
+                                            </span>
+                                            <span class="diff-comment-time">
+                                                {{
+                                                    comment.createdAt
+                                                        | date: "short"
+                                                }}
+                                            </span>
+                                        </div>
+                                        <div class="diff-comment-body">
+                                            <div
+                                                [innerHTML]="
+                                                    renderCommentBody(comment)
+                                                "
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <ng-template #noComments>
+                                    <div class="diff-comment-empty">
+                                        Start a new review thread.
+                                    </div>
+                                </ng-template>
+                                <form
+                                    class="diff-comment-form"
+                                    [class.has-draft]="
+                                        getDraft(row).trim().length > 0
+                                    "
+                                    (submit)="submitComment(row, $event)"
+                                >
+                                    <textarea
+                                        class="diff-comment-input"
+                                        rows="3"
+                                        [ngModelOptions]="{
+                                            standalone: true
+                                        }"
+                                        [ngModel]="getDraft(row)"
+                                        (ngModelChange)="setDraft(row, $event)"
+                                        placeholder="Write a comment.."
+                                    ></textarea>
+                                    <div class="diff-comment-actions">
+                                    <button
+                                        type="submit"
+                                        class="diff-comment-submit"
+                                        [disabled]="!canSubmitComment(row)"
+                                        (mousedown)="$event.preventDefault()"
+                                    >
+                                        Comment
+                                    </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
                         <div *ngIf="row.kind === 'spacer'" class="diff-spacer"></div>
                     </div>
                 </cdk-virtual-scroll-viewport>
@@ -104,5 +247,11 @@
         <p class="diff-empty" *ngIf="!isLoading && !hasLoaded">
             Nothing to show yet.
         </p>
+    </ng-template>
+
+    <ng-template #noComments>
+        <div class="diff-comment-empty">
+            Start a new review thread.
+        </div>
     </ng-template>
 </section>

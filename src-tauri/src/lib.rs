@@ -27,6 +27,9 @@ use crate::features::tasks::management::commands::task_terminal_resize::task_ter
 use crate::features::tasks::management::commands::task_terminal_write::task_terminal_write;
 use crate::features::time_tracking::commands::task_time_tracking_get::task_time_tracking_get;
 use crate::features::time_tracking::commands::task_time_tracking_record::task_time_tracking_record;
+use crate::features::tasks::review::commands::task_review_add_comment::task_review_add_comment;
+use crate::features::tasks::review::commands::task_review_get::task_review_get;
+use crate::features::tasks::review::commands::task_review_get_user_display_name::task_review_get_user_display_name;
 use crate::features::tasks::TaskManager;
 use log::info;
 
@@ -68,7 +71,10 @@ pub fn run() {
             open_path_in_explorer,
             task_git_list_branches,
             task_time_tracking_get,
-            task_time_tracking_record
+            task_time_tracking_record,
+            task_review_get,
+            task_review_add_comment,
+            task_review_get_user_display_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

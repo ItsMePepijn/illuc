@@ -407,9 +407,15 @@ pub fn git_diff(
         let content = String::from_utf8_lossy(line.content());
         let content = content.trim_end_matches(['\r', '\n']).to_string();
         if let Some(file) = files_by_path.get_mut(&path) {
+            let old_lineno = line.old_lineno().filter(|value| *value > 0);
+            let new_lineno = line.new_lineno().filter(|value| *value > 0);
+            let line_number_old = old_lineno.map(|value| value as u32);
+            let line_number_new = new_lineno.map(|value| value as u32);
             file.lines.push(DiffLine {
                 line_type: map_line_type(line.origin()),
                 content,
+                line_number_old,
+                line_number_new,
             });
         }
         true

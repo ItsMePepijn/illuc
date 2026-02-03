@@ -1,6 +1,7 @@
 pub mod git;
 pub mod management;
 pub mod models;
+pub mod review;
 mod agents;
 mod events;
 mod repo;
@@ -787,6 +788,11 @@ impl TaskManager {
                 continue;
             }
             let worktree_path_display = normalize_path_string(&canonical_path);
+            let task_id = canonical_path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .and_then(|name| Uuid::parse_str(name).ok())
+                .unwrap_or_else(Uuid::new_v4);
             let branch_name = entry
                 .branch
                 .as_ref()
@@ -796,7 +802,7 @@ impl TaskManager {
                     format!("detached-{}", short_head)
                 });
             let summary = TaskSummary {
-                task_id: Uuid::new_v4(),
+                task_id,
                 title: format_title_from_branch(&branch_name),
                 status: TaskStatus::Stopped,
                 agent_kind: AgentKind::Codex,
