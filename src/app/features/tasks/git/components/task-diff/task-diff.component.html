@@ -112,172 +112,24 @@
                                 {{ commentCount(row) }}
                             </span>
                         </button>
-                        <div
+                        <app-task-diff-thread
                             *ngIf="row.kind === 'thread' && row.threadTarget"
-                            class="diff-comment-thread"
-                            (click)="$event.stopPropagation()"
-                        >
-                            <button
-                                type="button"
-                                class="diff-thread-collapse"
-                                (click)="toggleThreadCollapsed(row, $event)"
-                                aria-label="Collapse thread"
-                                title="Collapse thread"
-                            >
-                                <svg
-                                    class="diff-thread-collapse-glyph"
-                                    viewBox="0 0 12 16"
-                                    aria-hidden="true"
-                                >
-                                    <polyline
-                                        points="3,2 6,6 9,2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                    <polyline
-                                        points="3,14 6,10 9,14"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2.5"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    />
-                                </svg>
-                            </button>
-                            <div
-                                class="diff-comment-thread-inner"
-                            >
-                                <div
-                                    *ngIf="
-                                        commentsFor(row).length;
-                                        else noComments
-                                    "
-                                    class="diff-comment-list"
-                                >
-                                    <div
-                                        *ngFor="let comment of commentsFor(row)"
-                                        class="diff-comment"
-                                    >
-                                        <div class="diff-comment-meta">
-                                            <div
-                                                class="diff-comment-meta-left"
-                                            >
-                                                <span
-                                                    class="diff-comment-author"
-                                                >
-                                                    {{
-                                                        displayNameFor(
-                                                            comment.author
-                                                        )
-                                                    }}
-                                                </span>
-                                            </div>
-                                            <div
-                                                class="diff-comment-meta-right"
-                                            >
-                                                <div
-                                                    class="select-wrapper diff-comment-status-wrap"
-                                                >
-                                                    <select
-                                                        class="diff-comment-status"
-                                                        [attr.data-status]="
-                                                            comment.status ||
-                                                            'active'
-                                                        "
-                                                        [ngModelOptions]="{
-                                                            standalone: true
-                                                        }"
-                                                        [ngModel]="
-                                                            comment.status ||
-                                                            'active'
-                                                        "
-                                                        (ngModelChange)="
-                                                            updateCommentStatus(
-                                                                comment,
-                                                                $event
-                                                            )
-                                                        "
-                                                        [disabled]="
-                                                            isStatusUpdating(
-                                                                comment
-                                                            )
-                                                        "
-                                                    >
-                                                        <option
-                                                            *ngFor="
-                                                                let option of
-                                                                    reviewStatusOptions
-                                                            "
-                                                            [ngValue]="
-                                                                option.value
-                                                            "
-                                                        >
-                                                            {{
-                                                                option.label
-                                                            }}
-                                                        </option>
-                                                    </select>
-                                                    <span
-                                                        class="select-arrow diff-comment-status-arrow"
-                                                        aria-hidden="true"
-                                                        >⌄</span
-                                                    >
-                                                </div>
-                                                <span class="diff-comment-time">
-                                                    {{
-                                                        comment.createdAt
-                                                            | date: "short"
-                                                    }}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="diff-comment-body">
-                                            <div
-                                                [innerHTML]="
-                                                    renderCommentBody(comment)
-                                                "
-                                            ></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <ng-template #noComments>
-                                    <div class="diff-comment-empty">
-                                        Start a new review thread.
-                                    </div>
-                                </ng-template>
-                                <form
-                                    class="diff-comment-form"
-                                    [class.has-draft]="
-                                        getDraft(row).trim().length > 0
-                                    "
-                                    (submit)="submitComment(row, $event)"
-                                >
-                                    <textarea
-                                        class="diff-comment-input"
-                                        rows="3"
-                                        [ngModelOptions]="{
-                                            standalone: true
-                                        }"
-                                        [ngModel]="getDraft(row)"
-                                        (ngModelChange)="setDraft(row, $event)"
-                                        placeholder="Write a comment.."
-                                    ></textarea>
-                                    <div class="diff-comment-actions">
-                                    <button
-                                        type="submit"
-                                        class="diff-comment-submit"
-                                        [disabled]="!canSubmitComment(row)"
-                                        (mousedown)="$event.preventDefault()"
-                                    >
-                                        Comment
-                                    </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+                            [comments]="commentsFor(row)"
+                            [draft]="getDraft(row)"
+                            [canSubmit]="canSubmitComment(row)"
+                            [reviewStatusOptions]="reviewStatusOptions"
+                            [statusUpdatingIds]="commentStatusUpdating"
+                            [userDisplayName]="userDisplayName"
+                            (collapseThread)="toggleThreadCollapsed(row, $event)"
+                            (submitComment)="submitComment(row, $event)"
+                            (draftChange)="setDraft(row, $event)"
+                            (statusChange)="
+                                updateCommentStatus(
+                                    $event.comment,
+                                    $event.status
+                                )
+                            "
+                        ></app-task-diff-thread>
                         <div *ngIf="row.kind === 'spacer'" class="diff-spacer"></div>
                     </div>
                 </cdk-virtual-scroll-viewport>
@@ -305,9 +157,4 @@
         </p>
     </ng-template>
 
-    <ng-template #noComments>
-        <div class="diff-comment-empty">
-            Start a new review thread.
-        </div>
-    </ng-template>
 </section>

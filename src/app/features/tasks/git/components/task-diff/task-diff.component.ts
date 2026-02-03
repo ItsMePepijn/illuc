@@ -33,8 +33,6 @@ import csharp from "highlight.js/lib/languages/csharp";
 import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
 import markdown from "highlight.js/lib/languages/markdown";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { Subscription } from "rxjs";
 import {
@@ -52,6 +50,8 @@ import {
     FileTreeComponent,
     FileTreeNode,
 } from "../file-tree/file-tree.component";
+import { TaskDiffThreadComponent } from "../../../review/components/task-diff-thread/task-diff-thread.component";
+import { RenderedDiffRow } from "./task-diff.models";
 
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("typescript", typescript);
@@ -72,11 +72,6 @@ hljs.registerLanguage("c", c);
 hljs.registerLanguage("cpp", cpp);
 hljs.registerLanguage("markdown", markdown);
 
-marked.setOptions({
-    breaks: true,
-    gfm: true,
-});
-
 type ReviewStatusOption = {
     value: ReviewCommentStatus;
     label: string;
@@ -92,29 +87,6 @@ const REVIEW_STATUS_OPTIONS: ReadonlyArray<ReviewStatusOption> = [
 
 const DEFAULT_REVIEW_STATUS: ReviewCommentStatus = "active";
 
-interface RenderedDiffLine {
-    type: DiffLineType;
-    html: SafeHtml;
-}
-
-type DiffRowKind = "header" | "line" | "spacer" | "thread";
-
-interface RenderedDiffRow {
-    kind: DiffRowKind;
-    filePath: string;
-    displayName?: string;
-    status?: string;
-    line?: RenderedDiffLine;
-    lineNumberOld?: number | null;
-    lineNumberNew?: number | null;
-    threadTarget?: {
-        filePath: string;
-        lineNumberOld?: number | null;
-        lineNumberNew?: number | null;
-        lineType: DiffLineType;
-    };
-}
-
 const DIFF_MIN_BUFFER_PX = 400;
 const DIFF_MAX_BUFFER_PX = 800;
 
@@ -128,7 +100,13 @@ function diffScrollStrategyFactory() {
 @Component({
     selector: "app-task-diff",
     standalone: true,
-    imports: [CommonModule, FileTreeComponent, ScrollingModule, FormsModule],
+    imports: [
+        CommonModule,
+        FileTreeComponent,
+        ScrollingModule,
+        FormsModule,
+        TaskDiffThreadComponent,
+    ],
     templateUrl: "./task-diff.component.html",
     styleUrl: "./task-diff.component.css",
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -173,8 +151,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     readonly reviewStatusOptions = REVIEW_STATUS_OPTIONS;
     private readonly collapsedThreads = new Set<string>();
     private readonly commentDrafts = new Map<string, string>();
-    private readonly commentBodyCache = new Map<string, SafeHtml>();
-    private readonly commentStatusUpdating = new Set<string>();
+    readonly commentStatusUpdating = new Set<string>();
     private shouldAutoCollapseThreads = true;
 
     constructor(
@@ -193,6 +170,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             this.activeThreadKey = null;
             this.commentDrafts.clear();
             this.collapsedThreads.clear();
+            this.commentStatusUpdating.clear();
             this.shouldAutoCollapseThreads = true;
             void this.refreshReviewStore();
         }
@@ -516,10 +494,6 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         );
     }
 
-    isStatusUpdating(comment: ReviewComment): boolean {
-        return this.commentStatusUpdating.has(comment.id);
-    }
-
     async updateCommentStatus(
         comment: ReviewComment,
         status: ReviewCommentStatus,
@@ -719,29 +693,6 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             this.isSubmittingComment = false;
             this.cdr.detectChanges();
         }
-    }
-
-    displayNameFor(author: string): string {
-        if (author === "user") {
-            return this.userDisplayName || "User";
-        }
-        return author;
-    }
-
-    renderCommentBody(comment: ReviewComment): SafeHtml {
-        const normalizedBody = comment.body.replace(/\s+$/u, "");
-        const key = `${comment.id}:${normalizedBody}`;
-        const cached = this.commentBodyCache.get(key);
-        if (cached) {
-            return cached;
-        }
-        const rawHtml = marked.parse(normalizedBody) as string;
-        const sanitized = DOMPurify.sanitize(rawHtml, {
-            USE_PROFILES: { html: true },
-        });
-        const safe = this.sanitizer.bypassSecurityTrustHtml(sanitized);
-        this.commentBodyCache.set(key, safe);
-        return safe;
     }
 
     canSubmitComment(row: RenderedDiffRow): boolean {
