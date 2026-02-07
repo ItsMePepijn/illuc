@@ -1,0 +1,74 @@
+:host {
+    display: block;
+    height: 100%;
+    min-height: 0;
+    width: 100%;
+    min-width: 0;
+}
+
+.home-view {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    height: 100%;
+    overflow: auto;
+    color: var(--color-text);
+    width: 100%;
+}
+
+.eyebrow {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.2rem;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.first-task-view {
+    justify-content: flex-start;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.first-task-content {
+    width: 100%;
+    margin: 0;
+    display: block;
+}
+
+.first-task-content h2 {
+    margin: 0.1rem 0 0.75rem;
+    font-size: 1.7rem;
+}
+
+.first-task-subtitle {
+    margin: 0.25rem 0 1rem;
+    color: var(--color-subtle);
+    line-height: 1.5;
+}
+
+.first-task-steps {
+    margin: 0;
+    padding-left: 1.2rem;
+    display: grid;
+    gap: 0.6rem;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.first-task-steps code,
+.first-task-hint code {
+    background: var(--color-surface-strong);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.85rem;
+}
+
+.first-task-hint {
+    margin: 1.1rem 0 0;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    word-break: break-all;
+}

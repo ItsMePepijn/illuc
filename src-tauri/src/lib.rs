@@ -7,6 +7,8 @@ use crate::features::launcher::commands::open_path_in_explorer::open_path_in_exp
 use crate::features::launcher::commands::open_file_in_vscode::open_file_in_vscode;
 use crate::features::launcher::commands::open_path_in_vscode::open_path_in_vscode;
 use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
+#[cfg(target_os = "windows")]
+use crate::features::shell::native_titlebar::apply_windows_caption_color;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
 use crate::features::tasks::git::commands::task_git_diff_get::task_git_diff_get;
 use crate::features::tasks::git::commands::task_git_has_changes::task_git_has_changes;
@@ -35,6 +37,8 @@ use crate::features::tasks::review::commands::task_review_get_user_display_name:
 use crate::features::tasks::review::commands::task_review_update_thread_status::task_review_update_thread_status;
 use crate::features::tasks::TaskManager;
 use log::info;
+#[cfg(target_os = "windows")]
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -49,6 +53,17 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            {
+                if let Some(window) = app.get_webview_window("main") {
+                    if let Err(error) = apply_windows_caption_color(&window) {
+                        log::warn!("failed to apply native caption color: {error}");
+                    }
+                }
+            }
+            Ok(())
+        })
         .manage(TaskManager::default())
         .invoke_handler(tauri::generate_handler![
             select_base_repo,

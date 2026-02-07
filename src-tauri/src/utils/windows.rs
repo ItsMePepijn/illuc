@@ -1,4 +1,3 @@
-use log::debug;
 use portable_pty::CommandBuilder;
 use std::path::Path;
 use std::process::Command;
@@ -61,7 +60,6 @@ pub fn build_wsl_command(
 ) -> CommandBuilder {
     let mut command_builder = CommandBuilder::new("wsl.exe");
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
-    debug!("WSL command line: {}", command_line);
     command_builder.args([
         "--cd",
         &wsl_path,
@@ -80,7 +78,6 @@ pub fn build_wsl_process_command(
 ) -> Command {
     let mut command_builder = Command::new("wsl.exe");
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
-    debug!("WSL command line: {}", command_line);
     command_builder.args([
         "--cd",
         &wsl_path,

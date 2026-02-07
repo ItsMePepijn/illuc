@@ -43,7 +43,7 @@ use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_o
 use crate::utils::fs::ensure_directory;
 use crate::utils::path::normalize_path_string;
 use chrono::Utc;
-use log::{debug, info, warn};
+use log::{info, warn};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::{Mutex, RwLock};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -169,7 +169,6 @@ impl TaskManager {
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty())
             .ok_or_else(|| TaskError::Message("Branch name is required.".into()))?;
-        info!("create_task task_id={} branch={}", task_id, branch_name);
 
         let managed_root = managed_worktree_root(&repo_root)?;
         let worktree_path = managed_root.join(task_id.to_string());
@@ -258,7 +257,6 @@ impl TaskManager {
                 record.summary.started_at.is_some(),
             )
         };
-        info!("start_task task_id={} title={}", task_id, title);
 
         let status_manager = self.clone();
         let status_app = app.clone();
@@ -329,14 +327,13 @@ impl TaskManager {
         app: &AppHandle,
     ) -> Result<TaskSummary> {
         let task_id = req.task_id;
-        info!("stop_task task_id={}", task_id);
         let child = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
             if let Some(runtime) = &record.runtime {
                 runtime.child.clone()
             } else {
-                return Err(TaskError::NotRunning);
+                return Ok(record.summary.clone());
             }
         };
 
@@ -357,7 +354,6 @@ impl TaskManager {
 
     pub fn discard_task(&self, req: DiscardTaskRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
-        info!("discard_task task_id={}", task_id);
         self.remove_diff_watch(task_id);
         let (worktree_path, branch_name, base_repo_path, runtime_exists, shell_exists) = {
             let tasks = self.inner.tasks.read();
@@ -407,7 +403,6 @@ impl TaskManager {
 
     pub fn terminal_write(&self, req: TerminalWriteRequest) -> Result<()> {
         let task_id = req.task_id;
-        debug!("terminal_write task_id={} bytes={}", task_id, req.data.len());
         let writer = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -426,7 +421,6 @@ impl TaskManager {
 
     pub fn terminal_resize(&self, req: TerminalResizeRequest) -> Result<()> {
         let task_id = req.task_id;
-        debug!("terminal_resize task_id={} rows={} cols={}", task_id, req.rows, req.cols);
         let master = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -459,10 +453,6 @@ impl TaskManager {
         app: &AppHandle,
     ) -> Result<()> {
         let task_id = req.task_id;
-        debug!(
-            "start_worktree_terminal task_id={} rows={:?} cols={:?}",
-            task_id, req.rows, req.cols
-        );
         {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -486,11 +476,6 @@ impl TaskManager {
 
     pub fn worktree_terminal_write(&self, req: TerminalWriteRequest) -> Result<()> {
         let task_id = req.task_id;
-        debug!(
-            "worktree_terminal_write task_id={} bytes={}",
-            task_id,
-            req.data.len()
-        );
         let writer = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -509,10 +494,6 @@ impl TaskManager {
 
     pub fn worktree_terminal_resize(&self, req: TerminalResizeRequest) -> Result<()> {
         let task_id = req.task_id;
-        debug!(
-            "worktree_terminal_resize task_id={} rows={} cols={}",
-            task_id, req.rows, req.cols
-        );
         let master = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -533,7 +514,6 @@ impl TaskManager {
 
     pub fn get_diff(&self, req: DiffRequest) -> Result<DiffPayload> {
         let task_id = req.task_id;
-        debug!("get_diff task_id={} mode={:?}", task_id, req.mode);
         let (worktree_path, base_commit) = {
             let tasks = self.inner.tasks.read();
             let record = tasks.get(&task_id).ok_or(TaskError::NotFound)?;
@@ -592,7 +572,7 @@ impl TaskManager {
         Ok(())
     }
 
-    pub fn commit_task(&self, req: CommitTaskRequest) -> Result<()> {
+    pub fn commit_task(&self, req: CommitTaskRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
         let message = req.message.trim();
         if message.is_empty() {
@@ -600,16 +580,12 @@ impl TaskManager {
         }
         let stage_all = req.stage_all.unwrap_or(true);
         let worktree_path = self.worktree_path(task_id)?;
-        debug!(
-            "commit_task task_id={} stage_all={} message_len={}",
-            task_id,
-            stage_all,
-            message.len()
-        );
-        git_commit(worktree_path.as_path(), message, stage_all)
+        git_commit(worktree_path.as_path(), message, stage_all)?;
+        emit_diff_changed(app, task_id);
+        Ok(())
     }
 
-    pub fn push_task(&self, req: PushTaskRequest) -> Result<()> {
+    pub fn push_task(&self, req: PushTaskRequest, app: &AppHandle) -> Result<()> {
         let task_id = req.task_id;
         let (worktree_path, branch_name) = {
             let tasks = self.inner.tasks.read();
@@ -622,11 +598,14 @@ impl TaskManager {
         let remote = req.remote.unwrap_or_else(|| "origin".to_string());
         let branch = req.branch.unwrap_or(branch_name);
         let set_upstream = req.set_upstream.unwrap_or(true);
-        debug!(
-            "push_task task_id={} remote={} branch={} set_upstream={}",
-            task_id, remote, branch, set_upstream
-        );
-        git_push(worktree_path.as_path(), remote.as_str(), branch.as_str(), set_upstream)
+        git_push(
+            worktree_path.as_path(),
+            remote.as_str(),
+            branch.as_str(),
+            set_upstream,
+        )?;
+        emit_diff_changed(app, task_id);
+        Ok(())
     }
 
     fn apply_agent_status(&self, record: &mut TaskRecord, status: TaskStatus, app: &AppHandle) {
@@ -637,29 +616,34 @@ impl TaskManager {
     }
 
     pub fn handle_agent_status(&self, task_id: Uuid, status: TaskStatus, app: &AppHandle) {
-        debug!("agent_status task_id={} status={:?}", task_id, status);
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
+            if record.runtime.is_none() {
+                return;
+            }
+            if matches!(
+                record.summary.status,
+                TaskStatus::Stopped
+                    | TaskStatus::Discarded
+                    | TaskStatus::Completed
+                    | TaskStatus::Failed
+            ) {
+                return;
+            }
             self.apply_agent_status(record, status, app);
         }
     }
 
     pub fn handle_agent_output(&self, task_id: Uuid, chunk: String, app: &AppHandle) {
-        debug!("agent_output task_id={} bytes={}", task_id, chunk.len());
         emit_terminal_output(app, task_id, chunk, TerminalKind::Agent);
     }
 
     pub fn handle_agent_exit(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) {
-        info!("agent_exit task_id={} exit_code={}", task_id, exit_code);
         let _ = self.finish_task(task_id, exit_code, app);
         emit_terminal_exit(app, task_id, exit_code, TerminalKind::Agent);
     }
 
     fn handle_worktree_terminal_exit(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) {
-        debug!(
-            "worktree_terminal_exit task_id={} exit_code={}",
-            task_id, exit_code
-        );
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
             record.shell = None;
@@ -758,7 +742,6 @@ impl TaskManager {
         base_repo_path: String,
         app: &AppHandle,
     ) -> Result<Vec<TaskSummary>> {
-        debug!("register_existing_worktrees base_repo_path={}", base_repo_path);
         let provided_path = PathBuf::from(&base_repo_path);
         ensure_directory(&provided_path)?;
         validate_git_repo(&provided_path)?;
@@ -845,13 +828,11 @@ impl TaskManager {
 
     pub fn open_in_vscode(&self, req: OpenWorktreeInVsCodeRequest) -> Result<()> {
         let path = self.worktree_path(req.task_id)?;
-        debug!("open_in_vscode task_id={} path={}", req.task_id, path.display());
         launcher::open_path_in_vscode(path.as_path())
     }
 
     pub fn open_terminal(&self, req: OpenWorktreeTerminalRequest) -> Result<()> {
         let path = self.worktree_path(req.task_id)?;
-        debug!("open_terminal task_id={} path={}", req.task_id, path.display());
         launcher::open_path_terminal(path.as_path())
     }
 

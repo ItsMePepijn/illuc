@@ -16,7 +16,10 @@ pub type Response = ();
 #[tauri::command]
 pub async fn task_git_commit(
     manager: tauri::State<'_, TaskManager>,
+    app_handle: tauri::AppHandle,
     req: Request,
 ) -> CommandResult<Response> {
-    manager.commit_task(req).map_err(|err| err.to_string())
+    manager
+        .commit_task(req, &app_handle)
+        .map_err(|err| err.to_string())
 }

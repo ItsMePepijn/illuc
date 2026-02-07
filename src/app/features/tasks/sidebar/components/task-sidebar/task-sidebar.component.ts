@@ -22,6 +22,7 @@ import { LauncherService } from "../../../../launcher/launcher.service";
 export class TaskSidebarComponent {
     @Input({ required: true }) tasks: TaskSummary[] | null = [];
     @Input() selectedTaskId: string | null = null;
+    @Input() homeSelected = false;
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() stopLoadingIds: Set<string> = new Set();
     @Input() discardLoadingIds: Set<string> = new Set();

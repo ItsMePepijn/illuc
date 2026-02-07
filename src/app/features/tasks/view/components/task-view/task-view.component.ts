@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
 import {
+    ChangeDetectorRef,
     Component,
     EventEmitter,
     Input,
@@ -19,6 +20,7 @@ import { OpenTerminalButtonComponent } from "../../../workspace/components/open-
 import { StartAgentDropdownComponent } from "../../../agents/components/start-agent-dropdown/start-agent-dropdown.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 import { TaskHomeDashboardComponent } from "../../../home/components/task-home-dashboard/task-home-dashboard.component";
+import { TaskGettingStartedComponent } from "../../../home/components/task-getting-started/task-getting-started.component";
 import { TaskStore } from "../../../task.store";
 
 @Component({
@@ -35,6 +37,7 @@ import { TaskStore } from "../../../task.store";
         StartAgentDropdownComponent,
         LoadingButtonComponent,
         TaskHomeDashboardComponent,
+        TaskGettingStartedComponent,
     ],
     templateUrl: "./task-view.component.html",
     styleUrl: "./task-view.component.css",
@@ -42,6 +45,8 @@ import { TaskStore } from "../../../task.store";
 export class TaskViewComponent {
     @Input() task: TaskSummary | null = null;
     @Input() baseRepo: BaseRepoInfo | null = null;
+    @Input() showGettingStarted = false;
+    @Input() backgroundMode = false;
     @Input() startLoading = false;
     @Input() stopLoading = false;
     @Input() discardLoading = false;
@@ -77,6 +82,7 @@ export class TaskViewComponent {
     constructor(
         private readonly taskStore: TaskStore,
         private readonly zone: NgZone,
+        private readonly cdr: ChangeDetectorRef,
     ) {}
 
     ngOnChanges(): void {
@@ -86,6 +92,9 @@ export class TaskViewComponent {
             );
         } else {
             this.isShellTerminalOpen = false;
+        }
+        if (!this.isRunning()) {
+            this.activePane = "terminal";
         }
     }
 
@@ -118,6 +127,7 @@ export class TaskViewComponent {
         if (!this.task) {
             return;
         }
+        this.taskStore.clearTerminalBuffer(this.task.taskId, "agent");
         this.startTask.emit({ taskId: this.task.taskId, agent });
     }
 
@@ -168,14 +178,20 @@ export class TaskViewComponent {
                 this.commitMessage.trim(),
                 this.commitStageAll,
             );
-            this.closeCommitModal();
+            this.deferUiUpdate(() => {
+                this.closeCommitModal();
+            });
         } catch (error: unknown) {
-            this.commitError = this.describeError(
-                error,
-                "Unable to commit changes.",
-            );
+            this.deferUiUpdate(() => {
+                this.commitError = this.describeError(
+                    error,
+                    "Unable to commit changes.",
+                );
+            });
         } finally {
-            this.isCommitting = false;
+            this.deferUiUpdate(() => {
+                this.isCommitting = false;
+            });
         }
     }
 
@@ -211,15 +227,30 @@ export class TaskViewComponent {
                 this.pushBranch.trim() || this.task.branchName,
                 this.pushSetUpstream,
             );
-            this.closePushModal();
+            this.deferUiUpdate(() => {
+                this.closePushModal();
+            });
         } catch (error: unknown) {
-            this.pushError = this.describeError(
-                error,
-                "Unable to push changes.",
-            );
+            this.deferUiUpdate(() => {
+                this.pushError = this.describeError(
+                    error,
+                    "Unable to push changes.",
+                );
+            });
         } finally {
-            this.isPushing = false;
+            this.deferUiUpdate(() => {
+                this.isPushing = false;
+            });
         }
+    }
+
+    private deferUiUpdate(update: () => void): void {
+        queueMicrotask(() => {
+            this.zone.run(() => {
+                update();
+                this.cdr.detectChanges();
+            });
+        });
     }
 
     onSelectBaseRepo(): void {

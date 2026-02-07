@@ -94,7 +94,7 @@ impl Agent for CodexAgent {
             let pty = spawn_wsl_pty(
                 worktree_path,
                 "codex",
-                &["--no-alt-screen", "--full-auto", "resume", "--last"],
+                &["--full-auto", "resume", "--last"],
                 rows,
                 cols,
                 Some("xterm-256color"),

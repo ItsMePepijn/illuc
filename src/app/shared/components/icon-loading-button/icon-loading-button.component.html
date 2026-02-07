@@ -1,0 +1,13 @@
+<app-loading-button
+    [buttonType]="buttonType"
+    [buttonClass]="resolvedButtonClass"
+    [dataAction]="dataAction"
+    [disabled]="disabled"
+    [loading]="loading"
+    [title]="title"
+    [ariaLabel]="ariaLabel"
+    [stopPropagation]="stopPropagation"
+    (action)="action.emit($event)"
+>
+    <ng-content></ng-content>
+</app-loading-button>

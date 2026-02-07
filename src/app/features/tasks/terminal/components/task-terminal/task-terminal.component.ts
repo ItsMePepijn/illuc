@@ -45,6 +45,7 @@ export class TaskTerminalComponent
     private wheelHandler?: (event: WheelEvent) => void;
     private resizeTimer?: number;
     private pendingResize?: { cols: number; rows: number };
+    private suppressInput = false;
     private altScreenActive = false;
     private altScreenCarry = "";
     private readonly altScreenSequences = [
@@ -110,6 +111,10 @@ export class TaskTerminalComponent
                 background: "#f7f3ec",
                 foreground: "#4f4942",
                 cursor: "#b2714a",
+                yellow: "#4f4942",
+                brightYellow: "#4f4942",
+                selectionBackground: "rgba(79, 73, 66, 0.28)",
+                selectionInactiveBackground: "rgba(79, 73, 66, 0.2)",
                 white: "#4f4942",
                 brightWhite: "#4f4942",
             },
@@ -164,7 +169,10 @@ export class TaskTerminalComponent
             this.terminalKind(),
         );
         if (buffer) {
-            this.terminal.write(buffer);
+            this.suppressInput = true;
+            this.terminal.write(buffer, () => {
+                this.suppressInput = false;
+            });
         }
 
         const output$ = this.taskStore.terminalOutput$(
@@ -200,6 +208,9 @@ export class TaskTerminalComponent
     }
 
     private handleTerminalInput(data: string): void {
+        if (this.suppressInput) {
+            return;
+        }
         if (!this.taskId) {
             return;
         }
@@ -311,9 +322,6 @@ export class TaskTerminalComponent
         if (this.mode === "worktree") {
             return this.assumeAltScreenOnWindows || this.altScreenActive;
         }
-        if (this.agentKind === AgentKind.Codex) {
-            return false;
-        }
         if (!this.assumeAltScreenOnWindows && !this.altScreenActive) {
             return false;
         }
@@ -326,11 +334,6 @@ export class TaskTerminalComponent
 
     private detectAltScreen(chunk: string): void {
         if (!this.isWindows) {
-            return;
-        }
-        if (this.mode === "agent" && this.agentKind === AgentKind.Codex) {
-            this.altScreenActive = false;
-            this.altScreenCarry = "";
             return;
         }
         if (this.assumeAltScreenOnWindows) {

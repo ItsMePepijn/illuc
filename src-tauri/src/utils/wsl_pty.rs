@@ -4,7 +4,6 @@ use crate::utils::pty::{
 };
 use crate::utils::windows::{bash_escape, to_wsl_path};
 use anyhow::{anyhow, Context, Result};
-use log::debug;
 use parking_lot::Mutex;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpStream;
@@ -87,7 +86,6 @@ pub fn spawn_wsl_pty(
     helper_args.extend(args.iter().map(|value| value.to_string()));
 
     let command_line = build_python_command(&helper_args);
-    debug!("WSL PTY command line: {}", command_line);
     let mut child = Command::new("wsl.exe");
     child.args(["--cd", &wsl_path, "--", "bash", "-lc", &command_line]);
     child.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -118,7 +116,6 @@ pub fn spawn_wsl_pty(
             if buffer.is_empty() {
                 break;
             }
-            debug!("WSL PTY stderr: {}", buffer.trim_end());
         }
     });
 

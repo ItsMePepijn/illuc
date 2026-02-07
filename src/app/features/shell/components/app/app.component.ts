@@ -1,11 +1,12 @@
 import { CommonModule } from "@angular/common";
-import { Component, OnDestroy, OnInit, effect } from "@angular/core";
+import { Component, NgZone, effect } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { NavigationEnd, Router } from "@angular/router";
 import { open } from "@tauri-apps/plugin-dialog";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { filter } from "rxjs/operators";
 import { TaskSidebarComponent } from "../../../tasks/sidebar/components/task-sidebar/task-sidebar.component";
 import { TaskViewComponent } from "../../../tasks/view/components/task-view/task-view.component";
-import { AgentKind } from "../../../tasks/task.models";
+import { AgentKind, TaskSummary } from "../../../tasks/task.models";
 import { deriveTitleFromBranch } from "../../../tasks/title.utils";
 import { TaskStore } from "../../../tasks/task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
@@ -13,7 +14,7 @@ import { LoadingButtonComponent } from "../../../../shared/components/loading-bu
 import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
 
 @Component({
-    selector: "app-root",
+    selector: "app-shell",
     standalone: true,
     imports: [
         CommonModule,
@@ -25,7 +26,7 @@ import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracki
     templateUrl: "./app.component.html",
     styleUrl: "./app.component.css",
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent {
     showCreateModal = false;
     branchNameInput = "";
     branchNameError = "";
@@ -35,12 +36,10 @@ export class AppComponent implements OnInit, OnDestroy {
     confirmDiscardError = "";
     confirmDiscardHasChanges = false;
     baseBranchSelection = "";
-    private readonly appWindow = getCurrentWindow();
-    isMaximized = false;
-    private unlistenResize?: () => void;
     isSelectingRepo = false;
     isCreatingTask = false;
     isDiscardingTask = false;
+    private mountedTaskIds: string[] = [];
     private readonly startingTaskIds = new Set<string>();
     private readonly stoppingTaskIds = new Set<string>();
     private readonly discardingTaskIds = new Set<string>();
@@ -49,6 +48,8 @@ export class AppComponent implements OnInit, OnDestroy {
         public readonly taskStore: TaskStore,
         private readonly launcher: LauncherService,
         private readonly timeTracking: TaskTimeTrackingService,
+        private readonly zone: NgZone,
+        private readonly router: Router,
     ) {
         effect(() => {
             const baseRepoPath = this.taskStore.baseRepo()?.path ?? null;
@@ -65,22 +66,35 @@ export class AppComponent implements OnInit, OnDestroy {
                     : null,
             );
         });
-    }
-
-    ngOnInit(): void {
-        void this.refreshMaximizeState();
-        void this.appWindow
-            .onResized(() => {
-                void this.refreshMaximizeState();
-            })
-            .then((unlisten) => {
-                this.unlistenResize = unlisten;
+        effect(() => {
+            const tasks = this.taskStore.tasks();
+            const selectedTaskId = this.taskStore.selectedTaskId();
+            const nextMounted = new Set<string>();
+            if (selectedTaskId) {
+                nextMounted.add(selectedTaskId);
+            }
+            for (const task of tasks) {
+                if (this.isTaskRunning(task)) {
+                    nextMounted.add(task.taskId);
+                }
+            }
+            this.mountedTaskIds = this.mountedTaskIds.filter((taskId) =>
+                nextMounted.has(taskId),
+            );
+            for (const taskId of nextMounted) {
+                if (!this.mountedTaskIds.includes(taskId)) {
+                    this.mountedTaskIds.push(taskId);
+                }
+            }
+        });
+        this.syncSelectionFromRoute(this.router.url);
+        this.router.events
+            .pipe(filter((event) => event instanceof NavigationEnd))
+            .subscribe((event) => {
+                this.syncSelectionFromRoute(
+                    (event as NavigationEnd).urlAfterRedirects,
+                );
             });
-    }
-
-    ngOnDestroy(): void {
-        this.unlistenResize?.();
-        this.unlistenResize = undefined;
     }
 
     tasks() {
@@ -89,6 +103,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
     selectedTask() {
         return this.taskStore.selectedTask();
+    }
+
+    selectedTaskId() {
+        return this.taskStore.selectedTaskId();
     }
 
     baseRepo() {
@@ -121,6 +139,15 @@ export class AppComponent implements OnInit, OnDestroy {
     private async loadBaseRepo(path: string): Promise<void> {
         try {
             await this.taskStore.selectBaseRepo(path);
+            if (this.taskStore.tasks().length === 0) {
+                this.taskStore.selectHome();
+                await this.navigateByUrl("/getting-started", true);
+                return;
+            }
+            this.taskStore.selectHome();
+            if (this.router.url !== "/dashboard") {
+                await this.navigateByUrl("/dashboard", true);
+            }
         } catch (error: unknown) {
             console.error(
                 this.describeError(
@@ -166,11 +193,12 @@ export class AppComponent implements OnInit, OnDestroy {
         const title = deriveTitleFromBranch(branch);
         this.isCreatingTask = true;
         try {
-            await this.taskStore.createTask(
+            const created = await this.taskStore.createTask(
                 branch,
                 title,
                 this.baseBranchSelection,
             );
+            await this.navigateByUrl(`/tasks/${created.taskId}`);
             this.closeCreateTaskModal();
         } catch (error: unknown) {
             this.branchNameError = this.describeError(
@@ -227,6 +255,7 @@ export class AppComponent implements OnInit, OnDestroy {
             if (!hasChanges) {
                 try {
                     await this.taskStore.discardTask(taskId);
+                    await this.navigateAfterTaskRemoval();
                 } catch (error: unknown) {
                     console.error(
                         this.describeError(error, "Unable to discard task."),
@@ -260,11 +289,24 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     selectTask(taskId: string): void {
-        this.taskStore.selectTask(taskId);
+        const target = `/tasks/${taskId}`;
+        if (this.router.url !== target) {
+            void this.navigateByUrl(target);
+        }
     }
 
     selectHome(): void {
-        this.taskStore.selectHome();
+        if (this.router.url !== "/dashboard") {
+            void this.navigateByUrl("/dashboard");
+        }
+    }
+
+    isGettingStartedRoute(): boolean {
+        return this.currentRouteFirstSegment() === "getting-started";
+    }
+
+    isDashboardRoute(): boolean {
+        return this.currentRouteFirstSegment() === "dashboard";
     }
 
     cancelDiscardTask(): void {
@@ -287,6 +329,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.discardingTaskIds.add(taskId);
         try {
             await this.taskStore.discardTask(taskId);
+            await this.navigateAfterTaskRemoval();
             this.cancelDiscardTask();
         } catch (error: unknown) {
             this.confirmDiscardError = this.describeError(
@@ -299,19 +342,6 @@ export class AppComponent implements OnInit, OnDestroy {
         }
     }
 
-    async minimizeWindow(): Promise<void> {
-        await this.appWindow.minimize();
-    }
-
-    async toggleMaximizeWindow(): Promise<void> {
-        await this.appWindow.toggleMaximize();
-        await this.refreshMaximizeState();
-    }
-
-    async closeWindow(): Promise<void> {
-        await this.appWindow.close();
-    }
-
     async openInExplorer(event: Event, path: string): Promise<void> {
         event.preventDefault();
         try {
@@ -321,8 +351,55 @@ export class AppComponent implements OnInit, OnDestroy {
         }
     }
 
-    private async refreshMaximizeState(): Promise<void> {
-        this.isMaximized = await this.appWindow.isMaximized();
+    private async navigateToGettingStartedIfNoTasks(): Promise<void> {
+        if (!this.baseRepo() || this.taskStore.tasks().length > 0) {
+            return;
+        }
+        if (this.router.url === "/getting-started") {
+            return;
+        }
+        await this.navigateByUrl("/getting-started", true);
+    }
+
+    private syncSelectionFromRoute(url: string): void {
+        const tree = this.router.parseUrl(url);
+        const primary = tree.root.children["primary"];
+        const segments = primary?.segments ?? [];
+        const first = segments[0]?.path ?? null;
+        const second = segments[1]?.path ?? null;
+        const routeTaskId = first === "tasks" && second ? second : null;
+        if (routeTaskId) {
+            this.taskStore.selectTask(routeTaskId);
+            return;
+        }
+        this.taskStore.selectHome();
+    }
+
+    private currentRouteFirstSegment(): string | null {
+        const tree = this.router.parseUrl(this.router.url);
+        const primary = tree.root.children["primary"];
+        return primary?.segments[0]?.path ?? null;
+    }
+
+    private async navigateAfterTaskRemoval(): Promise<void> {
+        const nextSelectedTaskId = this.taskStore.selectedTaskId();
+        if (nextSelectedTaskId) {
+            const target = `/tasks/${nextSelectedTaskId}`;
+            if (this.router.url !== target) {
+                await this.navigateByUrl(target, true);
+            }
+            return;
+        }
+        await this.navigateToGettingStartedIfNoTasks();
+    }
+
+    private navigateByUrl(url: string, replaceUrl = false): Promise<boolean> {
+        return this.zone.run(() =>
+            this.router.navigateByUrl(
+                url,
+                replaceUrl ? { replaceUrl: true } : undefined,
+            ),
+        );
     }
 
     private describeError(error: unknown, fallback: string): string {
@@ -353,5 +430,32 @@ export class AppComponent implements OnInit, OnDestroy {
 
     isDiscardingTaskFor(taskId: string | null | undefined): boolean {
         return !!taskId && this.discardingTaskIds.has(taskId);
+    }
+
+    mountedTasks(): { taskId: string; task: TaskSummary }[] {
+        const taskMap = new Map(
+            this.taskStore.tasks().map((task) => [task.taskId, task]),
+        );
+        return this.mountedTaskIds
+            .map((taskId) => ({ taskId, task: taskMap.get(taskId) ?? null }))
+            .filter(
+                (
+                    entry,
+                ): entry is {
+                    taskId: string;
+                    task: TaskSummary;
+                } => !!entry.task,
+            );
+    }
+
+    trackMountedTask(
+        _: number,
+        entry: { taskId: string; task: TaskSummary },
+    ): string {
+        return entry.taskId;
+    }
+
+    private isTaskRunning(task: TaskSummary): boolean {
+        return ["IDLE", "AWAITING_APPROVAL", "WORKING"].includes(task.status);
     }
 }

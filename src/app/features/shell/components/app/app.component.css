@@ -17,56 +17,6 @@
     background: var(--color-bg);
 }
 
-.titlebar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    height: 28px;
-    padding: 0 0 0 6px;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
-    flex-shrink: 0;
-    user-select: none;
-}
-
-.titlebar-spacer {
-    flex: 1;
-}
-
-.titlebar-controls {
-    display: inline-flex;
-    gap: 0;
-}
-
-.titlebar-button {
-    width: 36px;
-    height: 28px;
-    border-radius: 0;
-    border: none;
-    background: transparent;
-    color: var(--color-text);
-    font-size: 0.9rem;
-    line-height: 1;
-    cursor: pointer;
-}
-
-.titlebar-icon {
-    width: 12px;
-    height: 12px;
-    stroke: currentColor;
-    stroke-width: 1.2;
-    fill: none;
-}
-
-.titlebar-button:hover {
-    background: var(--color-hover);
-}
-
-.titlebar-button.close:hover {
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
-}
-
 .content {
     flex: 1;
     display: flex;
@@ -79,6 +29,25 @@
     display: flex;
     min-height: 0;
     overflow: hidden;
+}
+
+.task-host {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.task-view-layer {
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.task-view-layer.is-active {
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .status-bar {

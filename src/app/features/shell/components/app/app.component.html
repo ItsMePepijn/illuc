@@ -1,70 +1,10 @@
 <div class="app-shell">
-    <header class="titlebar" data-tauri-drag-region>
-        <div class="titlebar-spacer" data-tauri-drag-region></div>
-        <div class="titlebar-controls">
-            <button
-                type="button"
-                class="titlebar-button"
-                (click)="minimizeWindow()"
-                aria-label="Minimize"
-                data-tauri-drag-region="false"
-            >
-                <svg
-                    class="titlebar-icon"
-                    viewBox="0 0 10 10"
-                    aria-hidden="true"
-                >
-                    <line x1="2" y1="7.5" x2="8" y2="7.5"></line>
-                </svg>
-            </button>
-            <button
-                type="button"
-                class="titlebar-button"
-                (click)="toggleMaximizeWindow()"
-                aria-label="Maximize"
-                data-tauri-drag-region="false"
-            >
-                <svg
-                    *ngIf="!isMaximized"
-                    class="titlebar-icon"
-                    viewBox="0 0 10 10"
-                    aria-hidden="true"
-                >
-                    <rect x="2" y="2" width="6" height="6"></rect>
-                </svg>
-                <svg
-                    *ngIf="isMaximized"
-                    class="titlebar-icon"
-                    viewBox="0 0 10 10"
-                    aria-hidden="true"
-                >
-                    <rect x="3" y="2" width="5" height="5"></rect>
-                    <rect x="2" y="3" width="5" height="5"></rect>
-                </svg>
-            </button>
-            <button
-                type="button"
-                class="titlebar-button close"
-                (click)="closeWindow()"
-                aria-label="Close"
-                data-tauri-drag-region="false"
-            >
-                <svg
-                    class="titlebar-icon"
-                    viewBox="0 0 10 10"
-                    aria-hidden="true"
-                >
-                    <line x1="2.5" y1="2.5" x2="7.5" y2="7.5"></line>
-                    <line x1="7.5" y1="2.5" x2="2.5" y2="7.5"></line>
-                </svg>
-            </button>
-        </div>
-    </header>
     <main class="content">
         <app-task-sidebar
             *ngIf="baseRepo() as repo"
             [tasks]="tasks()"
             [selectedTaskId]="taskStore.selectedTaskId()"
+            [homeSelected]="isDashboardRoute()"
             [baseRepo]="repo"
             [stopLoadingIds]="stoppingTasks()"
             [discardLoadingIds]="discardingTasks()"
@@ -75,19 +15,41 @@
             (discardTask)="discardTask($event)"
         ></app-task-sidebar>
 
-        <app-task-view
-            class="task-view"
-            [task]="selectedTask()"
-            [baseRepo]="baseRepo()"
-            [startLoading]="isStartingTask(selectedTask()?.taskId)"
-            [stopLoading]="isStoppingTask(selectedTask()?.taskId)"
-            [discardLoading]="isDiscardingTaskFor(selectedTask()?.taskId)"
-            [selectRepoLoading]="isSelectingRepo"
-            (startTask)="startTask($event)"
-            (stopTask)="stopTask($event)"
-            (discardTask)="discardTask($event)"
-            (selectBaseRepo)="browseForRepo()"
-        ></app-task-view>
+        <div class="task-host">
+            <app-task-view
+                *ngIf="!selectedTask()"
+                class="task-view"
+                [task]="null"
+                [baseRepo]="baseRepo()"
+                [showGettingStarted]="isGettingStartedRoute()"
+                [startLoading]="false"
+                [stopLoading]="false"
+                [discardLoading]="false"
+                [selectRepoLoading]="isSelectingRepo"
+                (startTask)="startTask($event)"
+                (stopTask)="stopTask($event)"
+                (discardTask)="discardTask($event)"
+                (selectBaseRepo)="browseForRepo()"
+            ></app-task-view>
+
+            <app-task-view
+                *ngFor="let entry of mountedTasks(); trackBy: trackMountedTask"
+                class="task-view task-view-layer"
+                [class.is-active]="entry.taskId === selectedTaskId()"
+                [task]="entry.task"
+                [baseRepo]="baseRepo()"
+                [showGettingStarted]="false"
+                [backgroundMode]="entry.taskId !== selectedTaskId()"
+                [startLoading]="isStartingTask(entry.taskId)"
+                [stopLoading]="isStoppingTask(entry.taskId)"
+                [discardLoading]="isDiscardingTaskFor(entry.taskId)"
+                [selectRepoLoading]="isSelectingRepo"
+                (startTask)="startTask($event)"
+                (stopTask)="stopTask($event)"
+                (discardTask)="discardTask($event)"
+                (selectBaseRepo)="browseForRepo()"
+            ></app-task-view>
+        </div>
     </main>
 
     <footer class="status-bar" *ngIf="baseRepo()">

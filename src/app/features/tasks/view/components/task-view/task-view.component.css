@@ -1,6 +1,7 @@
 :host {
     height: 100%;
     min-height: 0;
+    --panel-header-height: 36px;
 }
 
 .task-detail {
@@ -256,6 +257,110 @@
     min-height: 0;
 }
 
+.terminal-session-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    overflow: hidden;
+}
+
+.terminal-session-panel .terminal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: var(--panel-header-height);
+    box-sizing: border-box;
+    padding: 0 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.terminal-toolbar-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+:host ::ng-deep .terminal-toolbar-title .action-btn.icon-btn {
+    width: 24px;
+    height: 24px;
+}
+
+.terminal-session-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+:host ::ng-deep .terminal-session-body app-task-terminal .terminal-panel {
+    border: 0;
+    border-radius: 0;
+}
+
+.terminal-idle-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    background: var(--color-surface);
+}
+
+.terminal-idle-content {
+    max-width: 440px;
+    text-align: center;
+    padding: 1rem;
+}
+
+.terminal-idle-eyebrow {
+    margin: 0 0 0.4rem;
+    font-size: 0.74rem;
+    letter-spacing: 0.14rem;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.terminal-idle-content h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: var(--color-text);
+}
+
+.terminal-idle-copy {
+    margin: 0.6rem 0 1.15rem;
+    color: var(--color-subtle);
+    line-height: 1.5;
+}
+
+:host ::ng-deep .terminal-idle-placeholder .start-dropdown {
+    justify-content: center;
+}
+
+:host ::ng-deep .terminal-idle-placeholder .start-trigger {
+    height: 42px;
+    padding: 0 1.15rem;
+    font-size: 0.95rem;
+    border-color: var(--color-accent);
+    background: linear-gradient(
+        180deg,
+        rgba(178, 113, 74, 0.28) 0%,
+        rgba(178, 113, 74, 0.18) 100%
+    );
+    box-shadow: 0 10px 24px rgba(96, 90, 82, 0.18);
+}
+
+:host ::ng-deep .terminal-idle-placeholder .start-trigger:hover:not(:disabled) {
+    background: linear-gradient(
+        180deg,
+        rgba(178, 113, 74, 0.36) 0%,
+        rgba(178, 113, 74, 0.24) 100%
+    );
+    border-color: var(--color-accent-strong);
+}
+
 .diff-column {
     position: absolute;
     top: 0;
@@ -334,7 +439,9 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 0.75rem;
+    min-height: var(--panel-header-height);
+    box-sizing: border-box;
+    padding: 0 0.75rem;
     border-bottom: 1px solid var(--color-border);
     background: var(--color-surface);
     font-size: inherit;

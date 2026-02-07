@@ -22,23 +22,9 @@
                         [path]="current.worktreePath"
                     ></app-open-terminal-button>
                 </div>
-                <ng-container
-                    *ngIf="current.status !== 'STOPPED'; else startStatus"
-                >
-                    <span
-                        class="status-pill"
-                        [attr.data-status]="current.status"
-                    >
-                        {{ statusLabel() }}
-                    </span>
-                </ng-container>
-                <ng-template #startStatus>
-                    <app-start-agent-dropdown
-                        [disabled]="!canStart()"
-                        [loading]="startLoading"
-                        (start)="startWith($event)"
-                    ></app-start-agent-dropdown>
-                </ng-template>
+                <span class="status-pill" [attr.data-status]="current.status">
+                    {{ statusLabel() }}
+                </span>
                 <app-task-action-button
                     type="commit"
                     [disabled]="!current"
@@ -48,12 +34,6 @@
                     type="push"
                     [disabled]="!current"
                     (action)="openPushModal()"
-                ></app-task-action-button>
-                <app-task-action-button
-                    type="stop"
-                    [disabled]="!isRunning()"
-                    [loading]="stopLoading"
-                    (action)="onStop()"
                 ></app-task-action-button>
                 <app-task-action-button
                     type="discard"
@@ -71,14 +51,52 @@
                 (mouseenter)="setActivePane('terminal')"
                 (focusin)="setActivePane('terminal')"
             >
-                <app-task-terminal
-                    [taskId]="current.taskId"
-                    [mode]="'agent'"
-                    [agentKind]="current.agentKind"
-                    [title]="'Chat Terminal'"
-                ></app-task-terminal>
+                <section class="terminal-session-panel">
+                    <header class="terminal-toolbar">
+                        <div class="terminal-toolbar-title">
+                            <strong>Chat Terminal</strong>
+                            <app-task-action-button
+                                *ngIf="isRunning()"
+                                type="stop"
+                                [disabled]="!isRunning()"
+                                [loading]="stopLoading"
+                                (action)="onStop()"
+                            ></app-task-action-button>
+                        </div>
+                    </header>
+                    <div class="terminal-session-body">
+                        <app-task-terminal
+                            *ngIf="isRunning(); else idleTerminal"
+                            [taskId]="current.taskId"
+                            [mode]="'agent'"
+                            [agentKind]="current.agentKind"
+                            [showToolbar]="false"
+                        ></app-task-terminal>
+                        <ng-template #idleTerminal>
+                            <div class="terminal-idle-placeholder">
+                                <div class="terminal-idle-content">
+                                    <p class="terminal-idle-eyebrow">
+                                        Agent Session
+                                    </p>
+                                    <h3>Ready to start this task</h3>
+                                    <p class="terminal-idle-copy">
+                                        Launch an agent to open the terminal
+                                        session and begin working on this
+                                        branch.
+                                    </p>
+                                    <app-start-agent-dropdown
+                                        [disabled]="!canStart()"
+                                        [loading]="startLoading"
+                                        (start)="startWith($event)"
+                                    ></app-start-agent-dropdown>
+                                </div>
+                            </div>
+                        </ng-template>
+                    </div>
+                </section>
             </div>
             <div
+                *ngIf="!backgroundMode"
                 class="diff-column"
                 [class.active]="activePane === 'diff'"
                 (mouseenter)="setActivePane('diff')"
@@ -210,8 +228,14 @@
 
 <ng-template #emptyState>
     <app-task-home-dashboard
+        *ngIf="!showGettingStarted || !baseRepo; else gettingStarted"
         [baseRepo]="baseRepo"
         [selectRepoLoading]="selectRepoLoading"
         (selectBaseRepo)="onSelectBaseRepo()"
     ></app-task-home-dashboard>
+    <ng-template #gettingStarted>
+        <app-task-getting-started
+            [baseRepo]="baseRepo"
+        ></app-task-getting-started>
+    </ng-template>
 </ng-template>

@@ -31,6 +31,10 @@ export class TaskStore {
         string,
         { cols: number; rows: number }
     >();
+    private readonly terminalLastResizeSent = new Map<
+        string,
+        { cols: number; rows: number }
+    >();
     private lastTerminalSize: { cols: number; rows: number } | null = null;
     private readonly worktreeTerminalBuffers = new Map<string, string>();
     private readonly worktreeTerminalStreams = new Map<
@@ -41,12 +45,16 @@ export class TaskStore {
         string,
         { cols: number; rows: number }
     >();
+    private readonly worktreeTerminalLastResizeSent = new Map<
+        string,
+        { cols: number; rows: number }
+    >();
     private lastWorktreeTerminalSize: { cols: number; rows: number } | null =
         null;
     private readonly worktreeTerminalOpenState = new Map<string, boolean>();
     private readonly unlistenFns: UnlistenFn[] = [];
 
-    private readonly diffRefreshDelayMs = 2000;
+    private readonly diffRefreshDelayMs = 250;
 
     readonly tasks = this.tasksSignal.asReadonly();
     readonly baseRepo = this.baseRepoSignal.asReadonly();
@@ -82,8 +90,10 @@ export class TaskStore {
         this.branchOptionsSignal.set([]);
         this.terminalBuffers.clear();
         this.terminalStreams.clear();
+        this.terminalLastResizeSent.clear();
         this.worktreeTerminalBuffers.clear();
         this.worktreeTerminalStreams.clear();
+        this.worktreeTerminalLastResizeSent.clear();
         this.worktreeTerminalOpenState.clear();
         await this.loadExistingTasks(normalized.path);
         await this.loadBranches(normalized.path);
@@ -183,6 +193,11 @@ export class TaskStore {
         rows: number,
         kind: TerminalKind,
     ): Promise<void> {
+        const sent = this.selectLastResizeSent(kind);
+        const previous = sent.get(taskId);
+        if (previous && previous.cols === cols && previous.rows === rows) {
+            return;
+        }
         await invoke("task_terminal_resize", {
             req: {
                 taskId,
@@ -191,6 +206,7 @@ export class TaskStore {
                 rows,
             },
         });
+        sent.set(taskId, { cols, rows });
     }
 
     async getDiff(
@@ -299,6 +315,14 @@ export class TaskStore {
         return buffer.get(taskId) ?? "";
     }
 
+    clearTerminalBuffer(taskId: string, kind: TerminalKind): void {
+        if (!taskId) {
+            return;
+        }
+        const buffer = this.selectTerminalBuffer(kind);
+        buffer.delete(taskId);
+    }
+
     terminalOutput$(taskId: string, kind: TerminalKind): Observable<string> {
         const stream = this.ensureTerminalStream(taskId, kind);
         return stream.asObservable();
@@ -397,8 +421,10 @@ export class TaskStore {
         }
         this.terminalBuffers.delete(taskId);
         this.terminalStreams.delete(taskId);
+        this.terminalLastResizeSent.delete(taskId);
         this.worktreeTerminalBuffers.delete(taskId);
         this.worktreeTerminalStreams.delete(taskId);
+        this.worktreeTerminalLastResizeSent.delete(taskId);
         this.worktreeTerminalOpenState.delete(taskId);
     }
 
@@ -469,6 +495,14 @@ export class TaskStore {
         return kind === "worktree"
             ? this.worktreeTerminalStreams
             : this.terminalStreams;
+    }
+
+    private selectLastResizeSent(
+        kind: TerminalKind,
+    ): Map<string, { cols: number; rows: number }> {
+        return kind === "worktree"
+            ? this.worktreeTerminalLastResizeSent
+            : this.terminalLastResizeSent;
     }
 
     private teardown(): void {

@@ -1,0 +1,25 @@
+<section class="home-view first-task-view">
+    <div class="first-task-content">
+        <p class="eyebrow">Welcome</p>
+        <h2>Let’s create your first task</h2>
+        <p class="first-task-subtitle">
+            You’re all set with a repository. Next step: create a task branch
+            and start working.
+        </p>
+        <ol class="first-task-steps">
+            <li>Click the <strong>+</strong> button in the <strong>Tasks</strong> section of the sidebar.</li>
+            <li>
+                Enter a branch name (for example
+                <code>feature/1234-improve-login</code>).
+            </li>
+            <li>
+                Choose the base branch (usually <code>master</code>) and create
+                it.
+            </li>
+        </ol>
+        <p class="first-task-hint">
+            Repository selected:
+            <code>{{ baseRepo?.path }}</code>
+        </p>
+    </div>
+</section>

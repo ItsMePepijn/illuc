@@ -1,12 +1,12 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
-import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
+import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 
 @Component({
     selector: "app-open-terminal-button",
     standalone: true,
-    imports: [CommonModule, LoadingButtonComponent],
+    imports: [CommonModule, IconLoadingButtonComponent],
     templateUrl: "./open-terminal-button.component.html",
     styleUrl: "./open-terminal-button.component.css",
 })
