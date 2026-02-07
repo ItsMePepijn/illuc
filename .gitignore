@@ -28,6 +28,9 @@ yarn-error.log
 !.vscode/extensions.json
 .history/*
 
+# illuc IDE
+.illuc/
+
 # Miscellaneous
 /.angular/cache
 .sass-cache/
