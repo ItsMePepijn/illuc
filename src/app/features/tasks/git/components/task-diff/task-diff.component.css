@@ -1,11 +1,12 @@
 .diff-panel {
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border: 1px solid var(--borders-default);
+    border-top: 0;
+    border-radius: 0;
     height: 100%;
     min-height: 0;
-    background: var(--color-surface);
+    background: var(--surfaces-surface);
     overflow: hidden;
     --diff-row-height: 28px;
 }
@@ -19,7 +20,7 @@
     min-height: 36px;
     box-sizing: border-box;
     padding: 0 0.75rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--borders-default);
 }
 
 .diff-content {
@@ -30,7 +31,7 @@
 
 .file-list {
     width: 248px;
-    border-right: 1px solid var(--color-border);
+    border-right: 1px solid var(--borders-default);
     padding: 0.5rem 0;
     overflow-y: auto;
 }
@@ -38,7 +39,7 @@
 .file-list h4 {
     margin: 0 0 0.35rem 0;
     font-size: 0.85rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
     margin-left: 0.5rem;
 }
 
@@ -49,8 +50,8 @@
     min-height: 0;
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: 0.8rem;
-    background: var(--color-surface);
-    color: var(--color-text);
+    background: var(--surfaces-surface);
+    color: var(--text-default);
     contain: paint;
     isolation: isolate;
     backface-visibility: hidden;
@@ -60,8 +61,8 @@
 .diff-viewport {
     height: 100%;
     width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
+    border: 0;
+    border-radius: 0;
     overflow: auto;
     container-type: inline-size;
 }
@@ -72,7 +73,7 @@
 
 .diff-file-header {
     font-weight: 600;
-    color: var(--color-text);
+    color: var(--text-default);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -149,17 +150,17 @@
 
 .diff-row.hunk {
     background: rgba(110, 138, 161, 0.2);
-    color: var(--color-info);
+    color: var(--status-info);
     font-weight: 600;
 }
 
 .diff-row.meta {
     background: rgba(96, 90, 82, 0.06);
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .diff-row.header {
-    background: var(--color-surface-strong);
+    background: var(--surfaces-surface_strong);
     font-weight: 600;
 }
 
@@ -178,7 +179,7 @@
     padding: 0;
     margin: 0;
     font: inherit;
-    color: var(--color-link);
+    color: var(--text-link);
     cursor: pointer;
     text-align: left;
     max-width: 100%;
@@ -188,12 +189,12 @@
 }
 
 .diff-file-header-button:hover {
-    color: var(--color-link-hover);
+    color: var(--text-link_hover);
     text-decoration: underline;
 }
 
 .diff-file-header-button:focus-visible {
-    outline: 2px solid var(--color-focus);
+    outline: 2px solid var(--interaction-focus);
     outline-offset: 2px;
     border-radius: 4px;
 }
@@ -209,7 +210,7 @@
 
 .diff-comment-count {
     font-weight: 600;
-    color: var(--color-accent);
+    color: var(--brand-accent);
 }
 
 .diff-comment-gutter {
@@ -223,11 +224,11 @@
     opacity: 0;
     pointer-events: none;
     border: 1px solid rgba(96, 90, 82, 0.35);
-    background: var(--color-surface);
+    background: var(--surfaces-surface);
     border-radius: 999px;
     padding: 0.05rem 0.35rem;
     font-size: 0.7rem;
-    color: var(--color-text);
+    color: var(--text-default);
 }
 
 .diff-row:hover .diff-comment-gutter,
@@ -254,12 +255,12 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_strong);
     border-radius: 999px;
     padding: 0.1rem 0.45rem;
     font-size: 0.7rem;
-    color: var(--color-text);
+    color: var(--text-default);
     z-index: 3;
 }
 
@@ -269,14 +270,14 @@
 
 .diff-thread-collapsed-count {
     font-weight: 600;
-    color: var(--color-accent);
+    color: var(--brand-accent);
 }
 
 
 .diff-empty {
     margin: 0;
     padding: 1rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .diff-loading {
@@ -291,7 +292,7 @@
     height: 56px;
     border-radius: 50%;
     border: 5px solid rgba(96, 90, 82, 0.25);
-    border-top-color: var(--color-accent);
+    border-top-color: var(--brand-accent);
     animation: diff-spin 0.9s linear infinite;
 }
 
@@ -316,8 +317,8 @@
 
 .diff-error {
     padding: 0.75rem;
-    color: var(--color-danger);
-    background: var(--color-danger-soft);
+    color: var(--status-danger);
+    background: var(--status-danger_soft);
 }
 
 .controls {
@@ -336,8 +337,8 @@
 }
 
 button {
-    background: var(--color-surface-strong);
-    border: 1px solid var(--color-border);
+    background: var(--surfaces-surface_strong);
+    border: 1px solid var(--borders-default);
     border-radius: 4px;
     color: inherit;
     font-size: 0.75rem;
@@ -352,7 +353,7 @@ button:disabled {
 
 .mode-toggle {
     display: inline-flex;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--borders-default);
     border-radius: 999px;
     overflow: hidden;
     flex-wrap: wrap;
@@ -362,7 +363,7 @@ button:disabled {
 .mode-toggle button {
     background: transparent;
     border: none;
-    color: var(--color-muted);
+    color: var(--text-muted);
     padding: 0.25rem 0.75rem;
     font-size: 0.75rem;
     cursor: pointer;
@@ -374,6 +375,6 @@ button:disabled {
 }
 
 .mode-toggle button.active {
-    background: var(--color-accent-soft);
-    color: var(--color-accent);
+    background: var(--components-segmented_active_bg);
+    color: var(--components-segmented_active_text);
 }

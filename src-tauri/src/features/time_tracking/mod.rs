@@ -47,8 +47,7 @@ pub fn load_store(repo_root: &Path) -> Result<TimeTrackingStore> {
 
 pub fn save_store(repo_root: &Path, store: &TimeTrackingStore) -> Result<()> {
     let path = time_tracking_path(repo_root)?;
-    let payload =
-        serde_json::to_string_pretty(store).map_err(|err| anyhow::Error::from(err))?;
+    let payload = serde_json::to_string_pretty(store).map_err(|err| anyhow::Error::from(err))?;
     std::fs::write(path, payload)?;
     Ok(())
 }

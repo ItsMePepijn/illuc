@@ -14,7 +14,7 @@
     padding: 1.5rem;
     height: 100%;
     overflow: auto;
-    color: var(--color-text);
+    color: var(--text-default);
 }
 
 .home-header {
@@ -41,12 +41,12 @@
     font-size: 0.8rem;
     letter-spacing: 0.2rem;
     text-transform: uppercase;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .range {
     margin: 0.35rem 0 0;
-    color: var(--color-subtle);
+    color: var(--text-subtle);
 }
 
 .range-nav {
@@ -64,9 +64,9 @@
     width: 28px;
     height: 28px;
     border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface);
+    color: var(--text-default);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -75,7 +75,7 @@
 }
 
 .range-nav button:hover:not(:disabled) {
-    background: var(--color-surface-strong);
+    background: var(--surfaces-surface_strong);
 }
 
 .range-nav button:disabled {
@@ -89,18 +89,18 @@
     gap: 0.4rem;
     padding: 0.4rem 0.75rem;
     border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_strong);
     font-size: 0.85rem;
 }
 
 .summary-label {
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .summary-value {
     font-weight: 600;
-    color: var(--color-accent-strong);
+    color: var(--brand-accent_strong);
 }
 
 .time-grid-wrap {
@@ -128,15 +128,15 @@
     font-size: 0.7rem;
     text-transform: uppercase;
     letter-spacing: 0.12rem;
-    color: var(--color-muted);
-    border-bottom: 1px solid var(--color-border);
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--borders-default);
 }
 
 .grid-row {
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--borders-default);
     border-radius: 12px;
-    background: var(--color-surface);
-    box-shadow: 0 8px 20px rgba(96, 90, 82, 0.05);
+    background: var(--surfaces-surface);
+    box-shadow: 0 8px 20px var(--effects-shadow_subtle);
 }
 
 .cell {
@@ -157,12 +157,12 @@
 
 .task-branch {
     font-size: 0.75rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .total-cell {
     font-weight: 600;
-    color: var(--color-accent-strong);
+    color: var(--brand-accent_strong);
 }
 
 .day-label {
@@ -174,20 +174,20 @@
 
 .day-label small {
     font-size: 0.75rem;
-    color: var(--color-subtle);
+    color: var(--text-subtle);
 }
 
 .empty-dashboard {
     padding: 1.5rem;
     border-radius: 12px;
-    border: 1px dashed var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-muted);
+    border: 1px dashed var(--borders-default);
+    background: var(--surfaces-surface);
+    color: var(--text-muted);
 }
 
 .empty-dashboard h3 {
     margin-top: 0;
-    color: var(--color-text);
+    color: var(--text-default);
 }
 
 .empty-view {
@@ -196,7 +196,7 @@
     justify-content: center;
     height: 100%;
     width: 100%;
-    color: var(--color-text);
+    color: var(--text-default);
     padding: 0 1.5rem;
 }
 
@@ -217,15 +217,15 @@
     margin-top: 1.25rem;
     padding: 0.4rem 1.2rem;
     border-radius: 999px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
-    color: var(--color-text);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_strong);
+    color: var(--text-default);
     font-size: 0.95rem;
     letter-spacing: 0.05rem;
 }
 
 :host ::ng-deep .landing-action:hover {
-    background: var(--color-surface-alt);
+    background: var(--surfaces-surface_alt);
 }
 
 .compass-logo {
@@ -245,7 +245,7 @@
 
 .compass-ring {
     fill: none;
-    stroke: var(--color-border);
+    stroke: var(--borders-default);
     stroke-width: 3;
 }
 
@@ -255,7 +255,7 @@
 }
 
 .compass-core {
-    fill: var(--color-subtle);
+    fill: var(--text-subtle);
 }
 
 .compass-needle {
@@ -280,7 +280,7 @@
     margin: 0.3rem 0 1.25rem;
     font-size: 0.95rem;
     letter-spacing: 0.08rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
     font-style: italic;
 }
 
@@ -288,7 +288,7 @@
     font-size: 1rem;
     line-height: 1.5;
     max-width: 420px;
-    color: var(--color-subtle);
+    color: var(--text-subtle);
 }
 
 @media (max-width: 640px) {

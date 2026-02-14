@@ -1,11 +1,11 @@
 use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::TaskStatus;
-use crate::utils::screen::Screen;
-#[cfg(target_os = "windows")]
-use crate::utils::wsl_pty::spawn_wsl_pty;
 use crate::utils::pty::ReadHandle;
 #[cfg(not(target_os = "windows"))]
 use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
+use crate::utils::screen::Screen;
+#[cfg(target_os = "windows")]
+use crate::utils::wsl_pty::spawn_wsl_pty;
 #[cfg(not(target_os = "windows"))]
 use anyhow::Context;
 use parking_lot::Mutex;
@@ -13,10 +13,9 @@ use parking_lot::Mutex;
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
-
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
@@ -62,7 +61,11 @@ impl CodexAgent {
         if status_changed {
             state.last_status = Some(status);
         }
-        if status_changed { Some(status) } else { None }
+        if status_changed {
+            Some(status)
+        } else {
+            None
+        }
     }
 
     fn status_if_idle(&self, now: Instant) -> Option<TaskStatus> {
@@ -76,7 +79,6 @@ impl CodexAgent {
         }
         None
     }
-
 }
 
 impl Agent for CodexAgent {
@@ -157,8 +159,7 @@ impl Agent for CodexAgent {
                     Ok(size) => {
                         let now = Instant::now();
                         let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
-                        if let Some(status) =
-                            status_handle.status_from_output(&buffer[..size], now)
+                        if let Some(status) = status_handle.status_from_output(&buffer[..size], now)
                         {
                             (output_callbacks.on_status)(status);
                         }
@@ -208,5 +209,4 @@ impl Agent for CodexAgent {
     fn resize(&mut self, rows: usize, cols: usize) {
         self.state.lock().screen.resize(rows, cols);
     }
-
 }

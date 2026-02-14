@@ -22,7 +22,7 @@ button.loading {
     height: 18px;
     border-radius: 50%;
     border: 2px solid rgba(96, 90, 82, 0.25);
-    border-top-color: var(--color-accent);
+    border-top-color: var(--brand-accent);
     animation: loading-button-spin 0.8s linear infinite;
 }
 

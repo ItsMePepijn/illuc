@@ -1,13 +1,14 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
+import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 
 export type TaskActionButtonType = "stop" | "discard" | "commit" | "push";
 
 @Component({
     selector: "app-task-action-button",
     standalone: true,
-    imports: [CommonModule, IconLoadingButtonComponent],
+    imports: [CommonModule, IconLoadingButtonComponent, LoadingButtonComponent],
     templateUrl: "./task-action-button.component.html",
     styleUrl: "./task-action-button.component.css",
 })
@@ -56,6 +57,21 @@ export class TaskActionButtonComponent {
     }
 
     get buttonClass(): string {
-        return `action-btn${this.type === "discard" ? " warn" : ""}`;
+        const classes = ["action-btn"];
+        if (this.isTextAction) {
+            classes.push("action-text-btn");
+        }
+        if (this.type === "discard") {
+            classes.push("warn");
+        }
+        return classes.join(" ");
+    }
+
+    get isTextAction(): boolean {
+        return this.type === "commit" || this.type === "push";
+    }
+
+    get actionLabel(): string {
+        return this.type === "commit" ? "Commit" : "Push";
     }
 }

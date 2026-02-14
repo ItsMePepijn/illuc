@@ -14,8 +14,8 @@ body {
     padding: 0;
     height: 100%;
     overflow: hidden;
-    background: var(--color-bg);
-    color: var(--color-text);
+    background: var(--surfaces-bg);
+    color: var(--text-default);
     font-family:
         "Inter",
         "Segoe UI",
@@ -36,21 +36,21 @@ body {
 
 *::-webkit-scrollbar-track {
     background: var(--scrollbar-track);
-    border-radius: 999px;
+    border-radius: 2px;
 }
 
 *::-webkit-scrollbar-thumb {
     background-color: var(--scrollbar-thumb);
-    border-radius: 999px;
-    border: 2px solid var(--color-bg);
+    border-radius: 2px;
+    border: none;
 }
 
 *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--scrollbar-thumb-hover);
+    background-color: var(--scrollbar-thumb_hover);
 }
 
 *::-webkit-scrollbar-thumb:active {
-    background-color: var(--scrollbar-thumb-active);
+    background-color: var(--scrollbar-thumb_active);
 }
 
 *::-webkit-scrollbar-corner {
@@ -71,7 +71,7 @@ body {
     padding: 0;
     border: none;
     background: transparent;
-    color: var(--color-link);
+    color: var(--text-link);
     font: inherit;
     font-family: inherit;
     font-size: inherit;
@@ -87,7 +87,7 @@ body {
 .path-link:hover {
     text-decoration: underline;
     text-underline-offset: 2px;
-    color: var(--color-link-hover);
+    color: var(--text-link_hover);
 }
 
 .select-wrapper {
@@ -100,8 +100,8 @@ body {
     width: 100%;
     padding: 0.45rem 2.25rem 0.45rem 0.7rem;
     border-radius: 6px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_strong);
     color: inherit;
     appearance: none;
     cursor: pointer;
@@ -110,12 +110,12 @@ body {
 
 .select-wrapper select option,
 .select-wrapper select optgroup {
-    background-color: var(--color-surface);
-    color: var(--color-text);
+    background-color: var(--surfaces-surface);
+    color: var(--text-default);
 }
 
 .select-wrapper select:focus {
-    outline: 2px solid var(--color-focus);
+    outline: 2px solid var(--interaction-focus);
     border-color: transparent;
 }
 
@@ -124,5 +124,226 @@ body {
     right: 0.75rem;
     pointer-events: none;
     font-size: 1rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
+}
+
+button.icon-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    line-height: 1;
+    border-radius: 50%;
+    border: 1px solid var(--borders-default);
+    background: transparent;
+    color: inherit;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        color 0.2s ease;
+}
+
+button.icon-btn .button-content {
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+button.icon-btn .button-content > * {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+button.icon-btn .button-spinner {
+    width: 18px;
+    height: 18px;
+}
+
+button.icon-btn.loading {
+    gap: 0;
+}
+
+button.icon-btn.loading .button-content {
+    display: none;
+}
+
+button.icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+button.icon-btn:hover:not(:disabled) {
+    border-color: var(--borders-strong);
+    background: var(--surfaces-surface_strong);
+}
+
+button.action-btn {
+    appearance: none;
+    border: 1px solid var(--borders-default);
+    background: transparent;
+    color: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+button.action-btn .action-icon {
+    pointer-events: none;
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex: 0 0 auto;
+    line-height: 1;
+}
+
+button.action-text-btn {
+    appearance: none;
+    height: 34px;
+    padding: 0 0.75rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    box-shadow: none;
+}
+
+button.action-text-btn:hover,
+button.action-text-btn:focus,
+button.action-text-btn:active {
+    box-shadow: none;
+}
+
+button.action-text-btn .button-content {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    line-height: 1;
+}
+
+button.action-text-btn .action-label {
+    line-height: 1;
+}
+
+button.action-btn.warn {
+    border-color: var(--status-danger);
+    color: var(--status-danger);
+}
+
+button.action-btn:hover:not(:disabled) {
+    border-color: var(--borders-strong);
+    background: var(--surfaces-surface_strong);
+}
+
+button.action-btn.warn:hover:not(:disabled) {
+    border-color: var(--status-danger);
+    background: var(--status-danger_soft);
+}
+
+button.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+:root[data-syntax-theme="dark"] .hljs {
+    color: #c9d1d9;
+    background: #0d1117;
+}
+
+:root[data-syntax-theme="dark"] .hljs-doctag,
+:root[data-syntax-theme="dark"] .hljs-keyword,
+:root[data-syntax-theme="dark"] .hljs-meta .hljs-keyword,
+:root[data-syntax-theme="dark"] .hljs-template-tag,
+:root[data-syntax-theme="dark"] .hljs-template-variable,
+:root[data-syntax-theme="dark"] .hljs-type,
+:root[data-syntax-theme="dark"] .hljs-variable.language_ {
+    color: #ff7b72;
+}
+
+:root[data-syntax-theme="dark"] .hljs-title,
+:root[data-syntax-theme="dark"] .hljs-title.class_,
+:root[data-syntax-theme="dark"] .hljs-title.class_.inherited__,
+:root[data-syntax-theme="dark"] .hljs-title.function_ {
+    color: #d2a8ff;
+}
+
+:root[data-syntax-theme="dark"] .hljs-attr,
+:root[data-syntax-theme="dark"] .hljs-attribute,
+:root[data-syntax-theme="dark"] .hljs-literal,
+:root[data-syntax-theme="dark"] .hljs-meta,
+:root[data-syntax-theme="dark"] .hljs-number,
+:root[data-syntax-theme="dark"] .hljs-operator,
+:root[data-syntax-theme="dark"] .hljs-variable,
+:root[data-syntax-theme="dark"] .hljs-selector-attr,
+:root[data-syntax-theme="dark"] .hljs-selector-class,
+:root[data-syntax-theme="dark"] .hljs-selector-id {
+    color: #79c0ff;
+}
+
+:root[data-syntax-theme="dark"] .hljs-regexp,
+:root[data-syntax-theme="dark"] .hljs-string,
+:root[data-syntax-theme="dark"] .hljs-meta .hljs-string {
+    color: #a5d6ff;
+}
+
+:root[data-syntax-theme="dark"] .hljs-built_in,
+:root[data-syntax-theme="dark"] .hljs-symbol {
+    color: #ffa657;
+}
+
+:root[data-syntax-theme="dark"] .hljs-comment,
+:root[data-syntax-theme="dark"] .hljs-code,
+:root[data-syntax-theme="dark"] .hljs-formula {
+    color: #8b949e;
+}
+
+:root[data-syntax-theme="dark"] .hljs-name,
+:root[data-syntax-theme="dark"] .hljs-quote,
+:root[data-syntax-theme="dark"] .hljs-selector-tag,
+:root[data-syntax-theme="dark"] .hljs-selector-pseudo {
+    color: #7ee787;
+}
+
+:root[data-syntax-theme="dark"] .hljs-subst {
+    color: #c9d1d9;
+}
+
+:root[data-syntax-theme="dark"] .hljs-section {
+    color: #1f6feb;
+    font-weight: bold;
+}
+
+:root[data-syntax-theme="dark"] .hljs-bullet {
+    color: #f2cc60;
+}
+
+:root[data-syntax-theme="dark"] .hljs-emphasis {
+    color: #c9d1d9;
+    font-style: italic;
+}
+
+:root[data-syntax-theme="dark"] .hljs-strong {
+    color: #c9d1d9;
+    font-weight: bold;
+}
+
+:root[data-syntax-theme="dark"] .hljs-addition {
+    color: #aff5b4;
+    background-color: #033a16;
+}
+
+:root[data-syntax-theme="dark"] .hljs-deletion {
+    color: #ffdcd7;
+    background-color: #67060c;
 }

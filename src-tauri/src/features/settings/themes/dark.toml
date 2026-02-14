@@ -1,0 +1,69 @@
+# Dark theme (amber terminal)
+
+[surfaces]
+bg = "#202020"
+surface = "#262626"
+surface_alt = "#2c2c2c"
+surface_strong = "#343434"
+code_bg = "#1c1c1c"
+
+[text]
+default = "#ffcc00"
+muted = "rgba(255, 204, 0, 0.78)"
+subtle = "rgba(255, 204, 0, 0.56)"
+link = "rgba(255, 204, 0, 0.98)"
+link_hover = "rgba(255, 231, 124, 0.98)"
+
+[borders]
+default = "rgba(255, 204, 0, 0.22)"
+strong = "rgba(255, 204, 0, 0.34)"
+
+[brand]
+accent = "#ffcc00"
+accent_strong = "#ffe26b"
+accent_soft = "rgba(255, 204, 0, 0.26)"
+
+[actions]
+primary = "#ffcc00"
+primary_hover = "#ffdc33"
+primary_active = "#e0b800"
+primary_contrast = "#1a1203"
+
+[status]
+success = "#4ee1a0"
+success_soft = "rgba(78, 225, 160, 0.22)"
+warning = "#ffcc66"
+warning_soft = "rgba(255, 204, 102, 0.24)"
+danger = "#ff5c5c"
+danger_soft = "rgba(255, 92, 92, 0.2)"
+info = "#58a6ff"
+info_soft = "rgba(88, 166, 255, 0.2)"
+
+[interaction]
+hover = "rgba(255, 204, 0, 0.12)"
+focus = "rgba(255, 204, 0, 0.58)"
+selection_bg = "rgba(255, 204, 0, 0.22)"
+
+[components]
+chip_bg = "rgba(255, 204, 0, 0.2)"
+chip_text = "#ffcc00"
+segmented_active_bg = "rgba(255, 204, 0, 0.26)"
+segmented_active_text = "#ffcc00"
+
+[scrollbar]
+track = "rgba(255, 204, 0, 0.12)"
+thumb = "rgba(255, 204, 0, 0.36)"
+thumb_hover = "rgba(255, 204, 0, 0.52)"
+thumb_active = "rgba(255, 204, 0, 0.68)"
+size = "6px"
+
+[effects]
+overlay_backdrop = "rgba(0, 0, 0, 0.48)"
+shadow_soft = "rgba(0, 0, 0, 0.45)"
+shadow_subtle = "rgba(0, 0, 0, 0.3)"
+shadow_strong = "rgba(0, 0, 0, 0.62)"
+shadow_menu = "rgba(0, 0, 0, 0.5)"
+
+[git.diff]
+syntax_theme = "dark"
+

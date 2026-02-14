@@ -1,5 +1,7 @@
 use crate::commands::CommandResult;
-use crate::features::tasks::review::{find_thread_mut, load_store, save_store, thread_key, ReviewCommentStatus};
+use crate::features::tasks::review::{
+    find_thread_mut, load_store, save_store, thread_key, ReviewCommentStatus,
+};
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -22,9 +24,7 @@ pub struct Response {
 }
 
 #[tauri::command]
-pub async fn task_review_update_thread_status(
-    req: Request,
-) -> CommandResult<Response> {
+pub async fn task_review_update_thread_status(req: Request) -> CommandResult<Response> {
     if req.task_id.trim().is_empty() || req.file_path.trim().is_empty() {
         return Err("Review thread target is invalid.".to_string());
     }

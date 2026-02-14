@@ -1,10 +1,10 @@
+mod agents;
+mod events;
 pub mod git;
 pub mod management;
 pub mod models;
-pub mod review;
-mod agents;
-mod events;
 mod repo;
+pub mod review;
 mod worktree;
 
 pub use git::commands::task_git_commit::Request as CommitTaskRequest;
@@ -20,29 +20,30 @@ pub use management::commands::task_open_worktree_terminal::Request as OpenWorktr
 pub use management::commands::task_start::Request as StartTaskRequest;
 pub use management::commands::task_stop::Request as StopTaskRequest;
 pub use management::commands::task_terminal_resize::Request as TerminalResizeRequest;
-pub use management::commands::task_terminal_write::Request as TerminalWriteRequest;
 pub use management::commands::task_terminal_start::Request as StartWorktreeTerminalRequest;
-pub use models::{
-    AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary,
-};
+pub use management::commands::task_terminal_write::Request as TerminalWriteRequest;
 pub use models::diff_payload::{DiffLine, DiffLineType};
 pub use models::TerminalKind;
+pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
 pub use repo::handle_select_base_repo;
 
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
-use crate::features::tasks::agents::codex::CodexAgent;
-use crate::features::tasks::agents::copilot::CopilotAgent;
 use crate::error::{Result, TaskError};
 use crate::features::launcher;
+use crate::features::tasks::agents::codex::CodexAgent;
+use crate::features::tasks::agents::copilot::CopilotAgent;
+use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::git::{
     add_worktree, delete_branch, get_head_branch, get_head_commit, get_repo_root, git_commit,
-    git_diff, git_push, has_uncommitted_changes, list_worktrees, prune_worktrees,
-    remove_worktree, resolve_commit_id, stage_all, validate_git_repo,
+    git_diff, git_push, has_uncommitted_changes, list_worktrees, prune_worktrees, remove_worktree,
+    resolve_commit_id, stage_all, validate_git_repo,
 };
-use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
 use crate::utils::fs::ensure_directory;
 use crate::utils::path::normalize_path_string;
+use crate::utils::pty::{
+    wrap_portable_child, wrap_portable_master, ChildHandle, MasterHandle, TerminalSize, WriteHandle,
+};
 use chrono::Utc;
+use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
 use log::{info, warn};
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::{Mutex, RwLock};
@@ -54,11 +55,6 @@ use std::sync::Arc;
 use tauri::AppHandle;
 use uuid::Uuid;
 use worktree::{clean_branch_name, format_title_from_branch, managed_worktree_root};
-use crate::utils::pty::{
-    ChildHandle, MasterHandle, TerminalSize, WriteHandle, wrap_portable_child,
-    wrap_portable_master,
-};
-
 
 const DEFAULT_SCREEN_ROWS: usize = 40;
 const DEFAULT_SCREEN_COLS: usize = 120;
@@ -102,7 +98,6 @@ fn build_worktree_shell_command(worktree_path: &Path) -> CommandBuilder {
     }
 }
 
-
 struct TaskRecord {
     agent: Box<dyn Agent>,
     agent_kind: AgentKind,
@@ -141,11 +136,7 @@ impl Default for TaskManagerInner {
 }
 
 impl TaskManager {
-    pub fn create_task(
-        &self,
-        req: CreateTaskRequest,
-        app: &AppHandle,
-    ) -> Result<TaskSummary> {
+    pub fn create_task(&self, req: CreateTaskRequest, app: &AppHandle) -> Result<TaskSummary> {
         let CreateTaskRequest {
             base_repo_path,
             task_title,
@@ -219,11 +210,7 @@ impl TaskManager {
         Ok(summary)
     }
 
-    pub fn start_task(
-        &self,
-        req: StartTaskRequest,
-        app: &AppHandle,
-    ) -> Result<TaskSummary> {
+    pub fn start_task(&self, req: StartTaskRequest, app: &AppHandle) -> Result<TaskSummary> {
         let StartTaskRequest {
             task_id,
             cols,
@@ -278,9 +265,7 @@ impl TaskManager {
 
         let agent_runtime = {
             let mut tasks = self.inner.tasks.write();
-            let record = tasks
-                .get_mut(&task_id)
-                .ok_or(TaskError::NotFound)?;
+            let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
             if let Some(requested_agent) = agent {
                 record.agent_kind = requested_agent;
                 record.agent = build_agent(requested_agent);
@@ -302,9 +287,7 @@ impl TaskManager {
 
         {
             let mut tasks = self.inner.tasks.write();
-            let record = tasks
-                .get_mut(&task_id)
-                .ok_or(TaskError::NotFound)?;
+            let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
             record.summary.status = TaskStatus::Idle;
             record.summary.started_at = Some(Utc::now());
             record.summary.exit_code = None;
@@ -321,11 +304,7 @@ impl TaskManager {
         Ok(record.summary.clone())
     }
 
-    pub fn stop_task(
-        &self,
-        req: StopTaskRequest,
-        app: &AppHandle,
-    ) -> Result<TaskSummary> {
+    pub fn stop_task(&self, req: StopTaskRequest, app: &AppHandle) -> Result<TaskSummary> {
         let task_id = req.task_id;
         let child = {
             let tasks = self.inner.tasks.read();
@@ -343,9 +322,7 @@ impl TaskManager {
 
         {
             let mut tasks = self.inner.tasks.write();
-            let record = tasks
-                .get_mut(&task_id)
-                .ok_or(TaskError::NotFound)?;
+            let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
             record.summary.status = TaskStatus::Stopped;
             emit_status(app, &record.summary);
             return Ok(record.summary.clone());
@@ -439,9 +416,7 @@ impl TaskManager {
         {
             let mut tasks = self.inner.tasks.write();
             if let Some(record) = tasks.get_mut(&task_id) {
-                record
-                    .agent
-                    .resize(req.rows as usize, req.cols as usize);
+                record.agent.resize(req.rows as usize, req.cols as usize);
             }
         }
         Ok(())
@@ -464,7 +439,8 @@ impl TaskManager {
         let worktree_path = self.worktree_path(task_id)?;
         let rows = req.rows.unwrap_or(DEFAULT_PTY_ROWS).max(1);
         let cols = req.cols.unwrap_or(DEFAULT_PTY_COLS).max(1);
-        let runtime = self.spawn_worktree_shell(task_id, worktree_path.as_path(), rows, cols, app)?;
+        let runtime =
+            self.spawn_worktree_shell(task_id, worktree_path.as_path(), rows, cols, app)?;
 
         let mut tasks = self.inner.tasks.write();
         let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
@@ -540,8 +516,11 @@ impl TaskManager {
                 })
             }
             DiffMode::Branch => {
-                let branch_diff =
-                    git_diff(worktree_path.as_path(), base_commit.as_str(), whitespace_flag)?;
+                let branch_diff = git_diff(
+                    worktree_path.as_path(),
+                    base_commit.as_str(),
+                    whitespace_flag,
+                )?;
                 Ok(DiffPayload {
                     task_id,
                     files: branch_diff.files,
@@ -838,9 +817,7 @@ impl TaskManager {
 
     fn finish_task(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) -> Result<()> {
         let mut tasks = self.inner.tasks.write();
-        let record = tasks
-            .get_mut(&task_id)
-            .ok_or(TaskError::NotFound)?;
+        let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
         if record.runtime.is_none() {
             warn!("finish_task task_id={} without runtime", task_id);
         }

@@ -95,8 +95,7 @@ pub fn load_store(worktree_root: &Path) -> Result<ReviewStore> {
 
 pub fn save_store(worktree_root: &Path, store: &ReviewStore) -> Result<()> {
     let path = review_path(worktree_root)?;
-    let payload =
-        serde_json::to_string_pretty(store).map_err(|err| anyhow::Error::from(err))?;
+    let payload = serde_json::to_string_pretty(store).map_err(|err| anyhow::Error::from(err))?;
     std::fs::write(path, payload)?;
     Ok(())
 }
@@ -109,7 +108,11 @@ fn review_path(worktree_root: &Path) -> Result<PathBuf> {
     Ok(illuc_dir.join(REVIEW_FILE))
 }
 
-pub fn thread_key(file_path: &str, line_number_old: Option<u32>, line_number_new: Option<u32>) -> String {
+pub fn thread_key(
+    file_path: &str,
+    line_number_old: Option<u32>,
+    line_number_new: Option<u32>,
+) -> String {
     let old = line_number_old
         .map(|value| value.to_string())
         .unwrap_or_else(|| "x".to_string());

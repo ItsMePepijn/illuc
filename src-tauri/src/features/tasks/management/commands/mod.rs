@@ -6,6 +6,6 @@ pub mod task_open_worktree_in_vscode;
 pub mod task_open_worktree_terminal;
 pub mod task_start;
 pub mod task_stop;
-pub mod task_terminal_start;
 pub mod task_terminal_resize;
+pub mod task_terminal_start;
 pub mod task_terminal_write;

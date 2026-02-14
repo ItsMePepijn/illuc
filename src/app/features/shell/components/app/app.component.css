@@ -1,7 +1,7 @@
 :host {
     display: block;
     height: 100vh;
-    color: var(--color-text);
+    color: var(--text-default);
     font-family:
         "Inter",
         "Segoe UI",
@@ -14,7 +14,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    background: var(--color-bg);
+    background: var(--surfaces-bg);
 }
 
 .content {
@@ -52,10 +52,10 @@
 
 .status-bar {
     padding: 0.4rem 0.9rem;
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface-alt);
+    border-top: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_alt);
     font-size: 0.85rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -63,7 +63,7 @@
 }
 
 .status-meta {
-    color: var(--color-muted);
+    color: var(--text-muted);
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
@@ -72,13 +72,13 @@
 
 .status-placeholder {
     font-style: italic;
-    color: var(--color-subtle);
+    color: var(--text-subtle);
 }
 
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: rgba(96, 90, 82, 0.25);
+    background: var(--effects-overlay_backdrop);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -88,43 +88,43 @@
 
 .modal {
     width: min(420px, 90%);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
+    background: var(--surfaces-surface);
+    border: 1px solid var(--borders-default);
     border-radius: 12px;
     padding: 1.25rem;
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    color: var(--color-text);
+    color: var(--text-default);
 }
 
 .modal-subtitle {
     margin: 0;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .modal-subtitle.warning {
-    color: var(--color-danger);
+    color: var(--status-danger);
 }
 
 .modal input {
     padding: 0.45rem 0.7rem;
     border-radius: 6px;
-    border: 1px solid var(--color-border);
-    background: var(--color-surface-strong);
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_strong);
     color: inherit;
 }
 
 .modal input:focus,
 .modal select:focus {
-    outline: 2px solid var(--color-focus);
+    outline: 2px solid var(--interaction-focus);
     border-color: transparent;
 }
 
 
 .input-label {
     font-size: 0.85rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .modal-actions {
@@ -138,25 +138,25 @@
 :host ::ng-deep .modal .primary {
     border-radius: 6px;
     padding: 0.35rem 0.9rem;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--borders-default);
     background: transparent;
     color: inherit;
     cursor: pointer;
 }
 
 :host ::ng-deep .modal .primary {
-    background: var(--color-accent-soft);
-    border-color: var(--color-accent);
+    background: var(--brand-accent_soft);
+    border-color: var(--brand-accent);
 }
 
 :host ::ng-deep .modal .primary.warn {
-    background: var(--color-danger-soft);
-    border-color: var(--color-danger);
-    color: var(--color-danger);
+    background: var(--status-danger_soft);
+    border-color: var(--status-danger);
+    color: var(--status-danger);
 }
 
 .error {
-    color: var(--color-danger);
+    color: var(--status-danger);
     font-size: 0.85rem;
 }
 

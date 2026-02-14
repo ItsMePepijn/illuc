@@ -13,7 +13,7 @@
 }
 
 .tree-row:hover {
-    background: var(--color-hover);
+    background: var(--interaction-hover);
 }
 
 .tree-caret {
@@ -21,7 +21,7 @@
     font-size: 0.7rem;
     transform: rotate(90deg);
     transition: transform 0.15s ease;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .tree-caret.collapsed {
@@ -35,7 +35,7 @@
 
 .folder-label {
     font-size: 0.78rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -44,7 +44,7 @@
 .file-row .path {
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: 0.78rem;
-    color: var(--color-text);
+    color: var(--text-default);
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
@@ -56,25 +56,25 @@
 }
 
 .file-row[data-status="M"] {
-    box-shadow: inset 4px 0 0 0 var(--color-warning);
+    box-shadow: inset 4px 0 0 0 var(--status-warning);
 }
 
 .file-row[data-status="A"] {
-    box-shadow: inset 4px 0 0 0 var(--color-success);
+    box-shadow: inset 4px 0 0 0 var(--status-success);
 }
 
 .file-row[data-status="D"] {
-    box-shadow: inset 4px 0 0 0 var(--color-danger);
+    box-shadow: inset 4px 0 0 0 var(--status-danger);
 }
 
 .file-row[data-status="M"] .path {
-    color: var(--color-warning);
+    color: var(--status-warning);
 }
 
 .file-row[data-status="A"] .path {
-    color: var(--color-success);
+    color: var(--status-success);
 }
 
 .file-row[data-status="D"] .path {
-    color: var(--color-danger);
+    color: var(--status-danger);
 }

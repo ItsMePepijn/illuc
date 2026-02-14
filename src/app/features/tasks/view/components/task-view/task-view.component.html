@@ -22,9 +22,6 @@
                         [path]="current.worktreePath"
                     ></app-open-terminal-button>
                 </div>
-                <span class="status-pill" [attr.data-status]="current.status">
-                    {{ statusLabel() }}
-                </span>
                 <app-task-action-button
                     type="commit"
                     [disabled]="!current"

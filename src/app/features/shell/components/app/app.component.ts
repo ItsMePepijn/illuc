@@ -12,6 +12,7 @@ import { TaskStore } from "../../../tasks/task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
 import { LoadingButtonComponent } from "../../../../shared/components/loading-button/loading-button.component";
 import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
+import { ThemeService } from "../../theme.service";
 
 @Component({
     selector: "app-shell",
@@ -48,9 +49,11 @@ export class AppComponent {
         public readonly taskStore: TaskStore,
         private readonly launcher: LauncherService,
         private readonly timeTracking: TaskTimeTrackingService,
+        private readonly themeService: ThemeService,
         private readonly zone: NgZone,
         private readonly router: Router,
     ) {
+        void this.themeService.applyFromSettings();
         effect(() => {
             const baseRepoPath = this.taskStore.baseRepo()?.path ?? null;
             const task = this.taskStore.selectedTask();

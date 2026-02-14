@@ -39,11 +39,7 @@ pub fn bash_escape(value: &str) -> String {
     escaped
 }
 
-fn build_wsl_command_parts(
-    worktree_path: &Path,
-    command: &str,
-    args: &[&str],
-) -> (String, String) {
+fn build_wsl_command_parts(worktree_path: &Path, command: &str, args: &[&str]) -> (String, String) {
     let wsl_path = to_wsl_path(worktree_path).unwrap_or_else(|| "/".to_string());
     let mut command_line = format!("cd {} && {}", bash_escape(&wsl_path), command);
     for arg in args {
@@ -53,11 +49,7 @@ fn build_wsl_command_parts(
     (wsl_path, command_line)
 }
 
-pub fn build_wsl_command(
-    worktree_path: &Path,
-    command: &str,
-    args: &[&str],
-) -> CommandBuilder {
+pub fn build_wsl_command(worktree_path: &Path, command: &str, args: &[&str]) -> CommandBuilder {
     let mut command_builder = CommandBuilder::new("wsl.exe");
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     command_builder.args([
@@ -71,11 +63,7 @@ pub fn build_wsl_command(
     command_builder
 }
 
-pub fn build_wsl_process_command(
-    worktree_path: &Path,
-    command: &str,
-    args: &[&str],
-) -> Command {
+pub fn build_wsl_process_command(worktree_path: &Path, command: &str, args: &[&str]) -> Command {
     let mut command_builder = Command::new("wsl.exe");
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     command_builder.args([
