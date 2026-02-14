@@ -1,59 +1,99 @@
 <aside class="task-sidebar">
-    <div class="control-panel">
-        <div class="control-group">
-            <label>Base repository</label>
-            <div class="repo-info" *ngIf="baseRepo; else noRepo">
+    <div class="sidebar-top">
+        <div class="repo-card">
+            <div class="repo-head">
+                <span class="repo-label">Workspace</span>
+                <div class="repo-actions" *ngIf="baseRepo">
+                    <app-open-vscode-button
+                        [path]="baseRepo.canonicalPath"
+                        title="Open repository in VS Code"
+                        ariaLabel="Open repository in VS Code"
+                    ></app-open-vscode-button>
+                    <app-open-terminal-button
+                        [path]="baseRepo.canonicalPath"
+                        title="Open repository terminal"
+                        ariaLabel="Open repository terminal"
+                    ></app-open-terminal-button>
+                </div>
+            </div>
+
+            <div class="repo-body" *ngIf="baseRepo; else noRepo">
                 <a
                     href="#"
-                    class="path-link"
+                    class="path-link repo-path"
                     (click)="openInExplorer($event, baseRepo.canonicalPath)"
                     [attr.title]="baseRepo.canonicalPath"
                 >
                     {{ baseRepo.canonicalPath }}
                 </a>
-                <span class="branch">Branch: {{ baseRepo.currentBranch }}</span>
+                <div class="repo-meta">
+                    <span class="repo-branch">{{ baseRepo.currentBranch }}</span>
+                    <span class="repo-meta-sep">·</span>
+                    <span class="repo-meta-hint">Base repository</span>
+                </div>
             </div>
-            <div class="repo-actions" *ngIf="baseRepo">
-                <app-open-vscode-button
-                    [path]="baseRepo.canonicalPath"
-                    title="Open repository in VS Code"
-                    ariaLabel="Open repository in VS Code"
-                ></app-open-vscode-button>
-                <app-open-terminal-button
-                    [path]="baseRepo.canonicalPath"
-                    title="Open repository terminal"
-                    ariaLabel="Open repository terminal"
-                ></app-open-terminal-button>
-            </div>
+
             <ng-template #noRepo>
-                <span class="placeholder">No repository selected</span>
+                <div class="repo-empty">
+                    <div class="repo-empty-title">No repository selected</div>
+                    <div class="repo-empty-copy">
+                        Pick a repo to create and run tasks.
+                    </div>
+                </div>
             </ng-template>
         </div>
-    </div>
 
-    <div
-        class="home-row"
-        [class.selected]="homeSelected"
-        (click)="onSelectHome()"
-    >
-        <span class="home-label">Dashboard</span>
-    </div>
+        <button
+            type="button"
+            class="nav-item"
+            [class.selected]="homeSelected"
+            (click)="onSelectHome()"
+            aria-label="Open time tracking"
+        >
+            <svg
+                class="nav-icon"
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+            >
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M12 7v5l3 2"></path>
+            </svg>
+            <span class="nav-label">Time Tracking</span>
+        </button>
 
-    <div class="sidebar-header">
-        <div class="title-group">
-            <span class="title">Tasks</span>
+        <div class="section-head">
+            <div class="section-left">
+                <span class="section-title">Tasks</span>
+                <span class="count-badge">{{ tasks?.length || 0 }}</span>
+            </div>
             <button
                 type="button"
-                class="icon ghost"
+                class="icon-btn create-btn"
                 (click)="createTask.emit()"
                 [disabled]="!baseRepo"
-                title="Create task"
+                [attr.title]="baseRepo ? 'Create task' : 'Select a repository first'"
                 aria-label="Create task"
             >
-                +
+                <svg
+                    class="create-icon"
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                >
+                    <path d="M12 5v14"></path>
+                    <path d="M5 12h14"></path>
+                </svg>
             </button>
         </div>
-        <span class="count">{{ tasks?.length || 0 }}</span>
     </div>
 
     <div class="task-list" *ngIf="tasks?.length; else emptyState">
@@ -63,7 +103,8 @@
             [class.selected]="task.taskId === selectedTaskId"
             (click)="onSelect(task.taskId)"
         >
-            <div class="row-main" *ngIf="titleParts(task.title) as parts">
+            <div class="row-top" *ngIf="titleParts(task.title) as parts">
+                <span class="status-dot" [attr.data-status]="task.status"></span>
                 <div class="row-title">
                     <span *ngIf="parts.taskId" class="task-pill"
                         >#{{ parts.taskId }}</span
@@ -72,31 +113,38 @@
                 </div>
             </div>
 
-            <div class="row-meta">
+            <div class="row-bottom">
                 <small class="branch">{{ task.branchName }}</small>
-                <div class="actions">
-                    <app-task-action-button
-                        type="stop"
-                        [disabled]="!isRunning(task.status)"
-                        [loading]="stopLoadingIds.has(task.taskId)"
-                        [stopPropagation]="true"
-                        (action)="onStop(task.taskId)"
-                    ></app-task-action-button>
-                    <app-task-action-button
-                        type="discard"
-                        [loading]="discardLoadingIds.has(task.taskId)"
-                        [stopPropagation]="true"
-                        (action)="onDiscard(task.taskId)"
-                    ></app-task-action-button>
+                <div class="row-right">
                     <span class="status" [attr.data-status]="task.status">
                         {{ statusLabel(task.status) }}
                     </span>
+                    <div class="actions" aria-label="Task actions">
+                        <app-task-action-button
+                            type="stop"
+                            [disabled]="!isRunning(task.status)"
+                            [loading]="stopLoadingIds.has(task.taskId)"
+                            [stopPropagation]="true"
+                            (action)="onStop(task.taskId)"
+                        ></app-task-action-button>
+                        <app-task-action-button
+                            type="discard"
+                            [loading]="discardLoadingIds.has(task.taskId)"
+                            [stopPropagation]="true"
+                            (action)="onDiscard(task.taskId)"
+                        ></app-task-action-button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <ng-template #emptyState>
-        <p class="empty">Create a task to get started.</p>
+        <div class="empty">
+            <div class="empty-title">No tasks yet</div>
+            <p class="empty-copy">
+                Create a task to get started. Tasks appear here once created.
+            </p>
+        </div>
     </ng-template>
 </aside>

@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
-const APPROVAL_PROMPT: &str = "would you like to run the following command";
+const APPROVAL_PROMPT: &str = "Would you like to run the following command";
 
 #[derive(Clone)]
 pub struct CodexAgent {

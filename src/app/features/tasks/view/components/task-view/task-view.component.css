@@ -167,8 +167,15 @@
 .split-panels {
     position: relative;
     flex: 1;
-    /* Reserve space for the dock header so the Chat Terminal doesn't "resize" when the Shell is toggled. */
-    padding: 0 0.75rem calc(0.75rem + 34px);
+    /*
+     * The dock (shell terminal) is absolutely positioned, so padding alone does not prevent the
+     * absolutely positioned columns from extending underneath it. Reserve vertical space at the
+     * container level so the columns (inset 0) stay above the collapsed shell header.
+     */
+    --shell-dock-header-height: 34px;
+    --shell-dock-reserved: var(--shell-dock-header-height);
+    padding: 0 0.75rem 0;
+    margin-bottom: var(--shell-dock-reserved);
     min-height: 0;
     overflow: hidden;
 }
