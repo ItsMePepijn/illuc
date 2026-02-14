@@ -4,7 +4,7 @@
     (click)="$event.stopPropagation()"
 >
     <app-loading-button
-        buttonClass="start-trigger"
+        buttonClass="start-trigger action-btn action-text-btn"
         [loading]="loading"
         [disabled]="disabled"
         [ariaExpanded]="menuOpen"
@@ -12,7 +12,7 @@
         (action)="toggleMenu($event)"
     >
         <span class="start-icon" aria-hidden="true">▶</span>
-        Start
+        <span class="start-label">Start</span>
         <span class="caret" aria-hidden="true">▾</span>
     </app-loading-button>
     <div

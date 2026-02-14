@@ -167,18 +167,10 @@
 .split-panels {
     position: relative;
     flex: 1;
-    padding: 0 0.75rem 0.75rem;
+    /* Reserve space for the dock header so the Chat Terminal doesn't "resize" when the Shell is toggled. */
+    padding: 0 0.75rem calc(0.75rem + 34px);
     min-height: 0;
     overflow: hidden;
-}
-
-.task-detail.shell-collapsed .split-panels {
-    padding-bottom: 34px;
-}
-
-.task-detail.shell-collapsed .terminal-column,
-.task-detail.shell-collapsed .diff-column {
-    bottom: 34px;
 }
 
 .terminal-column {
@@ -292,10 +284,11 @@
     padding: 0 1.15rem;
     font-size: 0.95rem;
     border-color: var(--brand-accent);
+    /* Use theme tokens here; hardcoding RGBA breaks when the accent changes (dark/dracula/etc). */
     background: linear-gradient(
         180deg,
-        rgba(178, 113, 74, 0.28) 0%,
-        rgba(178, 113, 74, 0.18) 100%
+        var(--surfaces-surface_strong) 0%,
+        var(--surfaces-surface_alt) 100%
     );
     box-shadow: 0 10px 24px var(--effects-shadow_soft);
 }
@@ -303,8 +296,8 @@
 :host ::ng-deep .terminal-idle-placeholder .start-trigger:hover:not(:disabled) {
     background: linear-gradient(
         180deg,
-        rgba(178, 113, 74, 0.36) 0%,
-        rgba(178, 113, 74, 0.24) 100%
+        var(--surfaces-surface_alt) 0%,
+        var(--surfaces-surface_strong) 100%
     );
     border-color: var(--brand-accent_strong);
 }
