@@ -1,6 +1,5 @@
 import { Injectable, NgZone, computed, signal } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type Event as TauriEvent, type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import {
     AgentKind,
@@ -14,6 +13,7 @@ import {
 } from "./task.models";
 import { TaskGitService } from "./git/task-git.service";
 import { TERMINAL_SCROLLBACK } from "./terminal.constants";
+import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
 
 @Injectable({
     providedIn: "root",
@@ -78,7 +78,7 @@ export class TaskStore {
     }
 
     async selectBaseRepo(path: string): Promise<BaseRepoInfo> {
-        const repo = await invoke<BaseRepoInfo>("select_base_repo", { path });
+        const repo = await tauriInvoke<BaseRepoInfo>(this.zone, "select_base_repo", { path });
         const normalized: BaseRepoInfo = {
             ...repo,
             path: repo.canonicalPath,
@@ -110,7 +110,7 @@ export class TaskStore {
             throw new Error("Select a base repository before creating tasks.");
         }
         const baseRef = baseBranch?.trim() || repo.currentBranch || repo.head;
-        const summary = await invoke<TaskSummary>("task_create", {
+        const summary = await tauriInvoke<TaskSummary>(this.zone, "task_create", {
             req: {
                 baseRepoPath: repo.path,
                 baseRef,
@@ -125,7 +125,7 @@ export class TaskStore {
 
     async startTask(taskId: string, agent?: AgentKind): Promise<TaskSummary> {
         const size = this.terminalSizes.get(taskId) ?? this.lastTerminalSize;
-        const summary = await invoke<TaskSummary>("task_start", {
+        const summary = await tauriInvoke<TaskSummary>(this.zone, "task_start", {
             req: {
                 taskId,
                 cols: size?.cols,
@@ -138,7 +138,7 @@ export class TaskStore {
     }
 
     async stopTask(taskId: string): Promise<TaskSummary> {
-        const summary = await invoke<TaskSummary>("task_stop", {
+        const summary = await tauriInvoke<TaskSummary>(this.zone, "task_stop", {
             req: { taskId },
         });
         this.upsertTask(summary);
@@ -146,7 +146,7 @@ export class TaskStore {
     }
 
     async discardTask(taskId: string): Promise<void> {
-        await invoke("task_discard", { req: { taskId } });
+        await tauriInvoke<void>(this.zone, "task_discard", { req: { taskId } });
         this.removeTask(taskId);
     }
 
@@ -169,7 +169,7 @@ export class TaskStore {
         const size =
             this.worktreeTerminalSizes.get(taskId) ??
             this.lastWorktreeTerminalSize;
-        await invoke("task_terminal_start", {
+        await tauriInvoke<void>(this.zone, "task_terminal_start", {
             req: {
                 taskId,
                 kind,
@@ -184,7 +184,9 @@ export class TaskStore {
         data: string,
         kind: TerminalKind,
     ): Promise<void> {
-        await invoke("task_terminal_write", { req: { taskId, kind, data } });
+        await tauriInvoke<void>(this.zone, "task_terminal_write", {
+            req: { taskId, kind, data },
+        });
     }
 
     async resizeTerminal(
@@ -198,7 +200,7 @@ export class TaskStore {
         if (previous && previous.cols === cols && previous.rows === rows) {
             return;
         }
-        await invoke("task_terminal_resize", {
+        await tauriInvoke<void>(this.zone, "task_terminal_resize", {
             req: {
                 taskId,
                 kind,
@@ -214,7 +216,7 @@ export class TaskStore {
         ignoreWhitespace = false,
         mode: DiffMode = "worktree",
     ): Promise<DiffPayload> {
-        return invoke<DiffPayload>("task_git_diff_get", {
+        return tauriInvoke<DiffPayload>(this.zone, "task_git_diff_get", {
             req: {
                 taskId,
                 ignoreWhitespace,
@@ -224,17 +226,17 @@ export class TaskStore {
     }
 
     async hasUncommittedChanges(taskId: string): Promise<boolean> {
-        return invoke<boolean>("task_git_has_changes", {
+        return tauriInvoke<boolean>(this.zone, "task_git_has_changes", {
             req: { taskId },
         });
     }
 
     async startDiffWatch(taskId: string): Promise<void> {
-        await invoke("task_git_diff_watch_start", { req: { taskId } });
+        await tauriInvoke<void>(this.zone, "task_git_diff_watch_start", { req: { taskId } });
     }
 
     async stopDiffWatch(taskId: string): Promise<void> {
-        await invoke("task_git_diff_watch_stop", { req: { taskId } });
+        await tauriInvoke<void>(this.zone, "task_git_diff_watch_stop", { req: { taskId } });
     }
 
     watchDiff(taskId: string, mode: DiffMode): DiffWatchHandle {
@@ -247,8 +249,8 @@ export class TaskStore {
             stopDiffWatch: (id) => this.stopDiffWatch(id),
             listen: <T>(
                 event: string,
-                handler: (event: { payload: T }) => void,
-            ) => listen<T>(event, handler),
+                handler: (event: TauriEvent<T>) => void,
+            ) => tauriListen<T>(this.zone, event, handler),
             zone: this.zone,
         });
         void watcher.start();
@@ -263,7 +265,7 @@ export class TaskStore {
         message: string,
         stageAll = true,
     ): Promise<void> {
-        await invoke("task_git_commit", {
+        await tauriInvoke<void>(this.zone, "task_git_commit", {
             req: {
                 taskId,
                 message,
@@ -278,7 +280,7 @@ export class TaskStore {
         branch?: string,
         setUpstream = true,
     ): Promise<void> {
-        await invoke("task_git_push", {
+        await tauriInvoke<void>(this.zone, "task_git_push", {
             req: {
                 taskId,
                 remote,
@@ -362,28 +364,22 @@ export class TaskStore {
     }
 
     private registerEventListeners(): void {
-        void listen<TaskSummary>("task_status_changed", (event) => {
-            this.zone.run(() => {
-                this.upsertTask(event.payload);
-            });
+        void tauriListen<TaskSummary>(this.zone, "task_status_changed", (event) => {
+            this.upsertTask(event.payload);
         }).then((unlisten) => this.unlistenFns.push(unlisten));
 
-        void listen<TerminalOutputEvent>("task_terminal_output", (event) => {
-            this.zone.run(() => {
-                this.pushTerminalOutput(
-                    event.payload.taskId,
-                    event.payload.data,
-                    event.payload.kind,
-                );
-            });
+        void tauriListen<TerminalOutputEvent>(this.zone, "task_terminal_output", (event) => {
+            this.pushTerminalOutput(
+                event.payload.taskId,
+                event.payload.data,
+                event.payload.kind,
+            );
         }).then((unlisten) => this.unlistenFns.push(unlisten));
 
-        void listen<TerminalExitEvent>("task_terminal_exit", (event) => {
-            this.zone.run(() => {
-                console.info(
-                    `Terminal ${event.payload.kind} for ${event.payload.taskId} exited with code ${event.payload.exitCode}`,
-                );
-            });
+        void tauriListen<TerminalExitEvent>(this.zone, "task_terminal_exit", (event) => {
+            console.info(
+                `Terminal ${event.payload.kind} for ${event.payload.taskId} exited with code ${event.payload.exitCode}`,
+            );
         }).then((unlisten) => this.unlistenFns.push(unlisten));
     }
 
@@ -450,7 +446,8 @@ export class TaskStore {
 
     private async loadExistingTasks(baseRepoPath: string): Promise<void> {
         try {
-            const summaries = await invoke<TaskSummary[]>(
+            const summaries = await tauriInvoke<TaskSummary[]>(
+                this.zone,
                 "task_load_existing",
                 {
                     baseRepoPath,
@@ -537,7 +534,7 @@ type DiffWatcherDeps = {
     stopDiffWatch: (taskId: string) => Promise<void>;
     listen: <T>(
         event: string,
-        handler: (event: { payload: T }) => void,
+        handler: (event: TauriEvent<T>) => void,
     ) => Promise<UnlistenFn>;
     zone: NgZone;
 };

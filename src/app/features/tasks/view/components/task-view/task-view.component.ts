@@ -1,6 +1,5 @@
 import { CommonModule } from "@angular/common";
 import {
-    ChangeDetectorRef,
     Component,
     EventEmitter,
     Input,
@@ -82,7 +81,6 @@ export class TaskViewComponent {
     constructor(
         private readonly taskStore: TaskStore,
         private readonly zone: NgZone,
-        private readonly cdr: ChangeDetectorRef,
     ) {}
 
     ngOnChanges(): void {
@@ -178,20 +176,14 @@ export class TaskViewComponent {
                 this.commitMessage.trim(),
                 this.commitStageAll,
             );
-            this.deferUiUpdate(() => {
-                this.closeCommitModal();
-            });
+            this.closeCommitModal();
         } catch (error: unknown) {
-            this.deferUiUpdate(() => {
-                this.commitError = this.describeError(
-                    error,
-                    "Unable to commit changes.",
-                );
-            });
+            this.commitError = this.describeError(
+                error,
+                "Unable to commit changes.",
+            );
         } finally {
-            this.deferUiUpdate(() => {
-                this.isCommitting = false;
-            });
+            this.isCommitting = false;
         }
     }
 
@@ -227,30 +219,15 @@ export class TaskViewComponent {
                 this.pushBranch.trim() || this.task.branchName,
                 this.pushSetUpstream,
             );
-            this.deferUiUpdate(() => {
-                this.closePushModal();
-            });
+            this.closePushModal();
         } catch (error: unknown) {
-            this.deferUiUpdate(() => {
-                this.pushError = this.describeError(
-                    error,
-                    "Unable to push changes.",
-                );
-            });
+            this.pushError = this.describeError(
+                error,
+                "Unable to push changes.",
+            );
         } finally {
-            this.deferUiUpdate(() => {
-                this.isPushing = false;
-            });
+            this.isPushing = false;
         }
-    }
-
-    private deferUiUpdate(update: () => void): void {
-        queueMicrotask(() => {
-            this.zone.run(() => {
-                update();
-                this.cdr.detectChanges();
-            });
-        });
     }
 
     onSelectBaseRepo(): void {

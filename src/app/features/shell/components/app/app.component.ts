@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, NgZone, effect } from "@angular/core";
+import { Component, NgZone, effect, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { NavigationEnd, Router } from "@angular/router";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -13,6 +13,15 @@ import { LauncherService } from "../../../launcher/launcher.service";
 import { LoadingButtonComponent } from "../../../../shared/components/loading-button/loading-button.component";
 import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
 import { ThemeService } from "../../theme.service";
+import { wrapPromiseInZone } from "../../../../shared/tauri/tauri-zone";
+
+type ConfirmDiscardState = {
+    taskId: string;
+    title: string;
+    branch: string;
+    error: string;
+    hasChanges: boolean;
+};
 
 @Component({
     selector: "app-shell",
@@ -31,15 +40,10 @@ export class AppComponent {
     showCreateModal = false;
     branchNameInput = "";
     branchNameError = "";
-    confirmDiscardTaskId: string | null = null;
-    confirmDiscardTitle = "";
-    confirmDiscardBranch = "";
-    confirmDiscardError = "";
-    confirmDiscardHasChanges = false;
+    readonly confirmDiscard = signal<ConfirmDiscardState | null>(null);
     baseBranchSelection = "";
     isSelectingRepo = false;
     isCreatingTask = false;
-    isDiscardingTask = false;
     private mountedTaskIds: string[] = [];
     private readonly startingTaskIds = new Set<string>();
     private readonly stoppingTaskIds = new Set<string>();
@@ -126,11 +130,11 @@ export class AppComponent {
         }
         this.isSelectingRepo = true;
         try {
-            const selection = await open({
+            const selection = await wrapPromiseInZone(this.zone, () => open({
                 directory: true,
                 multiple: false,
                 title: "Select base repository",
-            });
+            }));
             if (typeof selection === "string") {
                 await this.loadBaseRepo(selection);
             }
@@ -246,8 +250,7 @@ export class AppComponent {
 
     async discardTask(taskId: string): Promise<void> {
         if (
-            this.discardingTaskIds.has(taskId) ||
-            this.isDiscardingTask
+            this.discardingTaskIds.has(taskId)
         ) {
             return;
         }
@@ -269,23 +272,27 @@ export class AppComponent {
             const task =
                 this.taskStore.tasks().find((wf) => wf.taskId === taskId) ??
                 null;
-            this.confirmDiscardTaskId = taskId;
-            this.confirmDiscardTitle = task?.title ?? "Selected task";
-            this.confirmDiscardBranch = task?.branchName ?? "";
-            this.confirmDiscardError = "";
-            this.confirmDiscardHasChanges = true;
+            this.confirmDiscard.set({
+                taskId,
+                title: task?.title ?? "Selected task",
+                branch: task?.branchName ?? "",
+                error: "",
+                hasChanges: true,
+            });
         } catch (error: unknown) {
-            this.confirmDiscardError = this.describeError(
-                error,
-                "Unable to check for uncommitted changes.",
-            );
             const task =
                 this.taskStore.tasks().find((wf) => wf.taskId === taskId) ??
                 null;
-            this.confirmDiscardTaskId = taskId;
-            this.confirmDiscardTitle = task?.title ?? "Selected task";
-            this.confirmDiscardBranch = task?.branchName ?? "";
-            this.confirmDiscardHasChanges = true;
+            this.confirmDiscard.set({
+                taskId,
+                title: task?.title ?? "Selected task",
+                branch: task?.branchName ?? "",
+                error: this.describeError(
+                    error,
+                    "Unable to check for uncommitted changes.",
+                ),
+                hasChanges: true,
+            });
         } finally {
             this.discardingTaskIds.delete(taskId);
         }
@@ -313,36 +320,49 @@ export class AppComponent {
     }
 
     cancelDiscardTask(): void {
-        this.confirmDiscardTaskId = null;
-        this.confirmDiscardTitle = "";
-        this.confirmDiscardBranch = "";
-        this.confirmDiscardError = "";
-        this.confirmDiscardHasChanges = false;
+        this.confirmDiscard.set(null);
     }
 
     async confirmDiscardTask(): Promise<void> {
-        if (!this.confirmDiscardTaskId) {
+        const snapshot = this.confirmDiscard();
+        if (!snapshot) {
             return;
         }
-        if (this.isDiscardingTask) {
+        // Close immediately; run the discard in the background while the task row
+        // shows a loading spinner.
+        this.confirmDiscard.set(null);
+        this.startDiscardInBackground(snapshot);
+    }
+
+    private startDiscardInBackground(snapshot: ConfirmDiscardState): void {
+        const taskId = snapshot.taskId;
+        if (this.discardingTaskIds.has(taskId)) {
             return;
         }
-        const taskId = this.confirmDiscardTaskId;
-        this.isDiscardingTask = true;
         this.discardingTaskIds.add(taskId);
-        try {
-            await this.taskStore.discardTask(taskId);
-            await this.navigateAfterTaskRemoval();
-            this.cancelDiscardTask();
-        } catch (error: unknown) {
-            this.confirmDiscardError = this.describeError(
-                error,
-                "Unable to discard task.",
-            );
-        } finally {
-            this.isDiscardingTask = false;
-            this.discardingTaskIds.delete(taskId);
-        }
+        void (async () => {
+            try {
+                await this.taskStore.discardTask(taskId);
+                await this.navigateAfterTaskRemoval();
+            } catch (error: unknown) {
+                const message = this.describeError(
+                    error,
+                    "Unable to discard task.",
+                );
+                console.error(message);
+                // Re-open the modal with the error so the user can retry / cancel.
+                this.zone.run(() => {
+                    this.confirmDiscard.set({
+                        ...snapshot,
+                        error: message,
+                    });
+                });
+            } finally {
+                this.zone.run(() => {
+                    this.discardingTaskIds.delete(taskId);
+                });
+            }
+        })();
     }
 
     async openInExplorer(event: Event, path: string): Promise<void> {

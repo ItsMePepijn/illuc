@@ -133,27 +133,26 @@
         </div>
     </div>
 
-    <div class="modal-backdrop" *ngIf="confirmDiscardTaskId">
+    <div class="modal-backdrop" *ngIf="confirmDiscard() as confirm">
         <div class="modal">
             <h3>Discard task?</h3>
             <p class="modal-subtitle">
                 This will remove the worktree and discard all changes for
-                <strong>{{ confirmDiscardTitle }}</strong>
-                <span *ngIf="confirmDiscardBranch"
-                    >({{ confirmDiscardBranch }})</span
+                <strong>{{ confirm.title }}</strong>
+                <span *ngIf="confirm.branch"
+                    >({{ confirm.branch }})</span
                 >. This action cannot be undone.
             </p>
-            <p class="modal-subtitle warning" *ngIf="confirmDiscardHasChanges">
+            <p class="modal-subtitle warning" *ngIf="confirm.hasChanges">
                 Uncommitted changes were detected and will be lost.
             </p>
-            <div class="error" *ngIf="confirmDiscardError">
-                {{ confirmDiscardError }}
+            <div class="error" *ngIf="confirm.error">
+                {{ confirm.error }}
             </div>
             <div class="modal-actions">
                 <app-loading-button
                     buttonType="button"
                     buttonClass="ghost"
-                    [disabled]="isDiscardingTask"
                     (action)="cancelDiscardTask()"
                 >
                     Cancel
@@ -161,7 +160,6 @@
                 <app-loading-button
                     buttonType="button"
                     buttonClass="primary warn"
-                    [loading]="isDiscardingTask"
                     (action)="confirmDiscardTask()"
                 >
                     Discard

@@ -1,9 +1,9 @@
 import { Injectable, NgZone, signal } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
 import {
     TimeTrackingEntry,
     TimeTrackingPayload,
 } from "../tasks/task.models";
+import { tauriInvoke } from "../../shared/tauri/tauri-zone";
 
 const DEFAULT_TRACKING: TimeTrackingPayload = {
     version: 1,
@@ -52,12 +52,16 @@ export class TaskTimeTrackingService {
         this.stopTimer();
         this.baseRepoPath = path;
         if (!path) {
-            this.trackingSignal.set(null);
+            this.zone.run(() => {
+                this.trackingSignal.set(null);
+            });
             this.stopTimer();
             this.activeStartedAt = null;
             return;
         }
-        this.trackingSignal.set(null);
+        this.zone.run(() => {
+            this.trackingSignal.set(null);
+        });
         await this.loadTracking(path);
         if (this.activeTask) {
             this.activeStartedAt = Date.now();
@@ -84,7 +88,8 @@ export class TaskTimeTrackingService {
 
     private async loadTracking(baseRepoPath: string): Promise<void> {
         try {
-            const payload = await invoke<TimeTrackingPayload>(
+            const payload = await tauriInvoke<TimeTrackingPayload>(
+                this.zone,
                 "task_time_tracking_get",
                 { req: { baseRepoPath } },
             );
@@ -158,7 +163,7 @@ export class TaskTimeTrackingService {
             return;
         }
         try {
-            await invoke("task_time_tracking_record", {
+            await tauriInvoke<void>(this.zone, "task_time_tracking_record", {
                 req: {
                     baseRepoPath,
                     branchName,

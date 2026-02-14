@@ -1,5 +1,5 @@
-import { Injectable } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
+import { Injectable, NgZone } from "@angular/core";
+import { tauriInvoke } from "../../shared/tauri/tauri-zone";
 
 type ThemeSettings = Record<string, string>;
 type ThemeSettingsResponse = {
@@ -11,9 +11,12 @@ type ThemeSettingsResponse = {
     providedIn: "root",
 })
 export class ThemeService {
+    constructor(private readonly zone: NgZone) {}
+
     async applyFromSettings(): Promise<void> {
         try {
-            const theme = await invoke<ThemeSettingsResponse>(
+            const theme = await tauriInvoke<ThemeSettingsResponse>(
+                this.zone,
                 "settings_theme_get",
             );
             this.applyThemeVariables(theme.values);

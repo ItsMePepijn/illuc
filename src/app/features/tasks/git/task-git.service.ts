@@ -1,12 +1,14 @@
-import { Injectable } from "@angular/core";
-import { invoke } from "@tauri-apps/api/core";
+import { Injectable, NgZone } from "@angular/core";
+import { tauriInvoke } from "../../../shared/tauri/tauri-zone";
 
 @Injectable({
     providedIn: "root",
 })
 export class TaskGitService {
+    constructor(private readonly zone: NgZone) {}
+
     async listBranches(baseRepoPath: string): Promise<string[]> {
-        return invoke<string[]>("task_git_list_branches", {
+        return tauriInvoke<string[]>(this.zone, "task_git_list_branches", {
             path: baseRepoPath,
         });
     }
