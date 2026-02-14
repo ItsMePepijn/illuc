@@ -1,9 +1,9 @@
 .task-sidebar {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
+    border-right: 1px solid var(--borders-default);
+    background: var(--surfaces-surface);
+    color: var(--text-default);
     min-width: 280px;
     max-width: 360px;
     height: 100%;
@@ -11,7 +11,7 @@
 
 .control-panel {
     padding: 1rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--borders-default);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -25,14 +25,14 @@
 
 .control-group label {
     font-size: 0.85rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .control-group .primary {
     padding: 0.35rem 0.65rem;
     border-radius: 6px;
-    border: 1px solid var(--color-border);
-    background: var(--color-accent-soft);
+    border: 1px solid var(--borders-default);
+    background: var(--brand-accent_soft);
     color: inherit;
     cursor: pointer;
     transition: background 0.2s ease;
@@ -52,7 +52,7 @@
     flex-direction: column;
     gap: 0.2rem;
     font-size: 0.78rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .repo-info .path {
@@ -67,7 +67,7 @@
 
 .placeholder {
     font-size: 0.78rem;
-    color: var(--color-subtle);
+    color: var(--text-subtle);
 }
 
 .sidebar-header {
@@ -75,7 +75,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--borders-default);
     font-weight: 600;
 }
 
@@ -91,11 +91,11 @@
 }
 
 .home-row:hover {
-    background: var(--color-hover);
+    background: var(--interaction-hover);
 }
 
 .home-row.selected {
-    background: var(--color-accent-soft);
+    background: var(--interaction-selection_bg);
 }
 
 
@@ -118,11 +118,11 @@
 }
 
 .task-row:hover {
-    background: var(--color-hover);
+    background: var(--interaction-hover);
 }
 
 .task-row.selected {
-    background: var(--color-accent-soft);
+    background: var(--interaction-selection_bg);
 }
 
 .row-main {
@@ -149,13 +149,13 @@
 }
 
 .task-pill {
-    background: var(--color-pill);
+    background: var(--components-chip_bg);
     border-radius: 999px;
     padding: 0.05rem 0.5rem;
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.5px;
-    color: var(--color-accent);
+    color: var(--components-chip_text);
     flex-shrink: 0;
 }
 
@@ -163,34 +163,34 @@
     font-size: 0.75rem;
     padding: 0.2rem 0.5rem;
     border-radius: 999px;
-    background: var(--color-surface-strong);
+    background: var(--surfaces-surface_strong);
     text-transform: capitalize;
     white-space: nowrap;
 }
 
 .status[data-status="IDLE"] {
-    background: var(--color-surface-alt);
-    color: var(--color-text);
+    background: var(--surfaces-surface_alt);
+    color: var(--text-default);
 }
 
 .status[data-status="AWAITING_APPROVAL"] {
-    background: var(--color-warning-soft);
-    color: var(--color-warning);
+    background: var(--status-warning_soft);
+    color: var(--status-warning);
 }
 
 .status[data-status="WORKING"] {
-    background: var(--color-success-soft);
-    color: var(--color-success);
+    background: var(--status-success_soft);
+    color: var(--status-success);
 }
 
 .status[data-status="FAILED"] {
-    background: var(--color-danger-soft);
-    color: var(--color-danger);
+    background: var(--status-danger_soft);
+    color: var(--status-danger);
 }
 
 .status[data-status="COMPLETED"] {
-    background: var(--color-info-soft);
-    color: var(--color-info);
+    background: var(--status-info_soft);
+    color: var(--status-info);
 }
 
 .row-meta {
@@ -200,7 +200,7 @@
 }
 
 .branch {
-    color: var(--color-muted);
+    color: var(--text-muted);
 }
 
 .actions {
@@ -215,7 +215,7 @@
 
 button.ghost {
     background: transparent;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--borders-default);
     color: inherit;
     border-radius: 4px;
     padding: 0.2rem 0.5rem;
@@ -226,24 +226,6 @@ button.ghost {
         background 0.2s ease;
 }
 
-.icon-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    font-size: 0.85rem;
-    background: var(--color-surface-strong);
-}
-
-.icon-btn .icon {
-    width: 16px;
-    height: 16px;
-    display: block;
-}
-
 button.ghost.icon-btn {
     border-radius: 50%;
     padding: 0;
@@ -252,8 +234,10 @@ button.ghost.icon-btn {
 .title-group .icon {
     width: 32px;
     height: 32px;
+    padding: 0;
+    line-height: 1;
     border-radius: 50%;
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--borders-default);
     background: transparent;
     color: inherit;
     font-size: 1rem;
@@ -269,13 +253,13 @@ button.ghost.icon-btn {
 }
 
 button.ghost:hover:not(:disabled) {
-    border-color: var(--color-border-strong);
-    background: var(--color-hover);
+    border-color: var(--borders-strong);
+    background: var(--interaction-hover);
 }
 
 button.ghost.warn {
-    border-color: var(--color-danger);
-    color: var(--color-danger);
+    border-color: var(--status-danger);
+    color: var(--status-danger);
 }
 
 button:disabled {
@@ -285,5 +269,5 @@ button:disabled {
 
 .empty {
     padding: 1rem;
-    color: var(--color-muted);
+    color: var(--text-muted);
 }

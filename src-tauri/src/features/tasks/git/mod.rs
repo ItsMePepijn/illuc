@@ -3,8 +3,8 @@ pub mod commands;
 use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
-    BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions,
-    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
+    BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions, RemoteCallbacks,
+    Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -108,10 +108,7 @@ pub fn add_worktree(
     let repo = open_repo(repo_root)?;
     let base_object = repo.revparse_single(base_ref).map_err(map_git_err)?;
     let base_commit = base_object.peel_to_commit().map_err(map_git_err)?;
-    if repo
-        .find_branch(branch_name, BranchType::Local)
-        .is_err()
-    {
+    if repo.find_branch(branch_name, BranchType::Local).is_err() {
         repo.branch(branch_name, &base_commit, false)
             .map_err(map_git_err)?;
     }
@@ -194,9 +191,9 @@ pub fn git_commit(repo: &Path, message: &str, stage_all: bool) -> Result<()> {
     let tree_id = index.write_tree().map_err(map_git_err)?;
     let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
 
-    let signature = repo.signature().or_else(|_| {
-        Signature::now("illuc", "illuc@local").map_err(map_git_err)
-    })?;
+    let signature = repo
+        .signature()
+        .or_else(|_| Signature::now("illuc", "illuc@local").map_err(map_git_err))?;
 
     let mut parents = Vec::new();
     if let Ok(head) = repo.head() {
@@ -363,11 +360,7 @@ pub fn git_diff(
 
     for delta in diff.deltas() {
         let status = map_delta_status(delta.status()).to_string();
-        let path = match delta
-            .new_file()
-            .path()
-            .or_else(|| delta.old_file().path())
-        {
+        let path = match delta.new_file().path().or_else(|| delta.old_file().path()) {
             Some(path) => path.to_string_lossy().to_string(),
             None => continue,
         };
@@ -385,11 +378,7 @@ pub fn git_diff(
     }
 
     diff.print(DiffFormat::Patch, |delta, _hunk, line| {
-        let path = match delta
-            .new_file()
-            .path()
-            .or_else(|| delta.old_file().path())
-        {
+        let path = match delta.new_file().path().or_else(|| delta.old_file().path()) {
             Some(path) => path.to_string_lossy().to_string(),
             None => return true,
         };

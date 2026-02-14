@@ -1,37 +1,66 @@
 :root {
-    --color-bg: #f1ece4;
-    --color-surface: #f7f3ec;
-    --color-surface-alt: #ebe4da;
-    --color-surface-strong: #e6ded3;
-    --color-text: #605a52;
-    --color-muted: rgba(96, 90, 82, 0.7);
-    --color-subtle: rgba(96, 90, 82, 0.5);
-    --color-border: rgba(96, 90, 82, 0.25);
-    --color-border-strong: rgba(96, 90, 82, 0.4);
-    --color-accent: #b2714a;
-    --color-accent-strong: #8f5a3a;
-    --color-accent-soft: rgba(178, 113, 74, 0.2);
-    --color-primary: #f2994a;
-    --color-primary-hover: #f5a55f;
-    --color-primary-active: #e78935;
-    --color-primary-contrast: #1f1300;
-    --color-success: #6f8f6c;
-    --color-success-soft: rgba(111, 143, 108, 0.2);
-    --color-warning: #b18a4a;
-    --color-warning-soft: rgba(177, 138, 74, 0.2);
-    --color-danger: #b06052;
-    --color-danger-soft: rgba(176, 96, 82, 0.2);
-    --color-info: #6e8aa1;
-    --color-info-soft: rgba(110, 138, 161, 0.2);
-    --color-pill: rgba(96, 90, 82, 0.15);
-    --color-hover: rgba(96, 90, 82, 0.08);
-    --color-focus: rgba(178, 113, 74, 0.35);
-    --color-link: rgba(96, 90, 82, 0.75);
-    --color-link-hover: rgba(96, 90, 82, 0.95);
-    --color-code-bg: #e4e4e4;
-    --scrollbar-track: rgba(96, 90, 82, 0.12);
-    --scrollbar-thumb: rgba(96, 90, 82, 0.35);
-    --scrollbar-thumb-hover: rgba(96, 90, 82, 0.5);
-    --scrollbar-thumb-active: rgba(96, 90, 82, 0.65);
-    --scrollbar-size: 8px;
+    /* Surfaces */
+    --surfaces-bg: #f1ece4;
+    --surfaces-surface: #f7f3ec;
+    --surfaces-surface_alt: #ebe4da;
+    --surfaces-surface_strong: #e6ded3;
+    --surfaces-code_bg: #e4e4e4;
+
+    /* Text */
+    --text-default: #605a52;
+    --text-muted: rgba(96, 90, 82, 0.7);
+    --text-subtle: rgba(96, 90, 82, 0.5);
+    --text-link: rgba(96, 90, 82, 0.75);
+    --text-link_hover: rgba(96, 90, 82, 0.95);
+
+    /* Borders */
+    --borders-default: rgba(96, 90, 82, 0.25);
+    --borders-strong: rgba(96, 90, 82, 0.4);
+
+    /* Brand */
+    --brand-accent: #b2714a;
+    --brand-accent_strong: #8f5a3a;
+    --brand-accent_soft: rgba(178, 113, 74, 0.2);
+
+    /* Actions */
+    --actions-primary: #f2994a;
+    --actions-primary_hover: #f5a55f;
+    --actions-primary_active: #e78935;
+    --actions-primary_contrast: #1f1300;
+
+    /* Status */
+    --status-success: #6f8f6c;
+    --status-success_soft: rgba(111, 143, 108, 0.2);
+    --status-warning: #b18a4a;
+    --status-warning_soft: rgba(177, 138, 74, 0.2);
+    --status-danger: #b06052;
+    --status-danger_soft: rgba(176, 96, 82, 0.2);
+    --status-info: #6e8aa1;
+    --status-info_soft: rgba(110, 138, 161, 0.2);
+
+    /* Interaction */
+    --interaction-hover: rgba(96, 90, 82, 0.08);
+    --interaction-focus: rgba(178, 113, 74, 0.35);
+    --interaction-selection_bg: rgba(178, 113, 74, 0.2);
+
+    /* Components */
+    --components-chip_bg: rgba(96, 90, 82, 0.15);
+    --components-chip_text: var(--text-default);
+    --components-segmented_active_bg: var(--surfaces-surface_strong);
+    --components-segmented_active_text: var(--text-default);
+
+    /* Scrollbar */
+    --scrollbar-track: rgba(96, 90, 82, 0.08);
+    --scrollbar-thumb: rgba(96, 90, 82, 0.3);
+    --scrollbar-thumb_hover: rgba(96, 90, 82, 0.42);
+    --scrollbar-thumb_active: rgba(96, 90, 82, 0.55);
+    --scrollbar-size: 6px;
+
+    /* Effects */
+    --effects-overlay_backdrop: rgba(96, 90, 82, 0.25);
+    --effects-shadow_soft: rgba(96, 90, 82, 0.18);
+    --effects-shadow_subtle: rgba(96, 90, 82, 0.05);
+    --effects-shadow_strong: rgba(96, 90, 82, 0.25);
+    --effects-shadow_menu: rgba(40, 35, 28, 0.14);
 }
+

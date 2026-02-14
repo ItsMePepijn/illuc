@@ -1,7 +1,7 @@
 use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::TaskStatus;
-use crate::utils::screen::Screen;
 use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
+use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_command;
 #[cfg(target_os = "windows")]
@@ -11,9 +11,9 @@ use crate::utils::windows::to_wsl_path;
 use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use parking_lot::Mutex;
-use portable_pty::{native_pty_system, PtySize};
 #[cfg(not(target_os = "windows"))]
 use portable_pty::CommandBuilder;
+use portable_pty::{native_pty_system, PtySize};
 use std::fs;
 use std::io::Read;
 use std::path::Path;
@@ -75,13 +75,9 @@ fn resolve_home_dir() -> anyhow::Result<std::path::PathBuf> {
 
 #[cfg(target_os = "windows")]
 fn resolve_wsl_home_dir(worktree_path: &Path) -> anyhow::Result<std::path::PathBuf> {
-    let output = build_wsl_process_command(
-        worktree_path,
-        "bash",
-        &["-lc", "wslpath -w \"$HOME\""],
-    )
-    .output()
-    .context("failed to query WSL home directory")?;
+    let output = build_wsl_process_command(worktree_path, "bash", &["-lc", "wslpath -w \"$HOME\""])
+        .output()
+        .context("failed to query WSL home directory")?;
     if !output.status.success() {
         return Err(anyhow::anyhow!("failed to query WSL home directory"));
     }
@@ -210,7 +206,11 @@ impl CopilotAgent {
         if status_changed {
             state.last_status = Some(status);
         }
-        if status_changed { Some(status) } else { None }
+        if status_changed {
+            Some(status)
+        } else {
+            None
+        }
     }
 
     fn status_if_idle(&self, now: Instant) -> Option<TaskStatus> {
@@ -308,8 +308,7 @@ impl Agent for CopilotAgent {
                     Ok(size) => {
                         let now = Instant::now();
                         let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
-                        if let Some(status) =
-                            status_handle.status_from_output(&buffer[..size], now)
+                        if let Some(status) = status_handle.status_from_output(&buffer[..size], now)
                         {
                             (output_callbacks.on_status)(status);
                         }

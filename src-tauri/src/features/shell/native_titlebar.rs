@@ -11,11 +11,7 @@ fn rgb_to_colorref(red: u8, green: u8, blue: u8) -> u32 {
 }
 
 #[cfg(target_os = "windows")]
-fn set_dwm_color_attribute(
-    hwnd: isize,
-    attribute: u32,
-    color: u32,
-) -> Result<(), String> {
+fn set_dwm_color_attribute(hwnd: isize, attribute: u32, color: u32) -> Result<(), String> {
     let status = unsafe {
         DwmSetWindowAttribute(
             hwnd as _,
@@ -27,7 +23,9 @@ fn set_dwm_color_attribute(
     if status == 0 {
         Ok(())
     } else {
-        Err(format!("DwmSetWindowAttribute failed with HRESULT {status:#x}"))
+        Err(format!(
+            "DwmSetWindowAttribute failed with HRESULT {status:#x}"
+        ))
     }
 }
 

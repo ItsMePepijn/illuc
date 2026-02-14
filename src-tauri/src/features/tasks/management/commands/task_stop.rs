@@ -17,5 +17,7 @@ pub async fn task_stop(
     app_handle: tauri::AppHandle,
     req: Request,
 ) -> CommandResult<Response> {
-    manager.stop_task(req, &app_handle).map_err(|err| err.to_string())
+    manager
+        .stop_task(req, &app_handle)
+        .map_err(|err| err.to_string())
 }

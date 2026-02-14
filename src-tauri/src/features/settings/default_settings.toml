@@ -1,0 +1,8 @@
+# Illuc user settings
+# This file is created automatically in the OS config directory on first run.
+# On Linux this follows XDG (typically ~/.config/<app-id>/settings.toml).
+#
+# The active theme is selected by name and loaded from <config-dir>/themes/<theme>.toml.
+#
+# theme = "dark"
+# Uncomment `theme` to force a theme. If omitted, Illuc defaults to the system light/dark preference.

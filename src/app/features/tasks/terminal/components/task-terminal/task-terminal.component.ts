@@ -9,7 +9,7 @@ import {
     ElementRef,
 } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { Terminal } from "xterm";
+import { ITheme, Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import { Subscription } from "rxjs";
 import { TaskStore } from "../../../task.store";
@@ -46,6 +46,7 @@ export class TaskTerminalComponent
     private resizeTimer?: number;
     private pendingResize?: { cols: number; rows: number };
     private suppressInput = false;
+    private readonly themeAppliedHandler = () => this.applyTerminalTheme();
     private altScreenActive = false;
     private altScreenCarry = "";
     private readonly altScreenSequences = [
@@ -83,6 +84,10 @@ export class TaskTerminalComponent
     ngOnDestroy(): void {
         this.dataSubscription?.unsubscribe();
         this.resizeObserver?.disconnect();
+        window.removeEventListener(
+            "illuc-theme-applied",
+            this.themeAppliedHandler,
+        );
         if (this.wheelHandler && this.terminal?.element) {
             this.terminal.element.removeEventListener(
                 "wheel",
@@ -107,23 +112,15 @@ export class TaskTerminalComponent
             fontSize: 13,
             cursorBlink: true,
             scrollback: TERMINAL_SCROLLBACK,
-            theme: {
-                background: "#f7f3ec",
-                foreground: "#4f4942",
-                cursor: "#b2714a",
-                yellow: "#4f4942",
-                brightYellow: "#4f4942",
-                selectionBackground: "rgba(79, 73, 66, 0.28)",
-                selectionInactiveBackground: "rgba(79, 73, 66, 0.2)",
-                white: "#4f4942",
-                brightWhite: "#4f4942",
-            },
+            theme: this.buildTerminalTheme(),
         });
 
         this.fitAddon = new FitAddon();
         this.terminal.loadAddon(this.fitAddon);
         this.terminal.open(this.terminalHost.nativeElement);
         this.terminal.focus();
+        window.addEventListener("illuc-theme-applied", this.themeAppliedHandler);
+        this.applyTerminalTheme();
         this.fitManager = new TerminalFitManager(
             () => this.fitAddon?.proposeDimensions(),
             () => this.fitTerminal(),
@@ -142,6 +139,85 @@ export class TaskTerminalComponent
             this.handleResize(size.cols, size.rows),
         );
         this.fitManager.scheduleFit();
+    }
+
+    private buildTerminalTheme():
+        | ITheme
+        | undefined {
+        const background = this.readCssVar("--surfaces-surface");
+        const foreground = this.readCssVar("--text-default");
+        const accent = this.readCssVar("--brand-accent");
+        const selection = this.readCssVar("--interaction-selection_bg");
+
+        const subtle = this.readCssVar("--text-subtle");
+        const muted = this.readCssVar("--text-muted");
+        const danger = this.readCssVar("--status-danger");
+        const success = this.readCssVar("--status-success");
+        const warning = this.readCssVar("--status-warning");
+        const info = this.readCssVar("--status-info");
+
+        if (
+            !background &&
+            !foreground &&
+            !accent &&
+            !selection &&
+            !subtle &&
+            !muted &&
+            !danger &&
+            !success &&
+            !warning &&
+            !info
+        ) {
+            return undefined;
+        }
+
+        const bg = background ?? undefined;
+        const fg = foreground ?? undefined;
+        const dim = subtle ?? muted ?? undefined;
+
+        return {
+            background: bg,
+            foreground: fg,
+            cursor: accent ?? fg,
+            cursorAccent: bg,
+            selectionBackground: selection ?? undefined,
+            selectionInactiveBackground: selection ?? undefined,
+            // ANSI palette: keep semantic colors for apps, but tint "white/gray" to amber-ish (via --text-default/--text-subtle).
+            black: bg,
+            brightBlack: dim,
+            red: danger ?? undefined,
+            brightRed: danger ?? undefined,
+            green: success ?? undefined,
+            brightGreen: success ?? undefined,
+            yellow: warning ?? accent ?? undefined,
+            brightYellow: warning ?? accent ?? undefined,
+            blue: info ?? undefined,
+            brightBlue: info ?? undefined,
+            magenta: accent ?? undefined,
+            brightMagenta: accent ?? undefined,
+            cyan: info ?? undefined,
+            brightCyan: info ?? undefined,
+            white: fg,
+            brightWhite: fg,
+        };
+    }
+
+    private applyTerminalTheme(): void {
+        if (!this.terminal) {
+            return;
+        }
+        this.terminal.options.theme = this.buildTerminalTheme();
+        // Ensure the new theme is visible immediately.
+        if (this.terminal.rows > 0) {
+            this.terminal.refresh(0, this.terminal.rows - 1);
+        }
+    }
+
+    private readCssVar(name: string): string | null {
+        const value = getComputedStyle(document.documentElement)
+            .getPropertyValue(name)
+            .trim();
+        return value.length ? value : null;
     }
 
     private refreshTerminalSession(): void {

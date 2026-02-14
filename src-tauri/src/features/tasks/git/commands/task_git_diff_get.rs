@@ -1,6 +1,6 @@
 use crate::commands::CommandResult;
-use crate::features::tasks::{DiffPayload, TaskManager};
 use crate::features::tasks::git::DiffMode;
+use crate::features::tasks::{DiffPayload, TaskManager};
 use serde::Deserialize;
 use uuid::Uuid;
 

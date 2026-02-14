@@ -47,7 +47,9 @@ pub async fn task_review_delete_comment(req: Request) -> CommandResult<Response>
         )
         .ok_or_else(|| "Review thread not found.".to_string())?;
         let before_count = thread.comments.len();
-        thread.comments.retain(|comment| comment.id != req.comment_id);
+        thread
+            .comments
+            .retain(|comment| comment.id != req.comment_id);
         thread.comments.len() != before_count
     };
     if !removed {

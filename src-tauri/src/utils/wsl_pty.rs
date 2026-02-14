@@ -88,7 +88,10 @@ pub fn spawn_wsl_pty(
     let command_line = build_python_command(&helper_args);
     let mut child = Command::new("wsl.exe");
     child.args(["--cd", &wsl_path, "--", "bash", "-lc", &command_line]);
-    child.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    child
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
     let mut child = child.spawn().context("failed to spawn WSL PTY helper")?;
     let stdin = child
@@ -119,11 +122,12 @@ pub fn spawn_wsl_pty(
         }
     });
 
-    let master = Arc::new(Mutex::new(Box::new(WslMaster { port }) as Box<dyn TerminalMaster + Send>));
+    let master = Arc::new(Mutex::new(
+        Box::new(WslMaster { port }) as Box<dyn TerminalMaster + Send>
+    ));
     let writer: WriteHandle = Arc::new(Mutex::new(Box::new(stdin)));
     let reader: ReadHandle = Box::new(stdout);
-    let child: Arc<Mutex<ChildHandle>> =
-        Arc::new(Mutex::new(Box::new(WslChild { inner: child })));
+    let child: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(Box::new(WslChild { inner: child })));
 
     Ok(WslPty {
         master,
