@@ -3,8 +3,8 @@ pub mod commands;
 use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
-    BranchType, Cred, Delta, DiffFormat, DiffOptions, IndexAddOption, PushOptions, RemoteCallbacks,
-    Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
+    BranchType, Cred, Delta, DiffFormat, DiffOptions, FetchOptions, IndexAddOption, PushOptions,
+    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,6 +44,50 @@ fn map_git_err(err: git2::Error) -> TaskError {
 
 fn open_repo(path: &Path) -> Result<Repository> {
     Repository::discover(path).map_err(map_git_err)
+}
+
+fn build_remote_callbacks(repo: &Repository) -> Result<RemoteCallbacks<'static>> {
+    // RemoteCallbacks owns the credential callback. We move a cloned config into it
+    // to allow Cred::credential_helper to function.
+    let config = repo.config().map_err(map_git_err)?;
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(move |url, username_from_url, allowed| {
+        if allowed.is_ssh_key() {
+            if let Some(username) = username_from_url {
+                if let Ok(cred) = Cred::ssh_key_from_agent(username) {
+                    return Ok(cred);
+                }
+            }
+        }
+
+        if allowed.is_user_pass_plaintext() {
+            if let Ok(cred) = Cred::credential_helper(&config, url, username_from_url) {
+                return Ok(cred);
+            }
+            #[cfg(target_os = "windows")]
+            if let Some(cred) = try_gcm_credential(url, username_from_url) {
+                return Ok(cred);
+            }
+            return Err(git2::Error::from_str(
+                "No git credentials configured. Configure credential.helper (e.g. manager-core) or set up SSH.",
+            ));
+        }
+
+        if allowed.is_username() {
+            if let Some(username) = username_from_url {
+                return Cred::username(username);
+            }
+        }
+
+        if allowed.is_default() {
+            return Cred::default();
+        }
+
+        Err(git2::Error::from_str(
+            "No supported credential methods available. Configure SSH or a credential helper.",
+        ))
+    });
+    Ok(callbacks)
 }
 
 pub fn validate_git_repo(path: &Path) -> Result<()> {
@@ -96,6 +140,161 @@ pub fn list_branches(path: &Path) -> Result<Vec<String>> {
     branches.sort();
     branches.dedup();
     Ok(branches)
+}
+
+fn split_remote_tracking(input: &str) -> Option<(String, String)> {
+    // Accept "origin/main" or "upstream/feature/foo".
+    // We intentionally do not accept raw OIDs or revspecs here.
+    let mut parts = input.splitn(2, '/');
+    let remote = parts.next()?.trim();
+    let branch = parts.next()?.trim();
+    if remote.is_empty() || branch.is_empty() {
+        return None;
+    }
+    Some((remote.to_string(), branch.to_string()))
+}
+
+fn upstream_remote_and_branch(repo: &Repository, local_branch: &str) -> Result<(String, String)> {
+    let local_ref = format!("refs/heads/{}", local_branch);
+    if let Ok(upstream) = repo.branch_upstream_name(&local_ref) {
+        if let Some(upstream) = upstream.as_str() {
+            // Expected: refs/remotes/<remote>/<branch>
+            let parts: Vec<&str> = upstream.split('/').collect();
+            if parts.len() >= 4 && parts[0] == "refs" && parts[1] == "remotes" {
+                return Ok((parts[2].to_string(), parts[3..].join("/")));
+            }
+        }
+    }
+    Ok(("origin".to_string(), local_branch.to_string()))
+}
+
+fn fetch_branch(repo: &Repository, remote_name: &str, branch: &str) -> Result<()> {
+    let mut remote = repo.find_remote(remote_name).map_err(map_git_err)?;
+    let callbacks = build_remote_callbacks(repo)?;
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+    remote
+        .fetch(&[branch], Some(&mut fetch_options), None)
+        .map_err(map_git_err)?;
+    Ok(())
+}
+
+fn fast_forward_local_branch_if_behind(
+    repo: &Repository,
+    repo_root: &Path,
+    branch: &str,
+    remote_name: &str,
+    remote_branch: &str,
+) -> Result<()> {
+    let local_ref = format!("refs/heads/{}", branch);
+    let remote_ref = format!("refs/remotes/{}/{}", remote_name, remote_branch);
+
+    let local_oid = match repo.refname_to_id(&local_ref) {
+        Ok(oid) => oid,
+        Err(_) => return Ok(()),
+    };
+    let remote_oid = match repo.refname_to_id(&remote_ref) {
+        Ok(oid) => oid,
+        Err(_) => return Ok(()),
+    };
+
+    if local_oid == remote_oid {
+        return Ok(());
+    }
+
+    // Only fast-forward when the remote is a descendant of local (local behind).
+    // If local is ahead or diverged, we do nothing (local changes must not be overwritten).
+    let remote_descends_local = repo
+        .graph_descendant_of(remote_oid, local_oid)
+        .map_err(map_git_err)?;
+    if !remote_descends_local {
+        return Ok(());
+    }
+
+    {
+        let mut reference = repo.find_reference(&local_ref).map_err(map_git_err)?;
+        reference
+            .set_target(remote_oid, "illuc: fast-forward base branch")
+            .map_err(map_git_err)?;
+    }
+
+    // If we're currently on this branch and the workdir is clean, refresh checkout.
+    let head = repo.head().map_err(map_git_err)?;
+    let on_branch = head.is_branch() && head.shorthand() == Some(branch);
+    if on_branch && repo.workdir().is_some() {
+        let dirty = has_uncommitted_changes(repo_root).unwrap_or(true);
+        if !dirty {
+            let mut checkout = git2::build::CheckoutBuilder::new();
+            checkout.safe();
+            repo.checkout_head(Some(&mut checkout)).map_err(map_git_err)?;
+        }
+    }
+
+    Ok(())
+}
+
+pub fn fetch_base_branch_best_effort(repo_root: &Path, base_ref: &str) -> Result<()> {
+    // Best-effort "fetch the base branch so we base worktrees on the latest remote state".
+    // We only fast-forward local branches when it's safe (local behind). We never overwrite
+    // local commits (local ahead/diverged => no-op).
+    let repo = open_repo(repo_root)?;
+
+    let base_ref = base_ref.trim();
+    if base_ref.is_empty() {
+        return Ok(());
+    }
+
+    // If base_ref is "HEAD", treat the currently checked out branch as the base branch.
+    if base_ref == "HEAD" {
+        let head = repo.head().map_err(map_git_err)?;
+        if !(head.is_branch()) {
+            return Ok(());
+        }
+        let branch = match head.shorthand() {
+            Some(name) if !name.trim().is_empty() => name.trim().to_string(),
+            _ => return Ok(()),
+        };
+        let (remote_name, remote_branch) = upstream_remote_and_branch(&repo, &branch)?;
+        fetch_branch(&repo, &remote_name, &remote_branch)?;
+        fast_forward_local_branch_if_behind(
+            &repo,
+            repo_root,
+            &branch,
+            &remote_name,
+            &remote_branch,
+        )?;
+        return Ok(());
+    }
+
+    // If base_ref is a local branch name (or refs/heads/<name>), fetch its upstream and ff-only.
+    let local_branch = if let Some(name) = base_ref.strip_prefix("refs/heads/") {
+        Some(name.trim().to_string())
+    } else if repo.find_branch(base_ref, BranchType::Local).is_ok() {
+        Some(base_ref.to_string())
+    } else {
+        None
+    };
+    if let Some(branch) = local_branch {
+        let (remote_name, remote_branch) = upstream_remote_and_branch(&repo, &branch)?;
+        fetch_branch(&repo, &remote_name, &remote_branch)?;
+        fast_forward_local_branch_if_behind(
+            &repo,
+            repo_root,
+            &branch,
+            &remote_name,
+            &remote_branch,
+        )?;
+        return Ok(());
+    }
+
+    // If base_ref looks like a remote-tracking ref ("origin/foo"), just fetch it.
+    // We intentionally do not move any local branch in this case.
+    if let Some((remote_name, remote_branch)) = split_remote_tracking(base_ref) {
+        fetch_branch(&repo, &remote_name, &remote_branch)?;
+        return Ok(());
+    }
+
+    Ok(())
 }
 
 pub fn add_worktree(

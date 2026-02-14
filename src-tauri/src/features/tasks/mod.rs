@@ -34,8 +34,8 @@ use crate::features::tasks::agents::copilot::CopilotAgent;
 use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::git::{
     add_worktree, delete_branch, get_head_branch, get_head_commit, get_repo_root, git_commit,
-    git_diff, git_push, has_uncommitted_changes, list_worktrees, prune_worktrees, remove_worktree,
-    resolve_commit_id, stage_all, validate_git_repo,
+    git_diff, git_push, has_uncommitted_changes, list_worktrees, prune_worktrees,
+    fetch_base_branch_best_effort, remove_worktree, resolve_commit_id, stage_all, validate_git_repo,
 };
 use crate::utils::fs::ensure_directory;
 use crate::utils::path::normalize_path_string;
@@ -44,7 +44,7 @@ use crate::utils::pty::{
 };
 use chrono::Utc;
 use events::{emit_diff_changed, emit_status, emit_terminal_exit, emit_terminal_output};
-use log::{info, warn};
+use log::warn;
 use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use parking_lot::{Mutex, RwLock};
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -151,6 +151,17 @@ impl TaskManager {
         validate_git_repo(&base_repo)?;
 
         let base_ref = base_ref.unwrap_or_else(|| "HEAD".to_string());
+
+        // Best-effort: fetch/update the base branch so the worktree is created from the latest
+        // remote version. Never overwrite local commits: only fast-forward when local is behind.
+        if let Err(err) = fetch_base_branch_best_effort(&repo_root, base_ref.as_str()) {
+            warn!(
+                "git fetch/ff-only for base ref '{}' failed: {}",
+                base_ref.as_str(),
+                err
+            );
+        }
+
         let base_commit = resolve_commit_id(&repo_root, base_ref.as_str())?;
 
         let task_id = Uuid::new_v4();
