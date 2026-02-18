@@ -80,44 +80,94 @@
     <div class="modal-backdrop" *ngIf="showCreateModal">
         <div class="modal">
             <h3>Create Task</h3>
-            <p class="modal-subtitle">
-                Provide the Git branch name for this task.
-            </p>
-            <label class="input-label">Branch name</label>
-            <input
-                type="text"
-                [(ngModel)]="branchNameInput"
-                placeholder="e.g. feature/25323-fancy-feature-name"
-            />
-            <label class="input-label">Base branch</label>
-            <div class="select-wrapper">
-                <select [(ngModel)]="baseBranchSelection">
-                    <option
-                        *ngIf="
-                            baseBranchSelection &&
-                            branchOptions().indexOf(baseBranchSelection) === -1
-                        "
-                        [value]="baseBranchSelection"
-                    >
-                        {{ baseBranchSelection }}
-                    </option>
-                    <option
-                        *ngFor="let branch of branchOptions()"
-                        [value]="branch"
-                    >
-                        {{ branch }}
-                    </option>
-                </select>
-                <span class="select-arrow">⌄</span>
+            <div class="modal-tabs" role="tablist" aria-label="Create task mode">
+                <button
+                    type="button"
+                    class="modal-tab"
+                    [class.active]="createTaskTab === 'create'"
+                    [attr.aria-selected]="createTaskTab === 'create'"
+                    (click)="setCreateTaskTab('create')"
+                >
+                    Create new branch
+                </button>
+                <button
+                    type="button"
+                    class="modal-tab"
+                    [class.active]="createTaskTab === 'continue'"
+                    [attr.aria-selected]="createTaskTab === 'continue'"
+                    (click)="setCreateTaskTab('continue')"
+                >
+                    Continue with branch
+                </button>
             </div>
-            <div class="error" *ngIf="branchNameError">
-                {{ branchNameError }}
+            <p class="modal-subtitle" *ngIf="createTaskTab === 'create'">
+                Create a new branch from a selected base branch.
+            </p>
+            <p class="modal-subtitle" *ngIf="createTaskTab === 'continue'">
+                Create a task from an existing branch.
+            </p>
+            <ng-container *ngIf="createTaskTab === 'create'; else continueBranchTab">
+                <label class="input-label">Branch name</label>
+                <input
+                    type="text"
+                    [(ngModel)]="branchNameInput"
+                    placeholder="e.g. feature/25323-fancy-feature-name"
+                />
+                <label class="input-label">Base branch</label>
+                <div class="select-wrapper">
+                    <select [(ngModel)]="baseBranchSelection">
+                        <option
+                            *ngIf="
+                                baseBranchSelection &&
+                                branchOptions().indexOf(baseBranchSelection) === -1
+                            "
+                            [value]="baseBranchSelection"
+                        >
+                            {{ baseBranchSelection }}
+                        </option>
+                        <option
+                            *ngFor="let branch of branchOptions()"
+                            [value]="branch"
+                        >
+                            {{ branch }}
+                        </option>
+                    </select>
+                    <span class="select-arrow">⌄</span>
+                </div>
+            </ng-container>
+            <ng-template #continueBranchTab>
+                <div class="select-wrapper">
+                    <select [(ngModel)]="continueBranchSelection">
+                        <option
+                            *ngIf="
+                                continueBranchSelection &&
+                                branchOptions().indexOf(continueBranchSelection) === -1
+                            "
+                            [value]="continueBranchSelection"
+                        >
+                            {{ continueBranchSelection }}
+                        </option>
+                        <option
+                            *ngFor="let branch of branchOptions()"
+                            [value]="branch"
+                        >
+                            {{ branch }}
+                        </option>
+                    </select>
+                    <span class="select-arrow">⌄</span>
+                </div>
+            </ng-template>
+            <div class="error" *ngIf="createTaskTab === 'continue' && branchOptions().length === 0">
+                No existing branches found.
+            </div>
+            <div class="error" *ngIf="branchNameError()">
+                {{ branchNameError() }}
             </div>
             <div class="modal-actions">
                 <app-loading-button
                     buttonType="button"
                     buttonClass="ghost"
-                    [disabled]="isCreatingTask"
+                    [disabled]="isCreatingTask()"
                     (action)="closeCreateTaskModal()"
                 >
                     Cancel
@@ -125,7 +175,7 @@
                 <app-loading-button
                     buttonType="button"
                     buttonClass="primary"
-                    [loading]="isCreatingTask"
+                    [loading]="isCreatingTask()"
                     (action)="submitNewTask()"
                 >
                     Create Task

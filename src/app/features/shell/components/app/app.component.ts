@@ -23,6 +23,8 @@ type ConfirmDiscardState = {
     hasChanges: boolean;
 };
 
+type CreateTaskTab = "create" | "continue";
+
 @Component({
     selector: "app-shell",
     standalone: true,
@@ -38,13 +40,15 @@ type ConfirmDiscardState = {
 })
 export class AppComponent {
     showCreateModal = false;
+    createTaskTab: CreateTaskTab = "create";
     branchNameInput = "";
-    branchNameError = "";
+    continueBranchSelection = "";
+    readonly branchNameError = signal("");
     readonly confirmDiscard = signal<ConfirmDiscardState | null>(null);
     baseBranchSelection = "";
     isSelectingRepo = false;
     readonly repoSelectionError = signal("");
-    isCreatingTask = false;
+    readonly isCreatingTask = signal(false);
     private mountedTaskIds: string[] = [];
     private readonly startingTaskIds = new Set<string>();
     private readonly stoppingTaskIds = new Set<string>();
@@ -176,50 +180,78 @@ export class AppComponent {
             console.error("Select a base repository before creating tasks.");
             return;
         }
+        this.createTaskTab = "create";
         this.branchNameInput = "";
-        this.branchNameError = "";
+        this.continueBranchSelection = this.taskStore.defaultBaseBranch() ?? "";
+        this.branchNameError.set("");
         this.baseBranchSelection = this.taskStore.defaultBaseBranch() ?? "";
         this.showCreateModal = true;
     }
 
+    setCreateTaskTab(tab: CreateTaskTab): void {
+        this.createTaskTab = tab;
+        this.branchNameError.set("");
+        if (tab === "continue" && !this.continueBranchSelection) {
+            this.continueBranchSelection =
+                this.baseBranchSelection ||
+                this.taskStore.defaultBaseBranch() ||
+                this.branchOptions()[0] ||
+                "";
+        }
+    }
+
     closeCreateTaskModal(): void {
         this.showCreateModal = false;
+        this.createTaskTab = "create";
         this.branchNameInput = "";
-        this.branchNameError = "";
+        this.continueBranchSelection = "";
+        this.branchNameError.set("");
         this.baseBranchSelection = "";
     }
 
     async submitNewTask(): Promise<void> {
-        const branch = this.branchNameInput.trim();
-        if (!branch) {
-            this.branchNameError = "Branch name is required.";
-            return;
-        }
         if (!this.baseRepo()) {
-            this.branchNameError = "Select a base repository first.";
+            this.branchNameError.set("Select a base repository first.");
             return;
         }
-        if (this.isCreatingTask) {
+        if (this.isCreatingTask()) {
             return;
         }
-        this.branchNameError = "";
+        const isCreateNewBranch = this.createTaskTab === "create";
+        const branch = isCreateNewBranch
+            ? this.branchNameInput.trim()
+            : this.continueBranchSelection.trim();
+        if (!branch) {
+            this.branchNameError.set(
+                isCreateNewBranch
+                    ? "Branch name is required."
+                    : "Select an existing branch.",
+            );
+            return;
+        }
+        const baseRef = isCreateNewBranch
+            ? this.baseBranchSelection
+            : undefined;
+        this.branchNameError.set("");
         const title = deriveTitleFromBranch(branch);
-        this.isCreatingTask = true;
+        this.isCreatingTask.set(true);
         try {
             const created = await this.taskStore.createTask(
                 branch,
                 title,
-                this.baseBranchSelection,
+                baseRef,
             );
             await this.navigateByUrl(`/tasks/${created.taskId}`);
             this.closeCreateTaskModal();
         } catch (error: unknown) {
-            this.branchNameError = this.describeError(
-                error,
-                "Unable to create task.",
+            this.branchNameError.set(
+                this.describeError(
+                    error,
+                    "Unable to create task.",
+                ),
             );
         } finally {
-            this.isCreatingTask = false;
+            this.isCreatingTask.set(false);
         }
     }
 
