@@ -4,7 +4,7 @@ use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, FetchOptions, IndexAddOption, PushOptions,
-    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
+    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions, ErrorCode,
 };
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -92,8 +92,13 @@ fn build_remote_callbacks(repo: &Repository) -> Result<RemoteCallbacks<'static>>
 }
 
 pub fn validate_git_repo(path: &Path) -> Result<()> {
-    let _ = open_repo(path)?;
-    Ok(())
+    match Repository::discover(path) {
+        Ok(_) => Ok(()),
+        Err(err) if err.code() == ErrorCode::NotFound => Err(TaskError::Message(
+            "The selected directory is not a Git repository.".to_string(),
+        )),
+        Err(err) => Err(map_git_err(err)),
+    }
 }
 
 pub fn get_repo_root(path: &Path) -> Result<PathBuf> {

@@ -97,6 +97,9 @@
                     choose an existing task or create a new branch to get
                     started.
                 </p>
+                <div class="landing-error" *ngIf="selectRepoError">
+                    {{ selectRepoError }}
+                </div>
                 <app-loading-button
                     buttonType="button"
                     buttonClass="primary landing-action"

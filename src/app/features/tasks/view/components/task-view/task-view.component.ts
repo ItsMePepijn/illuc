@@ -51,6 +51,7 @@ export class TaskViewComponent {
     @Input() stopLoading = false;
     @Input() discardLoading = false;
     @Input() selectRepoLoading = false;
+    @Input() selectRepoError = "";
     activePane: "terminal" | "diff" = "terminal";
     isShellTerminalOpen = false;
     isShellResizing = false;

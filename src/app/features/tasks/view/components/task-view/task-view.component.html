@@ -228,6 +228,7 @@
         *ngIf="!showGettingStarted || !baseRepo; else gettingStarted"
         [baseRepo]="baseRepo"
         [selectRepoLoading]="selectRepoLoading"
+        [selectRepoError]="selectRepoError"
         (selectBaseRepo)="onSelectBaseRepo()"
     ></app-task-home-dashboard>
     <ng-template #gettingStarted>

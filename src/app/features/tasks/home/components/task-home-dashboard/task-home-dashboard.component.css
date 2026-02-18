@@ -213,6 +213,13 @@
     max-width: 520px;
 }
 
+.landing-error {
+    margin-top: 1rem;
+    color: #d64545;
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
 :host ::ng-deep .landing-action {
     margin-top: 1.25rem;
     padding: 0.4rem 1.2rem;

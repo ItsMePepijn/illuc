@@ -37,6 +37,7 @@ interface TimeTrackingRow {
 export class TaskHomeDashboardComponent {
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() selectRepoLoading = false;
+    @Input() selectRepoError = "";
     @Output() selectBaseRepo = new EventEmitter<void>();
 
     private readonly weekStartSignal = signal<Date>(

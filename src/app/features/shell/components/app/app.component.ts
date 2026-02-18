@@ -43,6 +43,7 @@ export class AppComponent {
     readonly confirmDiscard = signal<ConfirmDiscardState | null>(null);
     baseBranchSelection = "";
     isSelectingRepo = false;
+    readonly repoSelectionError = signal("");
     isCreatingTask = false;
     private mountedTaskIds: string[] = [];
     private readonly startingTaskIds = new Set<string>();
@@ -128,7 +129,10 @@ export class AppComponent {
         if (this.isSelectingRepo) {
             return;
         }
-        this.isSelectingRepo = true;
+        this.zone.run(() => {
+            this.repoSelectionError.set("");
+            this.isSelectingRepo = true;
+        });
         try {
             const selection = await wrapPromiseInZone(this.zone, () => open({
                 directory: true,
@@ -146,6 +150,9 @@ export class AppComponent {
     private async loadBaseRepo(path: string): Promise<void> {
         try {
             await this.taskStore.selectBaseRepo(path);
+            this.zone.run(() => {
+                this.repoSelectionError.set("");
+            });
             if (this.taskStore.tasks().length === 0) {
                 this.taskStore.selectHome();
                 await this.navigateByUrl("/getting-started", true);
@@ -156,12 +163,11 @@ export class AppComponent {
                 await this.navigateByUrl("/dashboard", true);
             }
         } catch (error: unknown) {
-            console.error(
-                this.describeError(
-                    error,
-                    "Unable to open the selected repository.",
-                ),
-            );
+            const message = this.describeBaseRepoError(error);
+            this.zone.run(() => {
+                this.repoSelectionError.set(message);
+            });
+            console.error(message);
         }
     }
 
@@ -433,6 +439,21 @@ export class AppComponent {
             return String((error as { message: string }).message);
         }
         return fallback;
+    }
+
+    private describeBaseRepoError(error: unknown): string {
+        const message = this.describeError(
+            error,
+            "Unable to open the selected repository.",
+        );
+        if (
+            message
+                .toLowerCase()
+                .includes("not a git repository")
+        ) {
+            return "That folder is not a Git repository. Choose another directory.";
+        }
+        return message;
     }
 
     isStartingTask(taskId: string | null | undefined): boolean {

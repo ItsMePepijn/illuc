@@ -26,6 +26,7 @@
                 [stopLoading]="false"
                 [discardLoading]="false"
                 [selectRepoLoading]="isSelectingRepo"
+                [selectRepoError]="repoSelectionError()"
                 (startTask)="startTask($event)"
                 (stopTask)="stopTask($event)"
                 (discardTask)="discardTask($event)"
