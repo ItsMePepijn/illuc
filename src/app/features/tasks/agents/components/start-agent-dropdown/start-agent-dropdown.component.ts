@@ -8,7 +8,7 @@ import {
     OnChanges,
     SimpleChanges,
 } from "@angular/core";
-import { AgentKind } from "../../../task.models";
+import { AgentKind } from "../../../models";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 
 @Component({

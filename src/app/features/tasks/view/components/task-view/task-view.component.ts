@@ -10,11 +10,15 @@ import {
     NgZone,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
-import { AgentKind, TaskSummary, BaseRepoInfo } from "../../../task.models";
+import { AgentKind, TaskSummary, BaseRepoInfo } from "../../../models";
 import { parseTitleParts, TitleParts } from "../../../title.utils";
 import { TaskTerminalComponent } from "../../../terminal/components/task-terminal/task-terminal.component";
 import { TaskDiffComponent } from "../../../git/components/task-diff/task-diff.component";
 import { TaskActionButtonComponent } from "../../../actions/components/task-action-button/task-action-button.component";
+import { IconGitCommitComponent } from "../../../actions/components/icon-git-commit/icon-git-commit.component";
+import { IconGitPushComponent } from "../../../actions/components/icon-git-push/icon-git-push.component";
+import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
+import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
 import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { StartAgentDropdownComponent } from "../../../agents/components/start-agent-dropdown/start-agent-dropdown.component";
@@ -32,6 +36,10 @@ import { TaskStore } from "../../../task.store";
         TaskTerminalComponent,
         TaskDiffComponent,
         TaskActionButtonComponent,
+        IconGitCommitComponent,
+        IconGitPushComponent,
+        IconTrashBinComponent,
+        IconStopSquareComponent,
         OpenVsCodeButtonComponent,
         OpenTerminalButtonComponent,
         StartAgentDropdownComponent,

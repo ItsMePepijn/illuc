@@ -2,11 +2,12 @@ import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
+import { IconCodeBracketsComponent } from "../icon-code-brackets/icon-code-brackets.component";
 
 @Component({
     selector: "app-open-vscode-button",
     standalone: true,
-    imports: [CommonModule, IconLoadingButtonComponent],
+    imports: [CommonModule, IconLoadingButtonComponent, IconCodeBracketsComponent],
     templateUrl: "./open-vscode-button.component.html",
     styleUrl: "./open-vscode-button.component.css",
 })

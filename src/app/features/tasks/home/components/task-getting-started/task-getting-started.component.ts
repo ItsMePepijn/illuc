@@ -1,6 +1,6 @@
 import { CommonModule } from "@angular/common";
 import { Component, Input } from "@angular/core";
-import { BaseRepoInfo } from "../../../task.models";
+import { BaseRepoInfo } from "../../../models";
 
 @Component({
     selector: "app-task-getting-started",

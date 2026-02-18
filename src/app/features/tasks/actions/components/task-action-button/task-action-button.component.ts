@@ -1,22 +1,23 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 
 export type TaskActionButtonType = "stop" | "discard" | "commit" | "push";
+export type TaskActionButtonVariant = "icon" | "text";
 
 @Component({
     selector: "app-task-action-button",
     standalone: true,
-    imports: [CommonModule, IconLoadingButtonComponent, LoadingButtonComponent],
+    imports: [CommonModule, LoadingButtonComponent],
     templateUrl: "./task-action-button.component.html",
     styleUrl: "./task-action-button.component.css",
 })
 export class TaskActionButtonComponent {
     @Input({ required: true }) type: TaskActionButtonType = "stop";
+    @Input() variant?: TaskActionButtonVariant;
     @Input() disabled = false;
     @Input() loading = false;
-    @Input() title?: string;
+    @Input({ required: true }) title = "";
     @Input() ariaLabel?: string;
     @Input() stopPropagation = false;
     @Output() action = new EventEmitter<void>();
@@ -31,34 +32,19 @@ export class TaskActionButtonComponent {
         this.action.emit();
     }
 
-    get computedTitle(): string {
-        if (this.title) {
-            return this.title;
-        }
-        switch (this.type) {
-            case "stop":
-                return "Stop agent";
-            case "discard":
-                return "Discard task";
-            case "commit":
-                return "Commit changes";
-            case "push":
-                return "Push changes";
-            default:
-                return "";
-        }
-    }
-
     get computedAriaLabel(): string {
         if (this.ariaLabel) {
             return this.ariaLabel;
         }
-        return this.computedTitle;
+        return this.title;
     }
 
     get buttonClass(): string {
         const classes = ["action-btn"];
-        if (this.isTextAction) {
+        if (this.resolvedVariant === "icon") {
+            classes.unshift("icon-btn");
+        }
+        if (this.resolvedVariant === "text") {
             classes.push("action-text-btn");
         }
         if (this.type === "discard") {
@@ -67,11 +53,12 @@ export class TaskActionButtonComponent {
         return classes.join(" ");
     }
 
-    get isTextAction(): boolean {
-        return this.type === "commit" || this.type === "push";
-    }
-
-    get actionLabel(): string {
-        return this.type === "commit" ? "Commit" : "Push";
+    get resolvedVariant(): TaskActionButtonVariant {
+        if (this.variant) {
+            return this.variant;
+        }
+        return this.type === "commit" || this.type === "push"
+            ? "text"
+            : "icon";
     }
 }

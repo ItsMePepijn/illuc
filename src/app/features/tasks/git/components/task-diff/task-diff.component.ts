@@ -39,14 +39,16 @@ import {
     DiffLineType,
     DiffMode,
     DiffPayload,
+} from "../../models";
+import {
     ReviewComment,
     ReviewCommentStatus,
     ReviewThread,
     ReviewStore,
-} from "../../../task.models";
+} from "../../../review/models";
 import { TaskStore } from "../../../task.store";
 import { LauncherService } from "../../../../launcher/launcher.service";
-import { TaskReviewService } from "../../task-review.service";
+import { TaskReviewService } from "../../../review/task-review.service";
 import {
     FileTreeComponent,
     FileTreeNode,

@@ -126,7 +126,7 @@
     cursor: pointer;
 }
 
-.diff-comment-action-icon {
+.diff-comment-action .action-icon {
     width: 1rem;
     height: 1rem;
 }

@@ -10,10 +10,13 @@ import { FormsModule } from "@angular/forms";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
+import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
+import { IconCollapseChevronsComponent } from "../icon-collapse-chevrons/icon-collapse-chevrons.component";
+import { IconPencilEditComponent } from "../icon-pencil-edit/icon-pencil-edit.component";
 import {
     ReviewComment,
     ReviewCommentStatus,
-} from "../../../task.models";
+} from "../../models";
 
 marked.setOptions({
     breaks: true,
@@ -28,7 +31,13 @@ type ReviewStatusOption = {
 @Component({
     selector: "app-task-diff-thread",
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [
+        CommonModule,
+        FormsModule,
+        IconTrashBinComponent,
+        IconCollapseChevronsComponent,
+        IconPencilEditComponent,
+    ],
     templateUrl: "./task-diff-thread.component.html",
     styleUrl: "./task-diff-thread.component.css",
     changeDetection: ChangeDetectionStrategy.OnPush,

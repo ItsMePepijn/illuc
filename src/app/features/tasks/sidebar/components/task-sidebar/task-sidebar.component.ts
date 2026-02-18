@@ -1,8 +1,12 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
-import { TaskStatus, TaskSummary, BaseRepoInfo } from "../../../task.models";
+import { TaskStatus, TaskSummary, BaseRepoInfo } from "../../../models";
 import { parseTitleParts, TitleParts } from "../../../title.utils";
 import { TaskActionButtonComponent } from "../../../actions/components/task-action-button/task-action-button.component";
+import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
+import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
+import { IconClockCircleComponent } from "../icon-clock-circle/icon-clock-circle.component";
+import { IconPlusComponent } from "../icon-plus/icon-plus.component";
 import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { LauncherService } from "../../../../launcher/launcher.service";
@@ -13,6 +17,10 @@ import { LauncherService } from "../../../../launcher/launcher.service";
     imports: [
         CommonModule,
         TaskActionButtonComponent,
+        IconStopSquareComponent,
+        IconTrashBinComponent,
+        IconClockCircleComponent,
+        IconPlusComponent,
         OpenVsCodeButtonComponent,
         OpenTerminalButtonComponent,
     ],

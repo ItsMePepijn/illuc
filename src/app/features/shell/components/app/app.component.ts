@@ -6,7 +6,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { filter } from "rxjs/operators";
 import { TaskSidebarComponent } from "../../../tasks/sidebar/components/task-sidebar/task-sidebar.component";
 import { TaskViewComponent } from "../../../tasks/view/components/task-view/task-view.component";
-import { AgentKind, TaskSummary } from "../../../tasks/task.models";
+import { AgentKind, TaskSummary } from "../../../tasks/models";
 import { deriveTitleFromBranch } from "../../../tasks/title.utils";
 import { TaskStore } from "../../../tasks/task.store";
 import { LauncherService } from "../../../launcher/launcher.service";

@@ -6,28 +6,7 @@
         aria-label="Collapse thread"
         title="Collapse thread"
     >
-        <svg
-            class="diff-thread-collapse-glyph"
-            viewBox="0 0 12 16"
-            aria-hidden="true"
-        >
-            <polyline
-                points="3,2 6,6 9,2"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            />
-            <polyline
-                points="3,14 6,10 9,14"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            />
-        </svg>
+        <app-icon-collapse-chevrons></app-icon-collapse-chevrons>
     </button>
     <div class="diff-comment-thread-inner">
         <div *ngIf="comments.length; else noComments" class="diff-comment-list">
@@ -79,16 +58,7 @@
                                 deletingCommentIds.has(comment.id)
                             "
                         >
-                            <svg
-                                class="diff-comment-action-icon"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path
-                                    d="M4 20h4l10-10-4-4L4 16v4zm13.7-11.3 1.6-1.6a1 1 0 0 0 0-1.4l-1.3-1.3a1 1 0 0 0-1.4 0L15 6.1l2.7 2.6z"
-                                    fill="currentColor"
-                                />
-                            </svg>
+                            <app-icon-pencil-edit></app-icon-pencil-edit>
                         </button>
                         <button
                             type="button"
@@ -101,22 +71,7 @@
                                 editingCommentIds.has(comment.id)
                             "
                         >
-                            <svg
-                                class="diff-comment-action-icon"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="1.6"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                viewBox="0 0 24 24"
-                                aria-hidden="true"
-                            >
-                                <path d="M3 6h18"></path>
-                                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
-                                <path d="M10 11v6"></path>
-                                <path d="M14 11v6"></path>
-                            </svg>
+                            <app-icon-trash-bin></app-icon-trash-bin>
                         </button>
                     </div>
                 </div>

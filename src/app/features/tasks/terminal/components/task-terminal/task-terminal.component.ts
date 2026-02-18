@@ -13,9 +13,10 @@ import { ITheme, Terminal } from "xterm";
 import { FitAddon } from "xterm-addon-fit";
 import { Subscription } from "rxjs";
 import { TaskStore } from "../../../task.store";
-import { TERMINAL_SCROLLBACK } from "../../../terminal.constants";
-import { TerminalFitManager } from "../../../terminal-fit.util";
-import { AgentKind, TerminalKind } from "../../../task.models";
+import { TERMINAL_SCROLLBACK } from "../../terminal.constants";
+import { TerminalFitManager } from "../../terminal-fit.util";
+import { AgentKind } from "../../../models";
+import { TerminalKind } from "../../models";
 
 @Component({
     selector: "app-task-terminal",

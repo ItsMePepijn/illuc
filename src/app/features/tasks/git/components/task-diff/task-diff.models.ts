@@ -1,5 +1,5 @@
 import { SafeHtml } from "@angular/platform-browser";
-import { DiffLineType } from "../../../task.models";
+import { DiffLineType } from "../../models";
 
 export interface RenderedDiffLine {
     type: DiffLineType;

@@ -2,7 +2,7 @@ import { Injectable, NgZone, signal } from "@angular/core";
 import {
     TimeTrackingEntry,
     TimeTrackingPayload,
-} from "../tasks/task.models";
+} from "./models";
 import { tauriInvoke } from "../../shared/tauri/tauri-zone";
 
 const DEFAULT_TRACKING: TimeTrackingPayload = {

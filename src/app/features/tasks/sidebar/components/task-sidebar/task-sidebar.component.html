@@ -50,19 +50,7 @@
             (click)="onSelectHome()"
             aria-label="Open time tracking"
         >
-            <svg
-                class="nav-icon"
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-            >
-                <circle cx="12" cy="12" r="9"></circle>
-                <path d="M12 7v5l3 2"></path>
-            </svg>
+            <app-icon-clock-circle></app-icon-clock-circle>
             <span class="nav-label">Time Tracking</span>
         </button>
 
@@ -79,19 +67,7 @@
                 [attr.title]="baseRepo ? 'Create task' : 'Select a repository first'"
                 aria-label="Create task"
             >
-                <svg
-                    class="create-icon"
-                    aria-hidden="true"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                >
-                    <path d="M12 5v14"></path>
-                    <path d="M5 12h14"></path>
-                </svg>
+                <app-icon-plus></app-icon-plus>
             </button>
         </div>
     </div>
@@ -122,17 +98,25 @@
                     <div class="actions" aria-label="Task actions">
                         <app-task-action-button
                             type="stop"
+                            variant="icon"
+                            title="Stop agent"
                             [disabled]="!isRunning(task.status)"
                             [loading]="stopLoadingIds.has(task.taskId)"
                             [stopPropagation]="true"
                             (action)="onStop(task.taskId)"
-                        ></app-task-action-button>
+                        >
+                            <app-icon-stop-square></app-icon-stop-square>
+                        </app-task-action-button>
                         <app-task-action-button
                             type="discard"
+                            variant="icon"
+                            title="Discard task"
                             [loading]="discardLoadingIds.has(task.taskId)"
                             [stopPropagation]="true"
                             (action)="onDiscard(task.taskId)"
-                        ></app-task-action-button>
+                        >
+                            <app-icon-trash-bin></app-icon-trash-bin>
+                        </app-task-action-button>
                     </div>
                 </div>
             </div>

@@ -256,6 +256,27 @@ button.action-btn:disabled {
     cursor: not-allowed;
 }
 
+.modal .ghost,
+.modal .primary {
+    border-radius: 6px;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid var(--borders-default);
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.modal .primary {
+    background: var(--brand-accent_soft);
+    border-color: var(--brand-accent);
+}
+
+.modal .primary.warn {
+    background: var(--status-danger_soft);
+    border-color: var(--status-danger);
+    color: var(--status-danger);
+}
+
 :root[data-syntax-theme="dark"] .hljs {
     color: #c9d1d9;
     background: #0d1117;

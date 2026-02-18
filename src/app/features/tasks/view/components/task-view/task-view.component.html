@@ -24,20 +24,34 @@
                 </div>
                 <app-task-action-button
                     type="commit"
+                    variant="text"
+                    title="Commit changes"
                     [disabled]="!current"
                     (action)="openCommitModal()"
-                ></app-task-action-button>
+                >
+                    <app-icon-git-commit></app-icon-git-commit>
+                    <span class="action-label">Commit</span>
+                </app-task-action-button>
                 <app-task-action-button
                     type="push"
+                    variant="text"
+                    title="Push changes"
                     [disabled]="!current"
                     (action)="openPushModal()"
-                ></app-task-action-button>
+                >
+                    <app-icon-git-push></app-icon-git-push>
+                    <span class="action-label">Push</span>
+                </app-task-action-button>
                 <app-task-action-button
                     type="discard"
+                    variant="icon"
+                    title="Discard task"
                     [disabled]="!current"
                     [loading]="discardLoading"
                     (action)="onDiscard()"
-                ></app-task-action-button>
+                >
+                    <app-icon-trash-bin></app-icon-trash-bin>
+                </app-task-action-button>
             </div>
         </header>
 
@@ -55,10 +69,14 @@
                             <app-task-action-button
                                 *ngIf="isRunning()"
                                 type="stop"
+                                variant="icon"
+                                title="Stop agent"
                                 [disabled]="!isRunning()"
                                 [loading]="stopLoading"
                                 (action)="onStop()"
-                            ></app-task-action-button>
+                            >
+                                <app-icon-stop-square></app-icon-stop-square>
+                            </app-task-action-button>
                         </div>
                     </header>
                     <div class="terminal-session-body">

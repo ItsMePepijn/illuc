@@ -1,12 +1,12 @@
 import { Injectable, NgZone } from "@angular/core";
 import {
-    DiffLineType,
     ReviewComment,
     ReviewCommentStatus,
     ReviewTaskEntry,
     ReviewThread,
     ReviewStore,
-} from "../task.models";
+} from "./models";
+import { DiffLineType } from "../git/models";
 import { tauriInvoke } from "../../../shared/tauri/tauri-zone";
 
 const DEFAULT_REVIEW_STORE: ReviewStore = {

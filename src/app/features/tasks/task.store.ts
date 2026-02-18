@@ -4,15 +4,16 @@ import { Observable, Subject } from "rxjs";
 import {
     AgentKind,
     BaseRepoInfo,
-    DiffMode,
-    DiffPayload,
+    TaskSummary,
+} from "./models";
+import { DiffMode, DiffPayload } from "./git/models";
+import {
     TerminalKind,
     TerminalExitEvent,
     TerminalOutputEvent,
-    TaskSummary,
-} from "./task.models";
+} from "./terminal/models";
 import { TaskGitService } from "./git/task-git.service";
-import { TERMINAL_SCROLLBACK } from "./terminal.constants";
+import { TERMINAL_SCROLLBACK } from "./terminal/terminal.constants";
 import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
 
 @Injectable({

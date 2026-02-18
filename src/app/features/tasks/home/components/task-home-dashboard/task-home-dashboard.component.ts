@@ -9,7 +9,8 @@ import {
     signal,
 } from "@angular/core";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
-import { BaseRepoInfo, TaskSummary, TimeTrackingEntry } from "../../../task.models";
+import { BaseRepoInfo, TaskSummary } from "../../../models";
+import { TimeTrackingEntry } from "../../../../time-tracking/models";
 import { TaskStore } from "../../../task.store";
 import { TaskTimeTrackingService } from "../../../../time-tracking/task-time-tracking.service";
 
