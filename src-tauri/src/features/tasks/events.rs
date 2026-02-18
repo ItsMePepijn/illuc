@@ -4,7 +4,9 @@ use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
 pub fn emit_status(app: &AppHandle, summary: &TaskSummary) {
-    let _ = app.emit("task_status_changed", summary);
+    if let Err(error) = app.emit("task_status_changed", summary) {
+        log::warn!("failed to emit task_status_changed event: {error}");
+    }
 }
 
 pub fn emit_terminal_output(app: &AppHandle, task_id: Uuid, data: String, kind: TerminalKind) {
@@ -13,7 +15,9 @@ pub fn emit_terminal_output(app: &AppHandle, task_id: Uuid, data: String, kind: 
         data,
         kind,
     };
-    let _ = app.emit("task_terminal_output", payload);
+    if let Err(error) = app.emit("task_terminal_output", payload) {
+        log::warn!("failed to emit task_terminal_output event: {error}");
+    }
 }
 
 pub fn emit_terminal_exit(app: &AppHandle, task_id: Uuid, exit_code: i32, kind: TerminalKind) {
@@ -22,12 +26,16 @@ pub fn emit_terminal_exit(app: &AppHandle, task_id: Uuid, exit_code: i32, kind: 
         exit_code,
         kind,
     };
-    let _ = app.emit("task_terminal_exit", payload);
+    if let Err(error) = app.emit("task_terminal_exit", payload) {
+        log::warn!("failed to emit task_terminal_exit event: {error}");
+    }
 }
 
 pub fn emit_diff_changed(app: &AppHandle, task_id: Uuid) {
     let payload = DiffChangedPayload { task_id };
-    let _ = app.emit("task_diff_changed", payload);
+    if let Err(error) = app.emit("task_diff_changed", payload) {
+        log::warn!("failed to emit task_diff_changed event: {error}");
+    }
 }
 
 #[derive(Serialize, Clone)]

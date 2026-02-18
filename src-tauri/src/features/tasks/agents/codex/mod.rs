@@ -8,6 +8,7 @@ use crate::utils::screen::Screen;
 use crate::utils::wsl_pty::spawn_wsl_pty;
 #[cfg(not(target_os = "windows"))]
 use anyhow::Context;
+use log::warn;
 use parking_lot::Mutex;
 #[cfg(not(target_os = "windows"))]
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
@@ -165,7 +166,10 @@ impl Agent for CodexAgent {
                         }
                         (output_callbacks.on_output)(chunk);
                     }
-                    Err(_) => break,
+                    Err(error) => {
+                        warn!("codex PTY read failed: {}", error);
+                        break;
+                    }
                 }
             }
         });
@@ -183,7 +187,10 @@ impl Agent for CodexAgent {
                             break if status.success() { 0 } else { code };
                         }
                         Ok(None) => {}
-                        Err(_) => break 1,
+                        Err(error) => {
+                            warn!("codex process wait failed: {}", error);
+                            break 1;
+                        }
                     }
                 }
                 std::thread::sleep(Duration::from_millis(200));

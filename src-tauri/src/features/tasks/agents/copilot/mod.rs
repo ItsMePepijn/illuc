@@ -10,6 +10,7 @@ use crate::utils::windows::build_wsl_process_command;
 use crate::utils::windows::to_wsl_path;
 use anyhow::Context;
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
+use log::warn;
 use parking_lot::Mutex;
 #[cfg(not(target_os = "windows"))]
 use portable_pty::CommandBuilder;
@@ -103,7 +104,13 @@ fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
 }
 
 fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate> {
-    let data = fs::read_to_string(path).ok()?;
+    let data = match fs::read_to_string(path) {
+        Ok(data) => data,
+        Err(error) => {
+            warn!("failed to read copilot session file {}: {}", path.display(), error);
+            return None;
+        }
+    };
     if !data.contains(desired_cwd) {
         return None;
     }
@@ -114,7 +121,14 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
     for line in data.lines() {
         let value: serde_json::Value = match serde_json::from_str(line) {
             Ok(value) => value,
-            Err(_) => continue,
+            Err(error) => {
+                warn!(
+                    "failed to parse copilot session JSON line in {}: {}",
+                    path.display(),
+                    error
+                );
+                continue;
+            }
         };
         if session_id.is_none() {
             if value.get("type").and_then(|value| value.as_str()) == Some("session.start") {
@@ -153,11 +167,28 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
 }
 
 fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
-    let entries = fs::read_dir(dir).ok()?;
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
+        Err(error) => {
+            warn!("failed to read copilot session directory {}: {}", dir.display(), error);
+            return None;
+        }
+    };
     let mut best: Option<SessionCandidate> = None;
     for entry in entries.flatten() {
         let path = entry.path();
-        if entry.file_type().map(|ty| ty.is_file()).unwrap_or(false) {
+        let is_file = match entry.file_type() {
+            Ok(file_type) => file_type.is_file(),
+            Err(error) => {
+                warn!(
+                    "failed to read copilot session entry type for {}: {}",
+                    path.display(),
+                    error
+                );
+                false
+            }
+        };
+        if is_file {
             if let Some(candidate) = parse_session_file(&path, desired_cwd) {
                 let replace = match (&candidate.timestamp, &best) {
                     (Some(candidate_ts), Some(best)) => match best.timestamp {
@@ -314,7 +345,10 @@ impl Agent for CopilotAgent {
                         }
                         (output_callbacks.on_output)(chunk);
                     }
-                    Err(_) => break,
+                    Err(error) => {
+                        warn!("copilot PTY read failed: {}", error);
+                        break;
+                    }
                 }
             }
         });
@@ -332,7 +366,10 @@ impl Agent for CopilotAgent {
                             break if status.success() { 0 } else { code };
                         }
                         Ok(None) => {}
-                        Err(_) => break 1,
+                        Err(error) => {
+                            warn!("copilot process wait failed: {}", error);
+                            break 1;
+                        }
                     }
                 }
                 std::thread::sleep(Duration::from_millis(200));

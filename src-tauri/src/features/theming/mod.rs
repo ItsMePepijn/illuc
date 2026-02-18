@@ -27,8 +27,10 @@ pub fn apply_startup_window_background(window: &tauri::WebviewWindow) {
                 log::debug!("theme missing surfaces.bg; leaving default background");
             }
         }
-        Err(_) => {
-            log::debug!("failed to load theme settings early; leaving default background");
+        Err(error) => {
+            log::debug!(
+                "failed to load theme settings early; leaving default background: {error}"
+            );
         }
     }
 }
@@ -73,9 +75,18 @@ pub fn on_page_load(
 }
 
 fn build_startup_webview_js(app: &tauri::AppHandle, default_theme_name: &str) -> Option<String> {
-    let values = load_theme_settings(app, default_theme_name).ok()?;
+    let values = match load_theme_settings(app, default_theme_name) {
+        Ok(values) => values,
+        Err(error) => {
+            log::warn!("failed to load startup theme settings: {error}");
+            return None;
+        }
+    };
     let syntax_theme = load_selected_syntax_theme_name(app, default_theme_name)
-        .unwrap_or_else(|_| "light".to_string());
+        .unwrap_or_else(|error| {
+            log::warn!("failed to load selected syntax theme; falling back to light: {error}");
+            "light".to_string()
+        });
     let bg_value = values
         .get("surfaces.bg")
         .map(String::as_str)
@@ -88,8 +99,20 @@ fn build_startup_webview_js(app: &tauri::AppHandle, default_theme_name: &str) ->
     for (key, value) in values.iter() {
         // Keep consistent with ThemeService mapping: --<dot-key with dots replaced by dashes>.
         let css_key = format!("--{}", key.replace('.', "-"));
-        let css_key_js = serde_json::to_string(&css_key).ok()?;
-        let value_js = serde_json::to_string(&value).ok()?;
+        let css_key_js = match serde_json::to_string(&css_key) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("failed to serialize startup CSS key: {error}");
+                return None;
+            }
+        };
+        let value_js = match serde_json::to_string(&value) {
+            Ok(value) => value,
+            Err(error) => {
+                log::warn!("failed to serialize startup CSS value: {error}");
+                return None;
+            }
+        };
         js.push_str("style.setProperty(");
         js.push_str(&css_key_js);
         js.push(',');
@@ -110,6 +133,8 @@ fn build_startup_webview_js(app: &tauri::AppHandle, default_theme_name: &str) ->
         );
         js.push_str(&bg);
         js.push_str(";},{once:true});}");
+    } else {
+        log::warn!("failed to serialize startup background color value");
     }
 
     // Align syntax theme as early as possible (used by highlight.js overrides).
@@ -117,6 +142,8 @@ fn build_startup_webview_js(app: &tauri::AppHandle, default_theme_name: &str) ->
         js.push_str("root.setAttribute('data-syntax-theme',");
         js.push_str(&syntax_js);
         js.push_str(");");
+    } else {
+        log::warn!("failed to serialize startup syntax theme");
     }
 
     js.push_str("}catch(e){console.warn('startup theming injection failed',e);}})();");

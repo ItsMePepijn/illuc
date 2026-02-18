@@ -31,7 +31,9 @@ impl TerminalMaster for WslMaster {
             .with_context(|| "failed to connect to WSL PTY control port")?;
         write!(stream, "{} {}\n", size.rows, size.cols)
             .with_context(|| "failed to send WSL PTY resize")?;
-        stream.flush().ok();
+        if let Err(error) = stream.flush() {
+            log::warn!("failed to flush WSL PTY resize command: {error}");
+        }
         Ok(())
     }
 }
@@ -113,8 +115,12 @@ pub fn spawn_wsl_pty(
         let mut buffer = String::new();
         loop {
             buffer.clear();
-            if reader.read_line(&mut buffer).is_err() {
-                break;
+            match reader.read_line(&mut buffer) {
+                Ok(_) => {}
+                Err(error) => {
+                    log::warn!("failed to read WSL PTY stderr: {error}");
+                    break;
+                }
             }
             if buffer.is_empty() {
                 break;

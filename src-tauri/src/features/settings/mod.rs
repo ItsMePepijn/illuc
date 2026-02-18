@@ -46,10 +46,16 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
 #[cfg(target_os = "linux")]
 fn gnome_color_scheme() -> Option<String> {
     // Returns values like: `'default'` or `'prefer-dark'`.
-    let out = Command::new("gsettings")
+    let out = match Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "color-scheme"])
         .output()
-        .ok()?;
+    {
+        Ok(output) => output,
+        Err(error) => {
+            log::warn!("failed to query GNOME color scheme via gsettings: {error}");
+            return None;
+        }
+    };
     if !out.status.success() {
         return None;
     }
@@ -60,10 +66,16 @@ fn gnome_color_scheme() -> Option<String> {
 #[cfg(target_os = "linux")]
 fn gnome_gtk_theme_name() -> Option<String> {
     // Returns values like: `'Adwaita-dark'`.
-    let out = Command::new("gsettings")
+    let out = match Command::new("gsettings")
         .args(["get", "org.gnome.desktop.interface", "gtk-theme"])
         .output()
-        .ok()?;
+    {
+        Ok(output) => output,
+        Err(error) => {
+            log::warn!("failed to query GNOME GTK theme via gsettings: {error}");
+            return None;
+        }
+    };
     if !out.status.success() {
         return None;
     }

@@ -6,6 +6,7 @@ use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, FetchOptions, IndexAddOption, PushOptions,
     RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
 };
+use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -191,11 +192,23 @@ fn fast_forward_local_branch_if_behind(
 
     let local_oid = match repo.refname_to_id(&local_ref) {
         Ok(oid) => oid,
-        Err(_) => return Ok(()),
+        Err(err) => {
+            warn!(
+                "failed to resolve local branch ref {} for fast-forward check: {}",
+                local_ref, err
+            );
+            return Ok(());
+        }
     };
     let remote_oid = match repo.refname_to_id(&remote_ref) {
         Ok(oid) => oid,
-        Err(_) => return Ok(()),
+        Err(err) => {
+            warn!(
+                "failed to resolve remote branch ref {} for fast-forward check: {}",
+                remote_ref, err
+            );
+            return Ok(());
+        }
     };
 
     if local_oid == remote_oid {
@@ -346,13 +359,49 @@ pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
     let worktrees = repo.worktrees().map_err(map_git_err)?;
     let mut entries = Vec::new();
     for name in worktrees.iter().flatten() {
-        let worktree = repo.find_worktree(name).map_err(map_git_err)?;
+        let worktree = match repo.find_worktree(name) {
+            Ok(worktree) => worktree,
+            Err(err) => {
+                warn!("skipping worktree {}: failed to load metadata: {}", name, err);
+                continue;
+            }
+        };
         let path = worktree.path();
-        let worktree_repo = Repository::open(path).map_err(map_git_err)?;
-        let head = worktree_repo.head().map_err(map_git_err)?;
-        let head_oid = head
-            .target()
-            .ok_or_else(|| TaskError::Message("HEAD is not a commit.".into()))?;
+        let worktree_repo = match Repository::open(path) {
+            Ok(repo) => repo,
+            Err(err) => {
+                warn!(
+                    "skipping worktree {} at {}: cannot open repository: {}",
+                    name,
+                    path.display(),
+                    err
+                );
+                continue;
+            }
+        };
+        let head = match worktree_repo.head() {
+            Ok(head) => head,
+            Err(err) => {
+                warn!(
+                    "skipping worktree {} at {}: cannot resolve HEAD: {}",
+                    name,
+                    path.display(),
+                    err
+                );
+                continue;
+            }
+        };
+        let head_oid = match head.target() {
+            Some(oid) => oid,
+            None => {
+                warn!(
+                    "skipping worktree {} at {}: HEAD is not a commit",
+                    name,
+                    path.display()
+                );
+                continue;
+            }
+        };
         let branch = if head.is_branch() {
             head.shorthand().map(|name| name.to_string())
         } else {
@@ -372,7 +421,14 @@ pub fn prune_worktrees(repo_root: &Path) -> Result<()> {
     let worktrees = repo.worktrees().map_err(map_git_err)?;
     for name in worktrees.iter().flatten() {
         if let Ok(worktree) = repo.find_worktree(name) {
-            let _ = worktree.prune(None);
+            if let Err(err) = worktree.prune(None) {
+                if err.message().contains("not pruning valid working tree") {
+                    continue;
+                }
+                warn!("failed to prune worktree {}: {}", name, err);
+            }
+        } else {
+            warn!("failed to find worktree {} while pruning", name);
         }
     }
     Ok(())
@@ -486,7 +542,14 @@ pub fn git_push(repo: &Path, remote_name: &str, branch: &str, set_upstream: bool
     if set_upstream {
         if let Ok(mut local_branch) = repo.find_branch(branch, BranchType::Local) {
             let upstream = format!("{}/{}", remote_name, branch);
-            let _ = local_branch.set_upstream(Some(&upstream));
+            if let Err(err) = local_branch.set_upstream(Some(&upstream)) {
+                warn!(
+                    "failed to set upstream for branch {} to {}: {}",
+                    branch, upstream, err
+                );
+            }
+        } else {
+            warn!("pushed branch {} but could not find local branch to set upstream", branch);
         }
     }
 
@@ -495,9 +558,19 @@ pub fn git_push(repo: &Path, remote_name: &str, branch: &str, set_upstream: bool
 
 #[cfg(target_os = "windows")]
 fn try_gcm_credential(url: &str, username: Option<&str>) -> Option<Cred> {
-    let mut config = git2::Config::new().ok()?;
+    let mut config = match git2::Config::new() {
+        Ok(config) => config,
+        Err(err) => {
+            warn!("failed to initialize temporary git config for GCM credentials: {}", err);
+            return None;
+        }
+    };
     for helper in ["manager-core", "manager"] {
-        if config.set_str("credential.helper", helper).is_err() {
+        if let Err(err) = config.set_str("credential.helper", helper) {
+            warn!(
+                "failed to set git credential.helper={} while probing GCM: {}",
+                helper, err
+            );
             continue;
         }
         if let Ok(cred) = Cred::credential_helper(&config, url, username) {

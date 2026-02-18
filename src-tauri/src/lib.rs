@@ -47,12 +47,17 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    dotenvy::dotenv().ok();
-    let _ = env_logger::Builder::from_env(
+    if let Err(error) = dotenvy::dotenv() {
+        log::debug!("dotenv was not loaded: {error}");
+    }
+    if let Err(error) = env_logger::Builder::from_env(
         env_logger::Env::default().default_filter_or("illuc=debug,tauri=info"),
     )
     .format_timestamp_millis()
-    .try_init();
+    .try_init()
+    {
+        log::debug!("logger was already initialized: {error}");
+    }
     info!("starting illuc tauri app");
 
     tauri::Builder::default()

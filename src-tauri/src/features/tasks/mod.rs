@@ -176,7 +176,13 @@ impl TaskManager {
         let worktree_path = managed_root.join(task_id.to_string());
 
         if worktree_path.exists() {
-            std::fs::remove_dir_all(&worktree_path).ok();
+            if let Err(err) = std::fs::remove_dir_all(&worktree_path) {
+                warn!(
+                    "failed to remove pre-existing worktree path {}: {}",
+                    worktree_path.display(),
+                    err
+                );
+            }
         }
 
         let worktree_path_display = normalize_path_string(&worktree_path);
@@ -328,7 +334,9 @@ impl TaskManager {
         };
 
         if let Some(mut child_guard) = child.try_lock() {
-            let _ = child_guard.kill();
+            if let Err(err) = child_guard.kill() {
+                warn!("failed to kill task process for {}: {}", task_id, err);
+            }
         }
 
         {
@@ -356,23 +364,48 @@ impl TaskManager {
         };
 
         if runtime_exists {
-            let _ = self.stop_task(StopTaskRequest { task_id }, app);
+            if let Err(err) = self.stop_task(StopTaskRequest { task_id }, app) {
+                warn!("failed to stop task {} during discard: {}", task_id, err);
+            }
         }
         if shell_exists {
             let mut tasks = self.inner.tasks.write();
             if let Some(record) = tasks.get_mut(&task_id) {
                 if let Some(shell) = record.shell.take() {
                     if let Some(mut child_guard) = shell.child.try_lock() {
-                        let _ = child_guard.kill();
+                        if let Err(err) = child_guard.kill() {
+                            warn!("failed to kill worktree shell for {}: {}", task_id, err);
+                        }
                     }
                 }
             }
         }
 
-        let _ = remove_worktree(&base_repo_path, &worktree_path);
-        let _ = delete_branch(&base_repo_path, branch_name.as_str());
+        if let Err(err) = remove_worktree(&base_repo_path, &worktree_path) {
+            warn!(
+                "failed to remove worktree {} for {}: {}",
+                worktree_path.display(),
+                task_id,
+                err
+            );
+        }
+        if let Err(err) = delete_branch(&base_repo_path, branch_name.as_str()) {
+            warn!(
+                "failed to delete branch {} for {}: {}",
+                branch_name,
+                task_id,
+                err
+            );
+        }
         if worktree_path.exists() {
-            let _ = std::fs::remove_dir_all(&worktree_path);
+            if let Err(err) = std::fs::remove_dir_all(&worktree_path) {
+                warn!(
+                    "failed to remove worktree directory {} for {}: {}",
+                    worktree_path.display(),
+                    task_id,
+                    err
+                );
+            }
         }
 
         {
@@ -403,7 +436,9 @@ impl TaskManager {
         writer_guard
             .write_all(req.data.as_bytes())
             .with_context(|| "failed to write to terminal")?;
-        writer_guard.flush().ok();
+        if let Err(err) = writer_guard.flush() {
+            warn!("failed to flush terminal input for {}: {}", task_id, err);
+        }
         Ok(())
     }
 
@@ -475,7 +510,9 @@ impl TaskManager {
         writer_guard
             .write_all(req.data.as_bytes())
             .with_context(|| "failed to write to worktree terminal")?;
-        writer_guard.flush().ok();
+        if let Err(err) = writer_guard.flush() {
+            warn!("failed to flush worktree terminal input for {}: {}", task_id, err);
+        }
         Ok(())
     }
 
@@ -510,7 +547,14 @@ impl TaskManager {
             )
         };
 
-        let _ = stage_all(worktree_path.as_path());
+        if let Err(err) = stage_all(worktree_path.as_path()) {
+            warn!(
+                "failed to stage files before diff for task {} at {}: {}",
+                task_id,
+                worktree_path.display(),
+                err
+            );
+        }
 
         let whitespace_flag = if req.ignore_whitespace.unwrap_or(false) {
             Some("--ignore-all-space")
@@ -629,7 +673,14 @@ impl TaskManager {
     }
 
     pub fn handle_agent_exit(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) {
-        let _ = self.finish_task(task_id, exit_code, app);
+        if let Err(err) = self.finish_task(task_id, exit_code, app) {
+            warn!(
+                "failed to finalize task {} after agent exit (code {}): {}",
+                task_id,
+                exit_code,
+                err
+            );
+        }
         emit_terminal_exit(app, task_id, exit_code, TerminalKind::Agent);
     }
 
@@ -685,7 +736,13 @@ impl TaskManager {
                         let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
                         emit_terminal_output(&output_app, task_id, chunk, TerminalKind::Worktree);
                     }
-                    Err(_) => break,
+                    Err(err) => {
+                        warn!(
+                            "worktree terminal read failed for task {}: {}",
+                            task_id, err
+                        );
+                        break;
+                    }
                 }
             }
         });
@@ -703,7 +760,10 @@ impl TaskManager {
                             break if status.success() { 0 } else { code };
                         }
                         Ok(None) => {}
-                        Err(_) => break 1,
+                        Err(err) => {
+                            warn!("worktree terminal wait failed for task {}: {}", task_id, err);
+                            break 1;
+                        }
                     }
                 }
                 std::thread::sleep(std::time::Duration::from_millis(200));
@@ -737,20 +797,41 @@ impl TaskManager {
         validate_git_repo(&provided_path)?;
         let repo_root = get_repo_root(&provided_path)?
             .canonicalize()
-            .unwrap_or_else(|_| provided_path.clone());
+            .unwrap_or_else(|err| {
+                warn!(
+                    "failed to canonicalize repo root {}; using provided path: {}",
+                    provided_path.display(),
+                    err
+                );
+                provided_path.clone()
+            });
         if let Err(err) = prune_worktrees(&repo_root) {
             warn!("worktree prune failed: {}", err);
         }
         let managed_root = managed_worktree_root(&repo_root)?;
         let base_repo_head = get_head_commit(&repo_root)?;
-        let base_repo_branch = get_head_branch(&repo_root).unwrap_or_else(|_| "HEAD".to_string());
+        let base_repo_branch = get_head_branch(&repo_root).unwrap_or_else(|err| {
+            warn!(
+                "failed to resolve base repo branch for {}; defaulting to HEAD: {}",
+                repo_root.display(),
+                err
+            );
+            "HEAD".to_string()
+        });
         let entries = list_worktrees(&repo_root)?;
         let mut inserted = Vec::new();
         for entry in entries {
             let canonical_path = entry
                 .path
                 .canonicalize()
-                .unwrap_or_else(|_| entry.path.clone());
+                .unwrap_or_else(|err| {
+                    warn!(
+                        "failed to canonicalize worktree path {}; using raw path: {}",
+                        entry.path.display(),
+                        err
+                    );
+                    entry.path.clone()
+                });
             if canonical_path == repo_root {
                 continue;
             }
