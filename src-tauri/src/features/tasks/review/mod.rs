@@ -1,6 +1,7 @@
 pub mod commands;
 
 use crate::error::Result;
+use crate::utils::fs::ensure_illuc_dir;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -101,10 +102,7 @@ pub fn save_store(worktree_root: &Path, store: &ReviewStore) -> Result<()> {
 }
 
 fn review_path(worktree_root: &Path) -> Result<PathBuf> {
-    let illuc_dir = worktree_root.join(".illuc");
-    if !illuc_dir.exists() {
-        std::fs::create_dir_all(&illuc_dir)?;
-    }
+    let illuc_dir = ensure_illuc_dir(worktree_root)?;
     Ok(illuc_dir.join(REVIEW_FILE))
 }
 

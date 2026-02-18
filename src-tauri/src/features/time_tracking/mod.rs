@@ -1,6 +1,7 @@
 pub mod commands;
 
 use crate::error::Result;
+use crate::utils::fs::ensure_illuc_dir;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -53,9 +54,6 @@ pub fn save_store(repo_root: &Path, store: &TimeTrackingStore) -> Result<()> {
 }
 
 fn time_tracking_path(repo_root: &Path) -> Result<PathBuf> {
-    let illuc_dir = repo_root.join(".illuc");
-    if !illuc_dir.exists() {
-        std::fs::create_dir_all(&illuc_dir)?;
-    }
+    let illuc_dir = ensure_illuc_dir(repo_root)?;
     Ok(illuc_dir.join(TIME_TRACKING_FILE))
 }

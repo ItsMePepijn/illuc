@@ -1,8 +1,9 @@
 use crate::error::Result;
+use crate::utils::fs::ensure_illuc_dir;
 use std::path::{Path, PathBuf};
 
 pub fn managed_worktree_root(repo_root: &Path) -> Result<PathBuf> {
-    let illuc_dir = repo_root.join(".illuc");
+    let illuc_dir = ensure_illuc_dir(repo_root)?;
     let worktree_dir = illuc_dir.join("worktrees");
     if !worktree_dir.exists() {
         std::fs::create_dir_all(&worktree_dir)?;
