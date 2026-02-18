@@ -3,8 +3,8 @@ use crate::features::settings::{
     load_selected_syntax_theme_name, load_theme_settings, resolve_default_theme_name,
 };
 use serde::Serialize;
-use tauri::Manager;
 use std::collections::HashMap;
+use tauri::Manager;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

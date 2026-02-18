@@ -107,7 +107,11 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
     let data = match fs::read_to_string(path) {
         Ok(data) => data,
         Err(error) => {
-            warn!("failed to read copilot session file {}: {}", path.display(), error);
+            warn!(
+                "failed to read copilot session file {}: {}",
+                path.display(),
+                error
+            );
             return None;
         }
     };
@@ -170,7 +174,11 @@ fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
         Err(error) => {
-            warn!("failed to read copilot session directory {}: {}", dir.display(), error);
+            warn!(
+                "failed to read copilot session directory {}: {}",
+                dir.display(),
+                error
+            );
             return None;
         }
     };

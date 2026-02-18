@@ -1,8 +1,8 @@
-use tauri::Manager;
 use tauri::utils::config::Color;
+use tauri::Manager;
 
-use crate::features::settings::{load_selected_syntax_theme_name, load_theme_settings};
 use crate::features::settings::resolve_default_theme_name;
+use crate::features::settings::{load_selected_syntax_theme_name, load_theme_settings};
 
 pub fn apply_startup_window_background(window: &tauri::WebviewWindow) {
     let default_theme_name = resolve_default_theme_name(Some(window.theme()));
@@ -17,10 +17,7 @@ pub fn apply_startup_window_background(window: &tauri::WebviewWindow) {
                         }
                     }
                     Err(error) => {
-                        log::warn!(
-                            "failed to parse surfaces.bg as a color ({}): {error}",
-                            bg
-                        );
+                        log::warn!("failed to parse surfaces.bg as a color ({}): {error}", bg);
                     }
                 }
             } else {
@@ -28,9 +25,7 @@ pub fn apply_startup_window_background(window: &tauri::WebviewWindow) {
             }
         }
         Err(error) => {
-            log::debug!(
-                "failed to load theme settings early; leaving default background: {error}"
-            );
+            log::debug!("failed to load theme settings early; leaving default background: {error}");
         }
     }
 }
@@ -82,8 +77,8 @@ fn build_startup_webview_js(app: &tauri::AppHandle, default_theme_name: &str) ->
             return None;
         }
     };
-    let syntax_theme = load_selected_syntax_theme_name(app, default_theme_name)
-        .unwrap_or_else(|error| {
+    let syntax_theme =
+        load_selected_syntax_theme_name(app, default_theme_name).unwrap_or_else(|error| {
             log::warn!("failed to load selected syntax theme; falling back to light: {error}");
             "light".to_string()
         });

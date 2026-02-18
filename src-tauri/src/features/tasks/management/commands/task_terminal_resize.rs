@@ -1,5 +1,8 @@
 use crate::commands::CommandResult;
+use crate::error::TaskError;
 use crate::features::tasks::{TaskManager, TerminalKind};
+use crate::utils::pty::TerminalSize;
+use anyhow::Context;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -20,9 +23,55 @@ pub async fn task_terminal_resize(
     req: Request,
 ) -> CommandResult<Response> {
     match req.kind {
-        TerminalKind::Agent => manager.terminal_resize(req).map_err(|err| err.to_string()),
-        TerminalKind::Worktree => manager
-            .worktree_terminal_resize(req)
-            .map_err(|err| err.to_string()),
+        TerminalKind::Agent => {
+            let task_id = req.task_id;
+            let master = {
+                let tasks = manager.inner.tasks.read();
+                let record = tasks
+                    .get(&task_id)
+                    .ok_or_else(|| TaskError::NotFound.to_string())?;
+                match &record.runtime {
+                    Some(runtime) => runtime.master.clone(),
+                    None => return Err(TaskError::NotRunning.to_string()),
+                }
+            };
+            master
+                .lock()
+                .resize(TerminalSize {
+                    cols: req.cols,
+                    rows: req.rows,
+                })
+                .with_context(|| "failed to resize terminal")
+                .map_err(|err| err.to_string())?;
+            {
+                let mut tasks = manager.inner.tasks.write();
+                if let Some(record) = tasks.get_mut(&task_id) {
+                    record.agent.resize(req.rows as usize, req.cols as usize);
+                }
+            }
+            Ok(())
+        }
+        TerminalKind::Worktree => {
+            let task_id = req.task_id;
+            let master = {
+                let tasks = manager.inner.tasks.read();
+                let record = tasks
+                    .get(&task_id)
+                    .ok_or_else(|| TaskError::NotFound.to_string())?;
+                match &record.shell {
+                    Some(runtime) => runtime.master.clone(),
+                    None => return Err(TaskError::NotRunning.to_string()),
+                }
+            };
+            master
+                .lock()
+                .resize(TerminalSize {
+                    cols: req.cols,
+                    rows: req.rows,
+                })
+                .with_context(|| "failed to resize worktree terminal")
+                .map_err(|err| err.to_string())?;
+            Ok(())
+        }
     }
 }

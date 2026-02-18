@@ -1,4 +1,5 @@
 use crate::commands::CommandResult;
+use crate::features::launcher;
 use crate::features::tasks::TaskManager;
 use serde::Deserialize;
 use uuid::Uuid;
@@ -16,5 +17,8 @@ pub async fn task_open_worktree_terminal(
     manager: tauri::State<'_, TaskManager>,
     req: Request,
 ) -> CommandResult<Response> {
-    manager.open_terminal(req).map_err(|err| err.to_string())
+    let path = manager
+        .worktree_path(req.task_id)
+        .map_err(|err| err.to_string())?;
+    launcher::open_path_terminal(path.as_path()).map_err(|err| err.to_string())
 }

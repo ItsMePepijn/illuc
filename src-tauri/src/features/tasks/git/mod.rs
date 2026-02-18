@@ -3,8 +3,8 @@ pub mod commands;
 use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
 use git2::{
-    BranchType, Cred, Delta, DiffFormat, DiffOptions, FetchOptions, IndexAddOption, PushOptions,
-    RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions, ErrorCode,
+    BranchType, Cred, Delta, DiffFormat, DiffOptions, ErrorCode, FetchOptions, IndexAddOption,
+    PushOptions, RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
 };
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -244,7 +244,8 @@ fn fast_forward_local_branch_if_behind(
         if !dirty {
             let mut checkout = git2::build::CheckoutBuilder::new();
             checkout.safe();
-            repo.checkout_head(Some(&mut checkout)).map_err(map_git_err)?;
+            repo.checkout_head(Some(&mut checkout))
+                .map_err(map_git_err)?;
         }
     }
 
@@ -367,7 +368,10 @@ pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
         let worktree = match repo.find_worktree(name) {
             Ok(worktree) => worktree,
             Err(err) => {
-                warn!("skipping worktree {}: failed to load metadata: {}", name, err);
+                warn!(
+                    "skipping worktree {}: failed to load metadata: {}",
+                    name, err
+                );
                 continue;
             }
         };
@@ -554,7 +558,10 @@ pub fn git_push(repo: &Path, remote_name: &str, branch: &str, set_upstream: bool
                 );
             }
         } else {
-            warn!("pushed branch {} but could not find local branch to set upstream", branch);
+            warn!(
+                "pushed branch {} but could not find local branch to set upstream",
+                branch
+            );
         }
     }
 
@@ -566,7 +573,10 @@ fn try_gcm_credential(url: &str, username: Option<&str>) -> Option<Cred> {
     let mut config = match git2::Config::new() {
         Ok(config) => config,
         Err(err) => {
-            warn!("failed to initialize temporary git config for GCM credentials: {}", err);
+            warn!(
+                "failed to initialize temporary git config for GCM credentials: {}",
+                err
+            );
             return None;
         }
     };

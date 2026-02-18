@@ -16,5 +16,6 @@ pub async fn task_git_diff_watch_stop(
     manager: tauri::State<'_, TaskManager>,
     req: Request,
 ) -> CommandResult<Response> {
-    manager.stop_diff_watch(req).map_err(|err| err.to_string())
+    manager.remove_diff_watch(req.task_id);
+    Ok(())
 }
