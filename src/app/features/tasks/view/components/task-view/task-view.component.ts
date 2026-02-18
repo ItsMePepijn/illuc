@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
 import {
+    ChangeDetectorRef,
     Component,
     EventEmitter,
     Input,
@@ -81,6 +82,7 @@ export class TaskViewComponent {
     constructor(
         private readonly taskStore: TaskStore,
         private readonly zone: NgZone,
+        private readonly cdr: ChangeDetectorRef,
     ) {}
 
     ngOnChanges(): void {
@@ -158,7 +160,8 @@ export class TaskViewComponent {
     }
 
     async submitCommit(): Promise<void> {
-        if (!this.task) {
+        const task = this.task;
+        if (!task) {
             return;
         }
         if (this.isCommitting) {
@@ -172,7 +175,7 @@ export class TaskViewComponent {
         this.isCommitting = true;
         try {
             await this.taskStore.commitTask(
-                this.task.taskId,
+                task.taskId,
                 this.commitMessage.trim(),
                 this.commitStageAll,
             );
@@ -184,6 +187,7 @@ export class TaskViewComponent {
             );
         } finally {
             this.isCommitting = false;
+            this.cdr.detectChanges();
         }
     }
 
@@ -204,7 +208,8 @@ export class TaskViewComponent {
     }
 
     async submitPush(): Promise<void> {
-        if (!this.task) {
+        const task = this.task;
+        if (!task) {
             return;
         }
         if (this.isPushing) {
@@ -214,9 +219,9 @@ export class TaskViewComponent {
         this.isPushing = true;
         try {
             await this.taskStore.pushTask(
-                this.task.taskId,
+                task.taskId,
                 this.pushRemote.trim() || "origin",
-                this.pushBranch.trim() || this.task.branchName,
+                this.pushBranch.trim() || task.branchName,
                 this.pushSetUpstream,
             );
             this.closePushModal();
@@ -227,6 +232,7 @@ export class TaskViewComponent {
             );
         } finally {
             this.isPushing = false;
+            this.cdr.detectChanges();
         }
     }
 
@@ -326,4 +332,5 @@ export class TaskViewComponent {
         }
         return fallback;
     }
+
 }
