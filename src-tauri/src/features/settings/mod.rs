@@ -9,7 +9,7 @@ const THEMES_DIR_NAME: &str = "themes";
 const DEFAULT_SETTINGS: &str = include_str!("default_settings.toml");
 const DEFAULT_LIGHT_THEME: &str = include_str!("themes/light.toml");
 const DEFAULT_DARK_THEME: &str = include_str!("themes/dark.toml");
-const DEFAULT_AMBER_TERMINAL_THEME: &str = include_str!("themes/amber-terminal.toml");
+const DEFAULT_AMBER_MONOCHROME_THEME: &str = include_str!("themes/amber-monochrome.toml");
 const DEFAULT_THEME_NAME: &str = "light";
 const DEFAULT_SYNTAX_THEME_NAME: &str = "light";
 pub mod commands;
@@ -124,7 +124,7 @@ pub fn ensure_user_settings_file(app: &tauri::AppHandle) -> anyhow::Result<PathB
 
     ensure_default_theme_file(&themes_dir, "light", DEFAULT_LIGHT_THEME)?;
     ensure_default_theme_file(&themes_dir, "dark", DEFAULT_DARK_THEME)?;
-    ensure_default_theme_file(&themes_dir, "amber-terminal", DEFAULT_AMBER_TERMINAL_THEME)?;
+    ensure_default_theme_file(&themes_dir, "amber-monochrome", DEFAULT_AMBER_MONOCHROME_THEME)?;
 
     Ok(settings_path)
 }
