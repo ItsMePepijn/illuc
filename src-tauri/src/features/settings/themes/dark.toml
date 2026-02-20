@@ -1,69 +1,69 @@
 # Dark theme (amber terminal)
+# Inspired by vintage P3 phosphor amber CRT displays
 
 [surfaces]
-bg = "#202020"
-surface = "#262626"
-surface_alt = "#2c2c2c"
-surface_strong = "#343434"
-code_bg = "#1c1c1c"
+bg = "#1c1814"           # Near-neutral dark with just a whisper of warmth
+surface = "#222018"      # Slightly lighter, barely warm
+surface_alt = "#28251c"  # Raised surfaces, subtle amber undertone
+surface_strong = "#322f24" # Elevated/active surfaces
+code_bg = "#181510"      # Deepest dark for code areas
 
 [text]
-default = "#ffcc00"
-muted = "rgba(255, 204, 0, 0.78)"
-subtle = "rgba(255, 204, 0, 0.56)"
-link = "rgba(255, 204, 0, 0.98)"
-link_hover = "rgba(255, 231, 124, 0.98)"
+default = "#ffb000"                    # Rich amber — P3 phosphor, less lemon
+muted = "rgba(255, 168, 0, 0.76)"     # Slightly dimmer, warm
+subtle = "rgba(255, 152, 0, 0.52)"    # Ghostly amber for de-emphasized text
+link = "rgba(255, 184, 0, 0.96)"      # Slightly brighter link amber
+link_hover = "rgba(255, 210, 100, 0.98)" # Warm highlight on hover
 
 [borders]
-default = "rgba(255, 204, 0, 0.22)"
-strong = "rgba(255, 204, 0, 0.34)"
+default = "rgba(200, 130, 0, 0.22)"   # Warm amber border, not too bright
+strong = "rgba(220, 148, 0, 0.36)"    # More visible border, still amber-tinted
 
 [brand]
-accent = "#ffcc00"
-accent_strong = "#ffe26b"
-accent_soft = "rgba(255, 204, 0, 0.26)"
+accent = "#ffb000"                     # Core phosphor amber
+accent_strong = "#ffd060"             # Brighter, slightly warm yellow for highlights
+accent_soft = "rgba(255, 168, 0, 0.22)" # Soft amber wash
 
 [actions]
-primary = "#ffcc00"
-primary_hover = "#ffdc33"
-primary_active = "#e0b800"
-primary_contrast = "#1a1203"
+primary = "#ffb000"
+primary_hover = "#ffc233"
+primary_active = "#cc8e00"
+primary_contrast = "#1a0d00"          # Very dark amber-brown for text on amber buttons
 
 [status]
-success = "#4ee1a0"
-success_soft = "rgba(78, 225, 160, 0.22)"
-warning = "#ffcc66"
-warning_soft = "rgba(255, 204, 102, 0.24)"
-danger = "#ff5c5c"
-danger_soft = "rgba(255, 92, 92, 0.2)"
-info = "#58a6ff"
-info_soft = "rgba(88, 166, 255, 0.2)"
+success = "#7ed98a"                   # Slightly warm green — less clinical
+success_soft = "rgba(126, 217, 138, 0.18)"
+warning = "#ffbe55"                   # Amber-adjacent warning
+warning_soft = "rgba(255, 190, 85, 0.22)"
+danger = "#e85c3a"                    # Warm red-orange, not pure RGB red
+danger_soft = "rgba(232, 92, 58, 0.18)"
+info = "#78a8d8"                      # Desaturated blue — less jarring on warm bg
+info_soft = "rgba(120, 168, 216, 0.18)"
 
 [interaction]
-hover = "rgba(255, 204, 0, 0.12)"
-focus = "rgba(255, 204, 0, 0.58)"
-selection_bg = "rgba(255, 204, 0, 0.22)"
+hover = "rgba(255, 168, 0, 0.10)"
+focus = "rgba(255, 168, 0, 0.52)"
+selection_bg = "rgba(255, 168, 0, 0.20)"
 
 [components]
-chip_bg = "rgba(255, 204, 0, 0.2)"
-chip_text = "#ffcc00"
-segmented_active_bg = "rgba(255, 204, 0, 0.26)"
-segmented_active_text = "#ffcc00"
+chip_bg = "rgba(255, 168, 0, 0.16)"
+chip_text = "#ffb000"
+segmented_active_bg = "rgba(255, 168, 0, 0.22)"
+segmented_active_text = "#ffb000"
 
 [scrollbar]
-track = "rgba(255, 204, 0, 0.12)"
-thumb = "rgba(255, 204, 0, 0.36)"
-thumb_hover = "rgba(255, 204, 0, 0.52)"
-thumb_active = "rgba(255, 204, 0, 0.68)"
+track = "rgba(200, 130, 0, 0.10)"
+thumb = "rgba(200, 130, 0, 0.30)"
+thumb_hover = "rgba(220, 148, 0, 0.48)"
+thumb_active = "rgba(240, 168, 0, 0.64)"
 size = "6px"
 
 [effects]
-overlay_backdrop = "rgba(0, 0, 0, 0.48)"
-shadow_soft = "rgba(0, 0, 0, 0.45)"
-shadow_subtle = "rgba(0, 0, 0, 0.3)"
-shadow_strong = "rgba(0, 0, 0, 0.62)"
-shadow_menu = "rgba(0, 0, 0, 0.5)"
+overlay_backdrop = "rgba(10, 6, 0, 0.52)"  # Warm-tinted overlay
+shadow_soft = "rgba(0, 0, 0, 0.50)"
+shadow_subtle = "rgba(0, 0, 0, 0.32)"
+shadow_strong = "rgba(0, 0, 0, 0.68)"
+shadow_menu = "rgba(5, 3, 0, 0.55)"
 
 [git.diff]
 syntax_theme = "dark"
-
