@@ -30,8 +30,30 @@ export function tauriInvoke<T>(
     zone: NgZone,
     command: string,
     args?: InvokeArgs,
+    timeoutMs = 30_000,
 ): Promise<T> {
-    return wrapPromiseInZone(zone, () => invoke<T>(command, args));
+    return wrapPromiseInZone(zone, () =>
+        new Promise<T>((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(
+                    new Error(
+                        `Tauri command "${command}" timed out after ${timeoutMs}ms.`,
+                    ),
+                );
+            }, timeoutMs);
+
+            invoke<T>(command, args).then(
+                (value) => {
+                    clearTimeout(timeoutId);
+                    resolve(value);
+                },
+                (error) => {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                },
+            );
+        }),
+    );
 }
 
 export function tauriListen<T>(

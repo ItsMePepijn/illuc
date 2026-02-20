@@ -8,12 +8,17 @@
                         [path]="baseRepo.canonicalPath"
                         title="Open repository in VS Code"
                         ariaLabel="Open repository in VS Code"
+                        buttonClass="repo-action-btn"
                     ></app-open-vscode-button>
                     <app-open-terminal-button
                         [path]="baseRepo.canonicalPath"
                         title="Open repository terminal"
                         ariaLabel="Open repository terminal"
+                        buttonClass="repo-action-btn"
                     ></app-open-terminal-button>
+                    <app-open-settings-button
+                        buttonClass="repo-action-btn"
+                    ></app-open-settings-button>
                 </div>
             </div>
 

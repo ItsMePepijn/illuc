@@ -1,20 +1,16 @@
-import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, Input, NgZone } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
-import { IconTerminalPanelComponent } from "../icon-terminal-panel/icon-terminal-panel.component";
+import { IconCogComponent } from "../icon-cog/icon-cog.component";
 
 @Component({
-    selector: "app-open-terminal-button",
+    selector: "app-open-settings-button",
     standalone: true,
-    imports: [CommonModule, IconLoadingButtonComponent, IconTerminalPanelComponent],
-    templateUrl: "./open-terminal-button.component.html",
-    styleUrl: "./open-terminal-button.component.css",
+    imports: [IconLoadingButtonComponent, IconCogComponent],
+    templateUrl: "./open-settings-button.component.html",
+    styleUrl: "./open-settings-button.component.css",
 })
-export class OpenTerminalButtonComponent {
-    @Input() path: string | null = null;
-    @Input() title = "Open terminal";
-    @Input() ariaLabel = "Open terminal";
+export class OpenSettingsButtonComponent {
     @Input() buttonClass = "";
     isLoading = false;
 
@@ -25,14 +21,14 @@ export class OpenTerminalButtonComponent {
     ) {}
 
     async handleClick(): Promise<void> {
-        if (!this.path || this.isLoading) {
+        if (this.isLoading) {
             return;
         }
         this.isLoading = true;
         try {
-            await this.launcher.openTerminal(this.path);
+            await this.launcher.openSettingsInVsCode();
         } catch (error) {
-            console.error("Failed to open terminal", error);
+            console.error("Failed to open settings.toml in VS Code", error);
         } finally {
             this.zone.run(() => {
                 this.isLoading = false;

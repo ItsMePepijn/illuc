@@ -1,5 +1,5 @@
 import { CommonModule } from "@angular/common";
-import { Component, Input } from "@angular/core";
+import { ChangeDetectorRef, Component, Input, NgZone } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { IconCodeBracketsComponent } from "../icon-code-brackets/icon-code-brackets.component";
@@ -15,9 +15,14 @@ export class OpenVsCodeButtonComponent {
     @Input() path: string | null = null;
     @Input() title = "Open in VS Code";
     @Input() ariaLabel = "Open in VS Code";
+    @Input() buttonClass = "";
     isLoading = false;
 
-    constructor(private readonly launcher: LauncherService) {}
+    constructor(
+        private readonly launcher: LauncherService,
+        private readonly zone: NgZone,
+        private readonly cdr: ChangeDetectorRef,
+    ) {}
 
     async handleClick(): Promise<void> {
         if (!this.path || this.isLoading) {
@@ -29,7 +34,10 @@ export class OpenVsCodeButtonComponent {
         } catch (error) {
             console.error("Failed to open VS Code", error);
         } finally {
-            this.isLoading = false;
+            this.zone.run(() => {
+                this.isLoading = false;
+                this.cdr.markForCheck();
+            });
         }
     }
 }

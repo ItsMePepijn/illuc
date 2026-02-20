@@ -1,10 +1,9 @@
 <app-icon-loading-button
     [loading]="isLoading"
-    [disabled]="!path"
-    [title]="title"
-    [ariaLabel]="ariaLabel"
+    title="Open settings.toml in VS Code"
+    ariaLabel="Open settings file in VS Code"
     [buttonClass]="buttonClass"
     (action)="handleClick()"
 >
-    <app-icon-code-brackets></app-icon-code-brackets>
+    <app-icon-cog></app-icon-cog>
 </app-icon-loading-button>

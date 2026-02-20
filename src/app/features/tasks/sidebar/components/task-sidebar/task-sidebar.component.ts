@@ -9,6 +9,7 @@ import { IconClockCircleComponent } from "../icon-clock-circle/icon-clock-circle
 import { IconPlusComponent } from "../icon-plus/icon-plus.component";
 import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
+import { OpenSettingsButtonComponent } from "../../../workspace/components/open-settings-button/open-settings-button.component";
 import { LauncherService } from "../../../../launcher/launcher.service";
 
 @Component({
@@ -23,6 +24,7 @@ import { LauncherService } from "../../../../launcher/launcher.service";
         IconPlusComponent,
         OpenVsCodeButtonComponent,
         OpenTerminalButtonComponent,
+        OpenSettingsButtonComponent,
     ],
     templateUrl: "./task-sidebar.component.html",
     styleUrl: "./task-sidebar.component.css",

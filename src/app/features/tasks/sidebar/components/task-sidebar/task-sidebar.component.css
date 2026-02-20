@@ -46,14 +46,14 @@
     align-items: center;
 }
 
-.repo-actions :host ::ng-deep button.icon-btn {
+:host ::ng-deep .repo-actions button.repo-action-btn {
     width: 30px;
     height: 30px;
     border-color: transparent;
     background: transparent;
 }
 
-.repo-actions :host ::ng-deep button.icon-btn:hover:not(:disabled) {
+:host ::ng-deep .repo-actions button.repo-action-btn:hover:not(:disabled) {
     border-color: transparent;
     background: var(--interaction-hover);
 }

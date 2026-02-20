@@ -7,6 +7,7 @@ use crate::features::launcher::commands::open_file_in_vscode::open_file_in_vscod
 use crate::features::launcher::commands::open_path_in_explorer::open_path_in_explorer;
 use crate::features::launcher::commands::open_path_in_vscode::open_path_in_vscode;
 use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
+use crate::features::settings::commands::settings_open_in_vscode::settings_open_in_vscode;
 use crate::features::settings::commands::settings_theme_get::settings_theme_get;
 use crate::features::settings::ensure_user_settings_file;
 #[cfg(target_os = "windows")]
@@ -131,6 +132,7 @@ pub fn run() {
             task_review_delete_comment,
             task_review_get_user_display_name,
             task_review_update_thread_status,
+            settings_open_in_vscode,
             settings_theme_get
         ])
         .run(tauri::generate_context!())
