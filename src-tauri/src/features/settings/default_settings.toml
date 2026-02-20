@@ -4,5 +4,5 @@
 #
 # The active theme is selected by name and loaded from <config-dir>/themes/<theme>.toml.
 #
-# theme = "dark"
+# theme = "amber-terminal"
 # Uncomment `theme` to force a theme. If omitted, Illuc defaults to the system light/dark preference.

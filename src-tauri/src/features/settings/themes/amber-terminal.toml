@@ -1,0 +1,69 @@
+# Dark theme (amber terminal)
+# Inspired by vintage P3 phosphor amber CRT displays
+
+[surfaces]
+bg = "#1c1814"           # Near-neutral dark with just a whisper of warmth
+surface = "#222018"      # Slightly lighter, barely warm
+surface_alt = "#28251c"  # Raised surfaces, subtle amber undertone
+surface_strong = "#322f24" # Elevated/active surfaces
+code_bg = "#181510"      # Deepest dark for code areas
+
+[text]
+default = "#ffb000"                    # Rich amber — P3 phosphor, less lemon
+muted = "rgba(255, 168, 0, 0.76)"     # Slightly dimmer, warm
+subtle = "rgba(255, 152, 0, 0.52)"    # Ghostly amber for de-emphasized text
+link = "rgba(255, 184, 0, 0.96)"      # Slightly brighter link amber
+link_hover = "rgba(255, 210, 100, 0.98)" # Warm highlight on hover
+
+[borders]
+default = "rgba(200, 130, 0, 0.22)"   # Warm amber border, not too bright
+strong = "rgba(220, 148, 0, 0.36)"    # More visible border, still amber-tinted
+
+[brand]
+accent = "#ffb000"                     # Core phosphor amber
+accent_strong = "#ffd060"             # Brighter, slightly warm yellow for highlights
+accent_soft = "rgba(255, 168, 0, 0.22)" # Soft amber wash
+
+[actions]
+primary = "#ffb000"
+primary_hover = "#ffc233"
+primary_active = "#cc8e00"
+primary_contrast = "#1a0d00"          # Very dark amber-brown for text on amber buttons
+
+[status]
+success = "#ffd060"                        # Bright warm amber — positive/success
+success_soft = "rgba(255, 208, 96, 0.18)"
+warning = "#c87800"                        # Darker, more saturated amber — caution
+warning_soft = "rgba(200, 120, 0, 0.24)"
+danger = "#ff7800"                         # Deep orange — alarm/danger, distinct but monochrome
+danger_soft = "rgba(255, 120, 0, 0.20)"
+info = "#a07840"                           # Muted dark amber-brown — neutral info
+info_soft = "rgba(160, 120, 64, 0.22)"
+
+[interaction]
+hover = "rgba(255, 168, 0, 0.10)"
+focus = "rgba(255, 168, 0, 0.52)"
+selection_bg = "rgba(255, 168, 0, 0.20)"
+
+[components]
+chip_bg = "rgba(255, 168, 0, 0.16)"
+chip_text = "#ffb000"
+segmented_active_bg = "rgba(255, 168, 0, 0.22)"
+segmented_active_text = "#ffb000"
+
+[scrollbar]
+track = "rgba(200, 130, 0, 0.10)"
+thumb = "rgba(200, 130, 0, 0.30)"
+thumb_hover = "rgba(220, 148, 0, 0.48)"
+thumb_active = "rgba(240, 168, 0, 0.64)"
+size = "6px"
+
+[effects]
+overlay_backdrop = "rgba(10, 6, 0, 0.52)"  # Warm-tinted overlay
+shadow_soft = "rgba(0, 0, 0, 0.50)"
+shadow_subtle = "rgba(0, 0, 0, 0.32)"
+shadow_strong = "rgba(0, 0, 0, 0.68)"
+shadow_menu = "rgba(5, 3, 0, 0.55)"
+
+[git.diff]
+syntax_theme = "dark"
