@@ -13,6 +13,13 @@ const DEFAULT_DRACULA_THEME: &str = include_str!("themes/dracula.toml");
 const DEFAULT_THEME_NAME: &str = "light";
 const DEFAULT_SYNTAX_THEME_NAME: &str = "light";
 pub mod commands;
+pub mod watcher;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ThemeSettingsSnapshot {
+    pub(crate) syntax_theme: String,
+    pub(crate) values: HashMap<String, String>,
+}
 
 pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Theme>>) -> String {
     let mut resolved = match window_theme {
@@ -139,6 +146,26 @@ pub fn load_selected_syntax_theme_name(
     default_theme_name: &str,
 ) -> anyhow::Result<String> {
     let theme_table = load_selected_theme_table(app, default_theme_name)?;
+    Ok(extract_syntax_theme_name(&theme_table))
+}
+
+pub(crate) fn load_theme_settings_snapshot(
+    app: &tauri::AppHandle,
+    default_theme_name: &str,
+) -> anyhow::Result<ThemeSettingsSnapshot> {
+    let theme_table = load_selected_theme_table(app, default_theme_name)?;
+    let syntax_theme = extract_syntax_theme_name(&theme_table);
+
+    let mut values = HashMap::new();
+    flatten_theme_table("", &theme_table, &mut values);
+
+    Ok(ThemeSettingsSnapshot {
+        syntax_theme,
+        values,
+    })
+}
+
+fn extract_syntax_theme_name(theme_table: &toml::map::Map<String, toml::Value>) -> String {
     let syntax_theme = theme_table
         .get("git")
         .and_then(toml::Value::as_table)
@@ -151,9 +178,9 @@ pub fn load_selected_syntax_theme_name(
         .unwrap_or(DEFAULT_SYNTAX_THEME_NAME);
 
     if is_valid_syntax_theme_name(syntax_theme) {
-        Ok(syntax_theme.to_string())
+        syntax_theme.to_string()
     } else {
-        Ok(DEFAULT_SYNTAX_THEME_NAME.to_string())
+        DEFAULT_SYNTAX_THEME_NAME.to_string()
     }
 }
 

@@ -10,6 +10,7 @@ use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
 use crate::features::settings::commands::settings_open_in_vscode::settings_open_in_vscode;
 use crate::features::settings::commands::settings_theme_get::settings_theme_get;
 use crate::features::settings::ensure_user_settings_file;
+use crate::features::settings::watcher::start_settings_theme_watcher;
 #[cfg(target_os = "windows")]
 use crate::features::shell::native_titlebar::apply_windows_caption_color;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
@@ -79,6 +80,10 @@ pub fn run() {
                 Err(error) => {
                     log::warn!("failed to initialize user settings file: {error}");
                 }
+            }
+
+            if let Err(error) = start_settings_theme_watcher(app.handle().clone()) {
+                log::warn!("failed to start settings/theme watcher: {error}");
             }
 
             // Apply an initial native window + webview background color before showing the window

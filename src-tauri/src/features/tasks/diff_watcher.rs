@@ -1,8 +1,9 @@
 use crate::error::Result;
 use crate::features::tasks::events::emit_diff_changed;
+use crate::utils::file_watcher::is_content_change_event;
 use anyhow::Context;
 use log::warn;
-use notify::{Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use std::path::PathBuf;
 use tauri::AppHandle;
 use uuid::Uuid;
@@ -32,8 +33,5 @@ impl DiffWatcher {
 }
 
 fn should_emit_diff_event(event: &Event) -> bool {
-    matches!(
-        event.kind,
-        EventKind::Modify(_) | EventKind::Create(_) | EventKind::Remove(_)
-    )
+    is_content_change_event(event)
 }

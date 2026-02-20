@@ -63,6 +63,7 @@ export class AppComponent {
         private readonly router: Router,
     ) {
         void this.themeService.applyFromSettings();
+        void this.themeService.startSettingsThemeWatch();
         effect(() => {
             const baseRepoPath = this.taskStore.baseRepo()?.path ?? null;
             const task = this.taskStore.selectedTask();

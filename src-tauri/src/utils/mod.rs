@@ -1,3 +1,4 @@
+pub mod file_watcher;
 pub mod fs;
 pub mod path;
 pub mod pty;
