@@ -38,6 +38,13 @@ pub fn emit_diff_changed(app: &AppHandle, task_id: Uuid) {
     }
 }
 
+pub fn emit_review_changed(app: &AppHandle, task_id: Uuid) {
+    let payload = ReviewChangedPayload { task_id };
+    if let Err(error) = app.emit("task_review_changed", payload) {
+        log::warn!("failed to emit task_review_changed event: {error}");
+    }
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TerminalOutputPayload {
@@ -57,5 +64,11 @@ struct TerminalExitPayload {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct DiffChangedPayload {
+    task_id: Uuid,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ReviewChangedPayload {
     task_id: Uuid,
 }

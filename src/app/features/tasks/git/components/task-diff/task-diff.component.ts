@@ -4,6 +4,7 @@ import {
     ChangeDetectorRef,
     Component,
     Input,
+    NgZone,
     OnChanges,
     OnDestroy,
     SimpleChanges,
@@ -34,6 +35,7 @@ import c from "highlight.js/lib/languages/c";
 import cpp from "highlight.js/lib/languages/cpp";
 import markdown from "highlight.js/lib/languages/markdown";
 import { DomSanitizer, SafeHtml } from "@angular/platform-browser";
+import { type Event as TauriEvent, type UnlistenFn } from "@tauri-apps/api/event";
 import { Subscription } from "rxjs";
 import {
     DiffLineType,
@@ -49,6 +51,7 @@ import {
 import { TaskStore } from "../../../task.store";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { TaskReviewService } from "../../../review/task-review.service";
+import { tauriListen } from "../../../../../shared/tauri/tauri-zone";
 import {
     FileTreeComponent,
     FileTreeNode,
@@ -92,6 +95,8 @@ const DEFAULT_REVIEW_STATUS: ReviewCommentStatus = "active";
 const THREAD_CLOSE_DELAY_MS = 120;
 const THREAD_CLOSE_ANIMATION_MS = 180;
 const THREAD_CLOSE_TOTAL_MS = THREAD_CLOSE_DELAY_MS + THREAD_CLOSE_ANIMATION_MS;
+const REVIEW_REFRESH_DELAY_MS = 200;
+const LOCAL_REVIEW_EVENT_SUPPRESSION_TTL_MS = 5000;
 
 const DIFF_MIN_BUFFER_PX = 400;
 const DIFF_MAX_BUFFER_PX = 800;
@@ -142,6 +147,9 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     readonly rowHeight = 28;
     private diffSubscription?: Subscription;
     private diffWatchStop?: () => Promise<void>;
+    private reviewWatchUnlisten?: UnlistenFn;
+    private reviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+    private pendingLocalReviewWrites: number[] = [];
     private watchVersion = 0;
     private reviewVersion = 0;
     private readonly emptyReviewStore: ReviewStore = {
@@ -165,6 +173,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     private shouldAutoCollapseThreads = true;
 
     constructor(
+        private readonly zone: NgZone,
         private readonly taskStore: TaskStore,
         private readonly sanitizer: DomSanitizer,
         private readonly cdr: ChangeDetectorRef,
@@ -175,6 +184,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     ngOnChanges(changes: SimpleChanges): void {
         if (changes["taskId"]) {
             void this.restartDiffWatch();
+            void this.restartReviewWatch();
         }
         if (changes["taskId"] || changes["worktreePath"]) {
             this.activeThreadKey = null;
@@ -193,6 +203,11 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
 
     ngOnDestroy(): void {
         this.clearClosingThreadTimers();
+        if (this.reviewRefreshTimer) {
+            clearTimeout(this.reviewRefreshTimer);
+            this.reviewRefreshTimer = null;
+        }
+        void this.stopReviewWatch();
         void this.stopDiffWatch();
     }
 
@@ -263,6 +278,69 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             await this.diffWatchStop();
             this.diffWatchStop = undefined;
         }
+    }
+
+    private async restartReviewWatch(): Promise<void> {
+        await this.stopReviewWatch();
+        if (!this.taskId) {
+            return;
+        }
+        try {
+            this.reviewWatchUnlisten = await tauriListen<{ taskId: string }>(
+                this.zone,
+                "task_review_changed",
+                (event: TauriEvent<{ taskId: string }>) => {
+                    if (event.payload.taskId !== this.taskId) {
+                        return;
+                    }
+                    if (this.shouldIgnoreReviewChangedEvent()) {
+                        return;
+                    }
+                    this.scheduleReviewRefresh();
+                },
+            );
+        } catch (error) {
+            console.error("Failed to start review watcher", error);
+        }
+    }
+
+    private async stopReviewWatch(): Promise<void> {
+        if (!this.reviewWatchUnlisten) {
+            return;
+        }
+        try {
+            await this.reviewWatchUnlisten();
+        } catch (error) {
+            console.error("Failed to stop review watcher", error);
+        }
+        this.reviewWatchUnlisten = undefined;
+    }
+
+    private scheduleReviewRefresh(): void {
+        if (this.reviewRefreshTimer) {
+            clearTimeout(this.reviewRefreshTimer);
+        }
+        this.reviewRefreshTimer = setTimeout(() => {
+            this.reviewRefreshTimer = null;
+            void this.refreshReviewStore();
+        }, REVIEW_REFRESH_DELAY_MS);
+    }
+
+    private markLocalReviewWriteCommitted(): void {
+        this.pendingLocalReviewWrites.push(Date.now());
+    }
+
+    private shouldIgnoreReviewChangedEvent(): boolean {
+        const now = Date.now();
+        this.pendingLocalReviewWrites = this.pendingLocalReviewWrites.filter(
+            (timestamp) =>
+                now - timestamp <= LOCAL_REVIEW_EVENT_SUPPRESSION_TTL_MS,
+        );
+        if (this.pendingLocalReviewWrites.length === 0) {
+            return false;
+        }
+        this.pendingLocalReviewWrites.shift();
+        return true;
     }
 
 
@@ -551,6 +629,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 lineNumberNew: row.threadTarget.lineNumberNew ?? null,
                 status: nextStatus,
             });
+            this.markLocalReviewWriteCommitted();
         } catch (error) {
             console.error("Failed to update review thread status", error);
             this.updateLocalThreadStatus(key, previousStatus);
@@ -672,6 +751,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                     lineType: target.lineType,
                     body: draft,
                 });
+                this.markLocalReviewWriteCommitted();
                 this.replaceLocalComment(optimisticId, comment, {
                     filePath: target.filePath,
                     lineNumberOld: target.lineNumberOld ?? null,
@@ -736,6 +816,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 lineType,
                 body: draft,
             });
+            this.markLocalReviewWriteCommitted();
             this.replaceLocalComment(optimisticId, comment, {
                 filePath: row.filePath,
                 lineNumberOld: row.lineNumberOld ?? null,
@@ -789,6 +870,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 commentId,
                 body: nextBody,
             });
+            this.markLocalReviewWriteCommitted();
             this.replaceCommentById(threadKey, commentId, updated);
         } catch (error) {
             console.error("Failed to edit review comment", error);
@@ -824,6 +906,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
                 lineNumberNew: row.threadTarget.lineNumberNew ?? null,
                 commentId,
             });
+            this.markLocalReviewWriteCommitted();
         } catch (error) {
             console.error("Failed to delete review comment", error);
             this.restoreComment(
