@@ -11,7 +11,7 @@ use crate::features::settings::commands::settings_open_in_vscode::settings_open_
 use crate::features::settings::commands::settings_theme_get::settings_theme_get;
 use crate::features::settings::ensure_user_settings_file;
 use crate::features::settings::watcher::start_settings_theme_watcher;
-use crate::features::skills::install_predefined_skills_on_startup;
+use crate::features::tasks::review::skills::install_predefined_skills_on_startup;
 #[cfg(target_os = "windows")]
 use crate::features::shell::native_titlebar::apply_windows_caption_color;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;

@@ -1,4 +1,5 @@
 pub mod commands;
+pub mod skills;
 
 use crate::error::Result;
 use crate::utils::fs::ensure_illuc_dir;
