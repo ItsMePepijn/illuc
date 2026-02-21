@@ -43,7 +43,7 @@ Use the diff to enumerate changed files and focus review on:
 - Behavior regressions
 - Error handling
 - Security and data validation where relevant
-- Consistency with the repo’s “vertical slice” architecture (slices under `src/app/features/...`)
+- Consistency with the repo’s architecture and code style
 - Missing tests
 
 ### 2) Anchor Each Comment To A File + Line
