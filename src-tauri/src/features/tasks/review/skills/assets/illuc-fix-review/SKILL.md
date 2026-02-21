@@ -1,8 +1,8 @@
 ---
 name: illuc-fix-review
-description: Resolve illuc review threads by applying code changes, replying, and updating thread statuses.
+description: Address review feedback in an illuc task and resolve threads with clear updates.
 metadata:
-  short-description: Address review feedback and update thread status with audit comments
+  short-description: Apply review feedback and resolve threads
 ---
 
 # illuc-fix-review

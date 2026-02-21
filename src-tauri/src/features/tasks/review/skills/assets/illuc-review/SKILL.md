@@ -1,8 +1,8 @@
 ---
 name: illuc-review
-description: Perform code reviews in an illuc task worktree and write findings to .illuc/local-review.json.
+description: Review code changes in an illuc task and leave actionable feedback.
 metadata:
-  short-description: Review changes and persist threaded comments to illuc review store
+  short-description: Review changes and leave actionable feedback threads
 ---
 
 # illuc-review
