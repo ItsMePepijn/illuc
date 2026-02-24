@@ -44,8 +44,30 @@ fn map_git_err(err: git2::Error) -> TaskError {
 }
 
 fn open_repo(path: &Path) -> Result<Repository> {
-    Repository::discover(path).map_err(map_git_err)
+    let repo = Repository::discover(path).map_err(map_git_err)?;
+    configure_windows_long_paths(&repo);
+    Ok(repo)
 }
+
+#[cfg(target_os = "windows")]
+fn configure_windows_long_paths(repo: &Repository) {
+    match repo.config() {
+        Ok(mut config) => {
+            if let Err(error) = config.set_bool("core.longpaths", true) {
+                warn!("failed to set core.longpaths=true for repository: {}", error);
+            }
+        }
+        Err(error) => {
+            warn!(
+                "failed to open repository config to set core.longpaths: {}",
+                error
+            );
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn configure_windows_long_paths(_repo: &Repository) {}
 
 fn build_remote_callbacks(repo: &Repository) -> Result<RemoteCallbacks<'static>> {
     // RemoteCallbacks owns the credential callback. We move a cloned config into it
@@ -93,7 +115,10 @@ fn build_remote_callbacks(repo: &Repository) -> Result<RemoteCallbacks<'static>>
 
 pub fn validate_git_repo(path: &Path) -> Result<()> {
     match Repository::discover(path) {
-        Ok(_) => Ok(()),
+        Ok(repo) => {
+            configure_windows_long_paths(&repo);
+            Ok(())
+        }
         Err(err) if err.code() == ErrorCode::NotFound => Err(TaskError::Message(
             "The selected directory is not a Git repository.".to_string(),
         )),
@@ -377,7 +402,10 @@ pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
         };
         let path = worktree.path();
         let worktree_repo = match Repository::open(path) {
-            Ok(repo) => repo,
+            Ok(repo) => {
+                configure_windows_long_paths(&repo);
+                repo
+            }
             Err(err) => {
                 warn!(
                     "skipping worktree {} at {}: cannot open repository: {}",
