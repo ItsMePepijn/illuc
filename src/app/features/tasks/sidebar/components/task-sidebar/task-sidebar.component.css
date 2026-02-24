@@ -1,11 +1,14 @@
 .task-sidebar {
+    --sidebar-width: 320px;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--borders-default);
     background: var(--surfaces-surface);
     color: var(--text-default);
-    min-width: 280px;
-    max-width: 360px;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
+    max-width: var(--sidebar-width);
+    flex: 0 0 var(--sidebar-width);
     height: 100%;
 }
 
