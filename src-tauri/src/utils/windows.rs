@@ -2,6 +2,17 @@ use portable_pty::CommandBuilder;
 use std::path::Path;
 use std::process::Command;
 
+#[cfg(target_os = "windows")]
+pub fn suppress_console_window(command: &mut Command) {
+    use std::os::windows::process::CommandExt;
+
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    command.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(target_os = "windows"))]
+pub fn suppress_console_window(_command: &mut Command) {}
+
 pub fn to_wsl_path(path: &Path) -> Option<String> {
     let mut path_str = path.to_string_lossy().replace('\\', "/");
     if path_str.starts_with("//?/") {
@@ -65,6 +76,7 @@ pub fn build_wsl_command(worktree_path: &Path, command: &str, args: &[&str]) -> 
 
 pub fn build_wsl_process_command(worktree_path: &Path, command: &str, args: &[&str]) -> Command {
     let mut command_builder = Command::new("wsl.exe");
+    suppress_console_window(&mut command_builder);
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
     command_builder.args([
         "--cd",

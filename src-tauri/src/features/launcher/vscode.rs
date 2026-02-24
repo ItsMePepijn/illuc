@@ -1,16 +1,20 @@
 use crate::error::{Result, TaskError};
 use crate::utils::fs::ensure_file;
+use crate::utils::windows::suppress_console_window;
 use std::path::Path;
 use std::process::Command;
 
 pub fn spawn(path: &Path) -> Result<()> {
     #[cfg(windows)]
-    let candidates = ["code.cmd", "code.exe", "code"];
+    let candidates = ["code.exe", "code.cmd", "code"];
     #[cfg(not(windows))]
     let candidates = ["code"];
 
     for candidate in candidates {
-        let result = Command::new(candidate).arg(path).spawn();
+        let mut command = Command::new(candidate);
+        #[cfg(windows)]
+        suppress_console_window(&mut command);
+        let result = command.arg(path).spawn();
         match result {
             Ok(_) => return Ok(()),
             Err(err) => {
@@ -34,16 +38,15 @@ pub fn spawn_file(path: &Path, line: Option<u32>, column: Option<u32>) -> Result
     let target = format!("{}:{}:{}", path.display(), line, column);
 
     #[cfg(windows)]
-    let candidates = ["code.cmd", "code.exe", "code"];
+    let candidates = ["code.exe", "code.cmd", "code"];
     #[cfg(not(windows))]
     let candidates = ["code"];
 
     for candidate in candidates {
-        let result = Command::new(candidate)
-            .arg("-r")
-            .arg("--goto")
-            .arg(&target)
-            .spawn();
+        let mut command = Command::new(candidate);
+        #[cfg(windows)]
+        suppress_console_window(&mut command);
+        let result = command.arg("-r").arg("--goto").arg(&target).spawn();
         match result {
             Ok(_) => return Ok(()),
             Err(err) => {

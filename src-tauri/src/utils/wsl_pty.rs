@@ -2,7 +2,7 @@ use crate::utils::pty::{
     ChildHandle, MasterHandle, ProcessExitStatus, ProcessHandle, ReadHandle, TerminalMaster,
     TerminalSize, WriteHandle,
 };
-use crate::utils::windows::{bash_escape, to_wsl_path};
+use crate::utils::windows::{bash_escape, suppress_console_window, to_wsl_path};
 use anyhow::{anyhow, Context, Result};
 use parking_lot::Mutex;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -89,6 +89,7 @@ pub fn spawn_wsl_pty(
 
     let command_line = build_python_command(&helper_args);
     let mut child = Command::new("wsl.exe");
+    suppress_console_window(&mut child);
     child.args(["--cd", &wsl_path, "--", "bash", "-lc", &command_line]);
     child
         .stdin(Stdio::piped())
@@ -185,6 +186,7 @@ fn ensure_helper(wsl_path: &str) -> Result<()> {
         script = HELPER_SCRIPT
     );
     let mut command = Command::new("wsl.exe");
+    suppress_console_window(&mut command);
     command.args(["--cd", wsl_path, "--", "bash", "-lc", &command_line]);
     let status = command
         .status()

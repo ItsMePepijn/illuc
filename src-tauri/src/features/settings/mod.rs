@@ -1,6 +1,7 @@
 use anyhow::{bail, Context};
 use std::collections::HashMap;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
 use std::process::Command;
 use tauri::Manager;
 
@@ -22,7 +23,7 @@ pub(crate) struct ThemeSettingsSnapshot {
 }
 
 pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Theme>>) -> String {
-    let mut resolved = match window_theme {
+    let resolved = match window_theme {
         Some(Ok(tauri::Theme::Dark)) => "dark".to_string(),
         Some(Ok(tauri::Theme::Light)) => "light".to_string(),
         Some(Ok(_)) => DEFAULT_THEME_NAME.to_string(),
@@ -33,6 +34,7 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
     // Prefer the explicit desktop setting when available.
     #[cfg(target_os = "linux")]
     {
+        let mut resolved = resolved;
         if let Some(color_scheme) = gnome_color_scheme() {
             if matches!(color_scheme.as_str(), "prefer-dark" | "dark") {
                 resolved = "dark".to_string();
@@ -45,6 +47,7 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
                 resolved = "dark".to_string();
             }
         }
+        return resolved;
     }
 
     resolved
