@@ -1,7 +1,6 @@
-name: Build Windows EXE
+name: Build Windows EXE & Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -11,11 +10,14 @@ permissions:
 
 jobs:
   build-windows-exe:
+    name: Build Windows EXE
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout (tag)
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -23,16 +25,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Show Node and npm versions
-        run: |
-          node -v
-          npm -v
-
       - name: Pin npm version
         run: npm i -g npm@11.7.0
-
-      - name: Show pinned npm version
-        run: npm -v
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -44,6 +38,44 @@ jobs:
 
       - name: Install NSIS
         run: choco install nsis -y
+
+      # ---- Version sync: make the build version come from the tag ----
+      - name: Determine version from tag
+        id: ver
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"   # v1.2.3
+          VER="${TAG#v}"                  # 1.2.3
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Set package.json version to tag
+        shell: bash
+        run: |
+          npm version "${{ steps.ver.outputs.ver }}" --no-git-tag-version
+
+      - name: Set Tauri config version to tag (v2 schema)
+        shell: bash
+        run: |
+          node -e "
+            const fs=require('fs');
+            const p='src-tauri/tauri.conf.json';
+            const j=JSON.parse(fs.readFileSync(p,'utf8'));
+            j.version='${{ steps.ver.outputs.ver }}';
+            fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
+          "
+
+      - name: Set Cargo.toml version to tag
+        shell: bash
+        run: |
+          node -e "
+            const fs=require('fs');
+            const p='src-tauri/Cargo.toml';
+            let s=fs.readFileSync(p,'utf8');
+            s=s.replace(/^version\\s*=\\s*\\\"[^\\\"]+\\\"/m, 'version = \"${{ steps.ver.outputs.ver }}\"');
+            fs.writeFileSync(p,s);
+          "
+      # ---------------------------------------------------------------
 
       - name: Install dependencies
         run: npm ci
@@ -66,28 +98,20 @@ jobs:
           if-no-files-found: error
 
   create-github-release:
-    if: github.ref == 'refs/heads/master'
+    name: Create GitHub Release
     needs: build-windows-exe
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Read version
-        id: version
+      - name: Determine tag from ref
+        id: tag
+        shell: bash
         run: |
-          VERSION="$(node -p "require('./package.json').version")"
-          if [ -z "$VERSION" ]; then
-            echo "package.json version is empty" >&2
+          if [[ "${GITHUB_REF}" != refs/tags/v* ]]; then
+            echo "This workflow only runs on tag pushes (v*)." >&2
             exit 1
           fi
-          echo "value=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "value=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Download EXE artifacts
         uses: actions/download-artifact@v4
@@ -99,9 +123,8 @@ jobs:
       - name: Create or update GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: v${{ steps.version.outputs.value }}
-          name: illuc v${{ steps.version.outputs.value }}
-          commit: ${{ github.sha }}
+          tag: ${{ steps.tag.outputs.value }}
+          name: illuc ${{ steps.tag.outputs.value }}
           allowUpdates: true
           replacesArtifacts: true
           generateReleaseNotes: true
