@@ -1,0 +1,14 @@
+<div
+    *ngIf="streamingPlain; else markdownContent"
+    class="msg-content streaming-plain"
+    [class.system-content]="role === 'system'"
+    [textContent]="plainContent"
+></div>
+<ng-template #markdownContent>
+    <div
+        class="msg-content"
+        [class.system-content]="role === 'system'"
+        [innerHTML]="html"
+        (click)="contentClick.emit($event)"
+    ></div>
+</ng-template>

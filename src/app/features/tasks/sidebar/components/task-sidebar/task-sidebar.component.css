@@ -1,5 +1,5 @@
 .task-sidebar {
-    --sidebar-width: 320px;
+    --sidebar-width: 360px;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--borders-default);
@@ -363,11 +363,6 @@
 :host ::ng-deep .actions button.icon-btn {
     width: 28px;
     height: 28px;
-}
-
-:host ::ng-deep .actions button.icon-btn .button-spinner {
-    width: 14px;
-    height: 14px;
 }
 
 :host ::ng-deep .actions button.action-btn.warn {

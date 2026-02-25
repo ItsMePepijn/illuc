@@ -1,0 +1,31 @@
+.reasoning-content {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text-muted);
+    font-style: italic;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.streaming-plain {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.reasoning-content :is(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
+    margin: 0;
+}
+
+.reasoning-content :is(ul, ol) {
+    padding-left: 0;
+    list-style: none;
+}
+
+.reasoning-content :is(code, pre, blockquote) {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    font: inherit;
+}

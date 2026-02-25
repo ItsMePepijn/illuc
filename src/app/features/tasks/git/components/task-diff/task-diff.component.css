@@ -287,21 +287,6 @@
     flex: 1;
 }
 
-.diff-spinner {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: 5px solid rgba(96, 90, 82, 0.25);
-    border-top-color: var(--brand-accent);
-    animation: diff-spin 0.9s linear infinite;
-}
-
-@keyframes diff-spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
 @keyframes diff-thread-slide-close {
     from {
         max-height: 480px;

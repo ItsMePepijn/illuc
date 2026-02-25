@@ -1,0 +1,38 @@
+.typing-indicator {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+}
+
+.typing-dot {
+    flex: 0 0 auto;
+}
+
+.typing-label {
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: min(56ch, 72vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: linear-gradient(
+        90deg,
+        var(--text-muted) 0%,
+        var(--text-default) 48%,
+        var(--text-muted) 100%
+    );
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer-lr 2.4s linear infinite;
+}
+
+@keyframes shimmer-lr {
+    from {
+        background-position: -140% 0;
+    }
+    to {
+        background-position: 140% 0;
+    }
+}

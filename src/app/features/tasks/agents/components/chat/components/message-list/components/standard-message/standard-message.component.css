@@ -1,0 +1,92 @@
+.msg-content {
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--text-default);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.streaming-plain {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.system-content {
+    color: var(--text-muted);
+    border-left: 2px solid var(--borders-default);
+    padding-left: 10px;
+}
+
+.msg-content :is(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
+    margin: 0.5rem 0;
+}
+
+.msg-content :is(ul, ol) {
+    padding-left: 20px;
+}
+
+.msg-content code {
+    background: var(--surfaces-surface_alt);
+    border: 1px solid var(--borders-default);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 12.5px;
+    color: var(--brand-accent);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.msg-content pre {
+    background: var(--surfaces-surface_alt);
+    border: 1px solid var(--borders-default);
+    border-radius: 10px;
+    padding: 14px 16px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: hidden;
+}
+
+.msg-content pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-default);
+    white-space: inherit;
+    word-break: inherit;
+}
+
+.msg-content blockquote {
+    border-left: 2px solid var(--brand-accent);
+    margin: 12px 0;
+    padding: 8px 14px;
+    background: var(--brand-accent_soft);
+    border-radius: 0 6px 6px 0;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+:host ::ng-deep .msg-content a,
+:host ::ng-deep .msg-content a:visited {
+    color: var(--brand-accent);
+}
+
+:host ::ng-deep .msg-content a[href^="/"],
+:host ::ng-deep .msg-content a[href^="/"]:visited,
+:host ::ng-deep .msg-content a[href^="file://"],
+:host ::ng-deep .msg-content a[href^="file://"]:visited,
+:host ::ng-deep .msg-content a[href^="#diff:"],
+:host ::ng-deep .msg-content a[href^="#diff:"]:visited {
+    color: var(--text-default);
+    text-decoration: none;
+    border-bottom: 1px dashed color-mix(in srgb, var(--brand-accent) 55%, transparent);
+}
+
+:host ::ng-deep .msg-content a[href^="/"]:hover,
+:host ::ng-deep .msg-content a[href^="file://"]:hover,
+:host ::ng-deep .msg-content a[href^="#diff:"]:hover {
+    color: var(--brand-accent);
+    border-bottom-color: var(--brand-accent);
+}

@@ -1,0 +1,17 @@
+<div class="status-line">
+    <div class="status-slot status-slot-left">
+        <p class="limit-hint" *ngIf="limitStatusParts() as limit">
+            {{ limit.windowLabel }} limit: <strong>{{ limit.remainingPercent }}% left</strong>
+        </p>
+    </div>
+
+    <div class="status-slot status-slot-right">
+        <p class="context-hint" *ngIf="contextStatusParts() as status; else contextSpacer">
+            Context: {{ status.used }}/{{ status.size }}
+            (<strong>{{ status.remainingPercent }}% left</strong>)
+        </p>
+        <ng-template #contextSpacer>
+            <p class="context-hint context-hint-placeholder" aria-hidden="true">&nbsp;</p>
+        </ng-template>
+    </div>
+</div>

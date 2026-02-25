@@ -1,11 +1,7 @@
 import { Injectable, NgZone, computed, signal } from "@angular/core";
 import { type Event as TauriEvent, type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
-import {
-    AgentKind,
-    BaseRepoInfo,
-    TaskSummary,
-} from "./models";
+import { AgentKind, BaseRepoInfo, TaskSummary } from "./models";
 import { DiffMode, DiffPayload } from "./git/models";
 import {
     TerminalKind,
@@ -15,6 +11,7 @@ import {
 import { TaskGitService } from "./git/task-git.service";
 import { TERMINAL_SCROLLBACK } from "./terminal/terminal.constants";
 import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
+import { CodexGuiStore } from "./agents/codex-gui.store";
 
 @Injectable({
     providedIn: "root",
@@ -53,6 +50,7 @@ export class TaskStore {
     private lastWorktreeTerminalSize: { cols: number; rows: number } | null =
         null;
     private readonly worktreeTerminalOpenState = new Map<string, boolean>();
+    private readonly diffJumpStreams = new Map<string, Subject<string>>();
     private readonly unlistenFns: UnlistenFn[] = [];
 
     private readonly diffRefreshDelayMs = 250;
@@ -73,6 +71,7 @@ export class TaskStore {
     constructor(
         private readonly zone: NgZone,
         private readonly taskGit: TaskGitService,
+        private readonly codexGuiStore: CodexGuiStore,
     ) {
         this.registerEventListeners();
         window.addEventListener("unload", () => this.teardown());
@@ -96,6 +95,7 @@ export class TaskStore {
         this.worktreeTerminalStreams.clear();
         this.worktreeTerminalLastResizeSent.clear();
         this.worktreeTerminalOpenState.clear();
+        this.codexGuiStore.clearAll();
         await this.loadExistingTasks(normalized.path);
         await this.loadBranches(normalized.path);
         return normalized;
@@ -125,6 +125,9 @@ export class TaskStore {
     }
 
     async startTask(taskId: string, agent?: AgentKind): Promise<TaskSummary> {
+        if (taskId) {
+            this.codexGuiStore.resetTask(taskId);
+        }
         const size = this.terminalSizes.get(taskId) ?? this.lastTerminalSize;
         const summary = await tauriInvoke<TaskSummary>(this.zone, "task_start", {
             req: {
@@ -331,6 +334,18 @@ export class TaskStore {
         return stream.asObservable();
     }
 
+    diffJump$(taskId: string): Observable<string> {
+        return this.ensureDiffJumpStream(taskId).asObservable();
+    }
+
+    requestDiffJump(taskId: string, filePath: string): void {
+        const normalizedPath = filePath.trim();
+        if (!taskId || !normalizedPath) {
+            return;
+        }
+        this.ensureDiffJumpStream(taskId).next(normalizedPath);
+    }
+
     recordTerminalSize(
         taskId: string,
         cols: number,
@@ -423,6 +438,8 @@ export class TaskStore {
         this.worktreeTerminalStreams.delete(taskId);
         this.worktreeTerminalLastResizeSent.delete(taskId);
         this.worktreeTerminalOpenState.delete(taskId);
+        this.codexGuiStore.removeTask(taskId);
+        this.diffJumpStreams.delete(taskId);
     }
 
     private pushTerminalOutput(
@@ -503,6 +520,15 @@ export class TaskStore {
             : this.terminalLastResizeSent;
     }
 
+    private ensureDiffJumpStream(taskId: string): Subject<string> {
+        let stream = this.diffJumpStreams.get(taskId);
+        if (!stream) {
+            stream = new Subject<string>();
+            this.diffJumpStreams.set(taskId, stream);
+        }
+        return stream;
+    }
+
     private teardown(): void {
         while (this.unlistenFns.length > 0) {
             const unlisten = this.unlistenFns.pop();
@@ -511,6 +537,7 @@ export class TaskStore {
             }
         }
     }
+
 }
 
 export type DiffWatchState = {

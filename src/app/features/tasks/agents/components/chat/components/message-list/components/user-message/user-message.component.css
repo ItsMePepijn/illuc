@@ -1,0 +1,18 @@
+.msg-content {
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--text-default);
+}
+
+.user-bubble {
+    background: var(--surfaces-surface_strong);
+    border: 1px solid var(--borders-default);
+    border-radius: 16px 16px 4px 16px;
+    padding: 6px 10px;
+    display: inline-block;
+    max-width: 100%;
+}
+
+:host ::ng-deep .user-bubble :is(p, ul, ol, pre, blockquote, h1, h2, h3, h4, h5, h6) {
+    margin: 0 !important;
+}

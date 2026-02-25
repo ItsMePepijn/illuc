@@ -1,0 +1,90 @@
+<section class="inline-request" *ngIf="request">
+    <div class="inline-request-header">
+        <h3 *ngIf="request.kind === 'commandApproval'">Approve command</h3>
+        <h3 *ngIf="request.kind === 'fileChangeApproval'">Approve file changes</h3>
+        <h3 *ngIf="request.kind === 'userInput'">Additional input required</h3>
+    </div>
+
+    <p class="inline-request-subtitle" *ngIf="request.reason">
+        {{ request.reason }}
+    </p>
+    <p class="inline-request-subtitle" *ngIf="request.command">
+        <code>{{ request.command }}</code>
+    </p>
+    <p class="inline-request-subtitle" *ngIf="request.cwd">
+        {{ request.cwd }}
+    </p>
+    <p class="inline-request-subtitle" *ngIf="request.networkHost">
+        Needs {{ request.networkProtocol }} access to
+        <strong>{{ request.networkHost }}</strong>
+    </p>
+    <p class="inline-request-subtitle" *ngIf="request.grantRoot">
+        Requested write root: <strong>{{ request.grantRoot }}</strong>
+    </p>
+
+    <div
+        class="request-metadata"
+        *ngIf="
+            request.additionalReadRoots.length ||
+            request.additionalWriteRoots.length ||
+            request.proposedExecPolicy.length ||
+            request.proposedNetworkPolicy.length
+        "
+    >
+        <p *ngIf="request.additionalReadRoots.length">
+            Read roots: {{ request.additionalReadRoots.join(", ") }}
+        </p>
+        <p *ngIf="request.additionalWriteRoots.length">
+            Write roots: {{ request.additionalWriteRoots.join(", ") }}
+        </p>
+        <p *ngIf="request.proposedExecPolicy.length">
+            Exec policy: {{ request.proposedExecPolicy.join(" ") }}
+        </p>
+        <p *ngIf="request.proposedNetworkPolicy.length">
+            Network policy:
+            {{ request.proposedNetworkPolicy.join(", ") }}
+        </p>
+    </div>
+
+    <div class="request-questions" *ngIf="request.kind === 'userInput'">
+        <label class="request-question" *ngFor="let question of request.questions">
+            <span class="request-question-header">{{ question.header }}</span>
+            <span class="request-question-copy">{{ question.question }}</span>
+            <select
+                *ngIf="question.options.length"
+                [value]="requestQuestionValue(question.id)"
+                (change)="onAnswerChanged(question.id, $any($event.target).value)"
+            >
+                <option
+                    *ngFor="let option of question.options"
+                    [value]="option.label"
+                >
+                    {{ option.label }}
+                </option>
+            </select>
+            <textarea
+                *ngIf="question.isOther || !question.options.length"
+                rows="3"
+                [value]="requestQuestionValue(question.id)"
+                (input)="onAnswerChanged(question.id, $any($event.target).value)"
+            ></textarea>
+        </label>
+    </div>
+
+    <div class="inline-request-actions" *ngIf="request.kind !== 'userInput'">
+        <button
+            type="button"
+            class="ghost"
+            *ngFor="let decision of request.availableDecisions"
+            (click)="onDecision(decision)"
+        >
+            {{ decisionLabel(decision) }}
+        </button>
+    </div>
+
+    <div class="inline-request-actions" *ngIf="request.kind === 'userInput'">
+        <button type="button" class="primary" (click)="onSubmitAnswers()">
+            Submit answers
+        </button>
+    </div>
+</section>

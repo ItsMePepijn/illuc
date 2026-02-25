@@ -11,6 +11,12 @@
     [ngClass]="buttonClass"
     (click)="handleClick($event)"
 >
-    <span class="button-spinner" *ngIf="loading" aria-hidden="true"></span>
+    <app-loading-spinner
+        *ngIf="loading"
+        class="button-spinner"
+        [size]="spinnerSize"
+        [thickness]="spinnerThickness"
+        [speedMs]="spinnerSpeedMs"
+    ></app-loading-spinner>
     <span class="button-content"><ng-content></ng-content></span>
 </button>

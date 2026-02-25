@@ -1,0 +1,19 @@
+<div class="tool-stack" (click)="contentClick.emit($event)">
+    <div class="tool-block" *ngFor="let row of rowsHtml; let first = first">
+        <app-codex-gui-throbber
+            *ngIf="first && isRunning; else toolGlyph"
+            class="tool-throbber"
+        ></app-codex-gui-throbber>
+        <ng-template #toolGlyph>
+            <span class="tool-glyph" [class.placeholder]="!first">&gt;_</span>
+        </ng-template>
+        <span class="tool-cmd" [innerHTML]="row"></span>
+        <span
+            *ngIf="first && statusLabel"
+            class="tool-status"
+            [class.running]="isRunning"
+        >
+            {{ statusLabel }}
+        </span>
+    </div>
+</div>

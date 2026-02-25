@@ -1,0 +1,104 @@
+.tool-stack {
+    margin-bottom: 2px;
+}
+
+.tool-block {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 2px;
+    padding: 0;
+    background: none;
+    border: none;
+}
+
+.tool-glyph {
+    display: inline-block;
+    width: var(--throbber-size);
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 11px;
+    color: var(--text-subtle);
+    flex-shrink: 0;
+    margin-top: 1px;
+    user-select: none;
+}
+
+.tool-glyph.placeholder {
+    visibility: hidden;
+}
+
+.tool-throbber {
+    flex: 0 0 auto;
+    margin-top: 1px;
+}
+
+.tool-cmd {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    flex: 0 1 auto;
+    min-width: 1px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.tool-cmd :is(a, code) {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+:host ::ng-deep .tool-cmd a,
+:host ::ng-deep .tool-cmd a:visited {
+    color: var(--brand-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
+
+:host ::ng-deep .tool-cmd a[href^="#diff:"],
+:host ::ng-deep .tool-cmd a[href^="#diff:"]:visited {
+    color: var(--text-default);
+    text-decoration: none;
+    border-bottom: 1px dashed color-mix(in srgb, var(--brand-accent) 55%, transparent);
+}
+
+:host ::ng-deep .tool-cmd a[href^="#diff:"]:hover {
+    color: var(--brand-accent);
+    border-bottom-color: var(--brand-accent);
+}
+
+.tool-cmd .t-bin {
+    color: var(--text-default);
+}
+
+.tool-cmd .t-flag {
+    color: var(--text-subtle);
+}
+
+.tool-cmd .t-arg {
+    color: var(--brand-accent);
+    opacity: 0.86;
+}
+
+.tool-cmd .t-str {
+    color: var(--status-success);
+}
+
+:host ::ng-deep .tool-cmd .t-added {
+    color: var(--status-success);
+}
+
+:host ::ng-deep .tool-cmd .t-removed {
+    color: var(--status-danger);
+}
+
+.tool-status {
+    font-size: 10px;
+    color: var(--status-success);
+    flex-shrink: 0;
+    opacity: 0.8;
+}
+
+.tool-status.running {
+    color: var(--brand-accent);
+}

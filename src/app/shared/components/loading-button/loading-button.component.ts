@@ -1,16 +1,20 @@
 import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
+import { LoadingSpinnerComponent } from "../loading-spinner/loading-spinner.component";
 
 @Component({
     selector: "app-loading-button",
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, LoadingSpinnerComponent],
     templateUrl: "./loading-button.component.html",
     styleUrl: "./loading-button.component.css",
 })
 export class LoadingButtonComponent {
     @Input() loading = false;
     @Input() disabled = false;
+    @Input() spinnerSize = 18;
+    @Input() spinnerThickness = 2;
+    @Input() spinnerSpeedMs = 800;
     @Input() buttonType: "button" | "submit" | "reset" = "button";
     @Input() ariaLabel?: string;
     @Input() ariaExpanded?: boolean | null;

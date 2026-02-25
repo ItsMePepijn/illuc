@@ -16,7 +16,6 @@ pub struct ProcessExitStatus {
 }
 
 impl ProcessExitStatus {
-    #[cfg(target_os = "windows")]
     pub fn from_code(code: i32) -> Self {
         Self { code }
     }

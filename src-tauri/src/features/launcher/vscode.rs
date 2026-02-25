@@ -1,5 +1,6 @@
 use crate::error::{Result, TaskError};
 use crate::utils::fs::ensure_file;
+#[cfg(target_os = "windows")]
 use crate::utils::windows::suppress_console_window;
 use std::path::Path;
 use std::process::Command;

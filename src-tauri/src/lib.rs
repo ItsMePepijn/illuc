@@ -1,3 +1,5 @@
+#![allow(dependency_on_unit_never_type_fallback)]
+
 mod commands;
 mod error;
 mod features;
@@ -11,9 +13,16 @@ use crate::features::settings::commands::settings_open_in_vscode::settings_open_
 use crate::features::settings::commands::settings_theme_get::settings_theme_get;
 use crate::features::settings::ensure_user_settings_file;
 use crate::features::settings::watcher::start_settings_theme_watcher;
-use crate::features::tasks::review::skills::install_predefined_skills_on_startup;
 #[cfg(target_os = "windows")]
 use crate::features::shell::native_titlebar::apply_windows_caption_color;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_compact::task_codex_gui_compact;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_interrupt::task_codex_gui_interrupt;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_models::task_codex_gui_models;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_new_chat::task_codex_gui_new_chat;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_request_respond::task_codex_gui_request_respond;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_rollback::task_codex_gui_rollback;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_send::task_codex_gui_send;
+use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_usage::task_codex_gui_usage;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
 use crate::features::tasks::git::commands::task_git_diff_get::task_git_diff_get;
 use crate::features::tasks::git::commands::task_git_diff_watch_start::task_git_diff_watch_start;
@@ -38,6 +47,7 @@ use crate::features::tasks::review::commands::task_review_edit_comment::task_rev
 use crate::features::tasks::review::commands::task_review_get::task_review_get;
 use crate::features::tasks::review::commands::task_review_get_user_display_name::task_review_get_user_display_name;
 use crate::features::tasks::review::commands::task_review_update_thread_status::task_review_update_thread_status;
+use crate::features::tasks::review::skills::install_predefined_skills_on_startup;
 use crate::features::tasks::TaskManager;
 use crate::features::theming::apply_startup_webview_window_css;
 use crate::features::theming::apply_startup_window_background;
@@ -47,6 +57,7 @@ use crate::features::time_tracking::commands::task_time_tracking_record::task_ti
 use log::info;
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use tauri::Manager;
+use tauri_plugin_opener::OpenerExt;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -64,6 +75,31 @@ pub fn run() {
     info!("starting illuc tauri app");
 
     tauri::Builder::default()
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry>::new("external-link-opener")
+                .on_navigation(|app_webview, url| {
+                    let scheme = url.scheme();
+                    let host = url.host_str().unwrap_or_default();
+                    let is_dev_host = host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1";
+                    let should_open_external = match scheme {
+                        "http" | "https" => !is_dev_host,
+                        "mailto" => true,
+                        _ => false,
+                    };
+                    if should_open_external {
+                        if let Err(error) = app_webview
+                            .app_handle()
+                            .opener()
+                            .open_url(url.as_str(), None::<String>)
+                        {
+                            log::warn!("failed to open external url {}: {}", url, error);
+                        }
+                        return false;
+                    }
+                    true
+                })
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .on_page_load(|webview, payload| {
@@ -114,6 +150,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             select_base_repo,
             task_create,
+            task_codex_gui_compact,
+            task_codex_gui_interrupt,
+            task_codex_gui_models,
+            task_codex_gui_new_chat,
+            task_codex_gui_request_respond,
+            task_codex_gui_rollback,
+            task_codex_gui_send,
+            task_codex_gui_usage,
             task_start,
             task_stop,
             task_discard,

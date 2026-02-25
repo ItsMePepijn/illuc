@@ -1,4 +1,4 @@
-mod agents;
+pub(crate) mod agents;
 mod diff_watcher;
 pub(crate) mod events;
 pub mod git;
@@ -19,6 +19,7 @@ pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
 pub use repo::handle_select_base_repo;
 
 use crate::features::tasks::agents::codex::CodexAgent;
+use crate::features::tasks::agents::codex_gui::CodexGuiAgent;
 use crate::features::tasks::agents::copilot::CopilotAgent;
 use crate::features::tasks::agents::Agent;
 use portable_pty::CommandBuilder;
@@ -32,6 +33,7 @@ pub(crate) const DEFAULT_PTY_COLS: u16 = 80;
 pub(crate) fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
     match agent_kind {
         AgentKind::Codex => Box::new(CodexAgent::default()),
+        AgentKind::CodexGui => Box::new(CodexGuiAgent::default()),
         AgentKind::Copilot => Box::new(CopilotAgent::default()),
     }
 }
@@ -39,6 +41,7 @@ pub(crate) fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
 pub(crate) fn agent_label(agent_kind: AgentKind) -> &'static str {
     match agent_kind {
         AgentKind::Codex => "Codex",
+        AgentKind::CodexGui => "Codex GUI",
         AgentKind::Copilot => "Copilot CLI",
     }
 }
