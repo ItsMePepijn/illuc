@@ -4,6 +4,7 @@
     min-height: 0;
     background: var(--surfaces-surface);
     color: var(--text-default);
+    font-size: var(--font-size-sm);
     position: relative;
     overflow: hidden;
 }
@@ -51,7 +52,7 @@
     flex-wrap: wrap;
     gap: 8px;
     align-items: baseline;
-    font-size: 12px;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
@@ -84,7 +85,7 @@
 .plan-explanation {
     margin: 0 0 8px;
     color: var(--text-default);
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1.5;
 }
 
@@ -101,7 +102,7 @@
     grid-template-columns: auto 1fr;
     gap: 8px;
     align-items: start;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
 }
 
 .plan-step-status {
@@ -109,7 +110,7 @@
     padding: 2px 8px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     background: var(--surfaces-surface);
     color: var(--text-muted);
 }

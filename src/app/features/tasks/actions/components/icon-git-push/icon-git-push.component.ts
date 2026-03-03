@@ -9,7 +9,7 @@ import { Component } from "@angular/core";
             align-items: center;
             justify-content: center;
             line-height: 0;
-            font-size: 16px;
+            font-size: var(--font-size-md);
         }
         svg {
             width: 1em;

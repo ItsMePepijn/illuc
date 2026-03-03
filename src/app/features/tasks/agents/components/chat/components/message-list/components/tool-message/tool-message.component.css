@@ -16,7 +16,7 @@
     display: inline-block;
     width: var(--throbber-size);
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--text-subtle);
     flex-shrink: 0;
     margin-top: 1px;
@@ -34,7 +34,7 @@
 
 .tool-cmd {
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     flex: 0 1 auto;
     min-width: 1px;
@@ -93,7 +93,7 @@
 }
 
 .tool-status {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     color: var(--status-success);
     flex-shrink: 0;
     opacity: 0.8;

@@ -1,5 +1,4 @@
 .msg-content {
-    font-size: 15px;
     line-height: 1.75;
     color: var(--text-default);
     min-width: 0;
@@ -31,7 +30,7 @@
     border-radius: 4px;
     padding: 1px 5px;
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     color: var(--brand-accent);
     white-space: pre-wrap;
     word-break: break-word;
@@ -51,7 +50,7 @@
     background: transparent;
     border: none;
     padding: 0;
-    font-size: 13px;
+    font-size: var(--font-size-sm);
     line-height: 1.6;
     color: var(--text-default);
     white-space: inherit;

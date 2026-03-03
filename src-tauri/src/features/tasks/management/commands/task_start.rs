@@ -292,7 +292,7 @@ pub async fn task_start(
             .agent
             .start(&worktree_path, callbacks, pty_rows, pty_cols)
             .with_context(|| format!("failed to start {} for task {}", label, title))
-            .map_err(|err| err.to_string())?
+            .map_err(|err| format!("{err:#}"))?
     };
 
     let AgentRuntime {

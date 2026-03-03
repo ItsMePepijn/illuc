@@ -44,7 +44,7 @@ type CodexGuiListItem = {
     key: string;
     trackKey: string;
     rowRole: "user" | "assistant";
-    dataRole: "user" | "assistant" | "system";
+    dataRole: "user" | "assistant" | "system" | "reasoning";
     dataStatus: "streaming" | "complete" | "error";
     renderKind: "user" | "tool" | "standard" | "reasoning" | "typing";
     html: string;
@@ -57,6 +57,7 @@ type CodexGuiListItem = {
     typingLabel: string;
     typingStartedAt: string | null;
     showTypingLabel: boolean;
+    compactWithNext: boolean;
 };
 
 type CachedMessageItem = {
@@ -282,8 +283,23 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.tailItem = liveTailMessage
             ? this.buildMessageItem(liveTailMessage)
             : this.buildTypingIndicatorItem();
+        this.applyToolSpacingCompaction();
         this.initialScrollIndex = Math.max(this.historyListItems.length - 1, 0);
         this.pruneMeasuredHistoryItemHeights();
+    }
+
+    private applyToolSpacingCompaction(): void {
+        for (let index = 0; index < this.historyListItems.length; index += 1) {
+            const current = this.historyListItems[index];
+            const next =
+                this.historyListItems[index + 1] ??
+                (index === this.historyListItems.length - 1 ? this.tailItem : null);
+            current.compactWithNext =
+                current.renderKind === "tool" && next?.renderKind === "tool";
+        }
+        if (this.tailItem) {
+            this.tailItem.compactWithNext = false;
+        }
     }
 
     private estimateItemSize(item: CodexGuiListItem): number {
@@ -347,7 +363,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         const text = item.streamingPlain ? item.plainContent : stripHtmlTags(item.html);
         const wrappedLines = estimateWrappedLineCount(
             text,
-            item.dataRole === "system" ? 58 : 64,
+            item.dataRole === "system" || item.dataRole === "reasoning" ? 58 : 64,
         );
         const preCount = countMatches(item.html, /<pre\b/gi);
         const blockquoteCount = countMatches(item.html, /<blockquote\b/gi);
@@ -362,7 +378,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             listItemCount * 10 +
             headingCount * 20 +
             tableCount * 96 +
-            (item.dataRole === "system" ? 12 : 0);
+            (item.dataRole === "system" || item.dataRole === "reasoning" ? 12 : 0);
         return clampHeight(height, CHAT_MIN_STANDARD_ROW_HEIGHT_PX, 1400);
     }
 
@@ -456,6 +472,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             typingLabel: this.activityLabel.trim() || label,
             typingStartedAt: this.activityStartedAt,
             showTypingLabel: this.shouldShowGlobalTypingLabel(label),
+            compactWithNext: false,
         };
     }
 
@@ -487,6 +504,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             typingLabel: "",
             typingStartedAt: null,
             showTypingLabel: false,
+            compactWithNext: false,
         };
         this.messageItemCache.set(cacheKey, { sourceKey, revision, item });
         return item;
@@ -504,8 +522,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     }
 
     private shouldShowGlobalTypingLabel(label: string): boolean {
-        const normalized = (this.activityLabel.trim() || label).trim().toLowerCase();
-        return normalized !== "working" && normalized !== "thinking";
+        return (this.activityLabel.trim() || label).trim().length > 0;
     }
 
     private bindScrollHost(): void {
@@ -615,24 +632,56 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         if (!prefix) {
             return normalizedPath;
         }
-        const normalizedPrefix = prefix.replaceAll("\\", "/").endsWith("/")
-            ? prefix.replaceAll("\\", "/")
-            : `${prefix.replaceAll("\\", "/")}/`;
-        return normalizedPath.startsWith(normalizedPrefix)
-            ? normalizedPath.slice(normalizedPrefix.length)
-            : normalizedPath;
+        for (const candidate of this.matchablePathPrefixes(prefix)) {
+            const normalizedPrefix = candidate.endsWith("/")
+                ? candidate
+                : `${candidate}/`;
+            if (normalizedPath.startsWith(normalizedPrefix)) {
+                return normalizedPath.slice(normalizedPrefix.length);
+            }
+        }
+        return normalizedPath;
     }
 
     private normalizeDiffPath(path: string): string {
         const normalizedPath = path.replaceAll("\\", "/");
-        const prefix = this.stripPathPrefix.trim().replaceAll("\\", "/");
+        const prefix = this.stripPathPrefix.trim();
         if (!prefix) {
             return normalizedPath;
         }
-        const normalizedPrefix = prefix.endsWith("/") ? prefix : `${prefix}/`;
-        if (normalizedPath.startsWith(normalizedPrefix)) {
-            return normalizedPath.slice(normalizedPrefix.length);
+        for (const candidate of this.matchablePathPrefixes(prefix)) {
+            const normalizedPrefix = candidate.endsWith("/")
+                ? candidate
+                : `${candidate}/`;
+            if (normalizedPath.startsWith(normalizedPrefix)) {
+                return normalizedPath.slice(normalizedPrefix.length);
+            }
         }
         return normalizedPath;
+    }
+
+    private matchablePathPrefixes(prefix: string): string[] {
+        const normalized = prefix.trim().replaceAll("\\", "/").replace(/\/+$/, "");
+        if (!normalized) {
+            return [];
+        }
+
+        const prefixes = new Set<string>([normalized]);
+
+        const windowsMatch = normalized.match(/^([a-zA-Z]):\/(.*)$/);
+        if (windowsMatch) {
+            const drive = windowsMatch[1].toLowerCase();
+            const rest = windowsMatch[2].replace(/^\/+/, "");
+            prefixes.add(`/mnt/${drive}${rest ? `/${rest}` : ""}`);
+        }
+
+        const wslMatch = normalized.match(/^\/mnt\/([a-zA-Z])(?:\/(.*))?$/);
+        if (wslMatch) {
+            const drive = wslMatch[1].toUpperCase();
+            const rest = (wslMatch[2] ?? "").replace(/^\/+/, "");
+            prefixes.add(`${drive}:/${rest}`.replace(/\/+$/, ""));
+        }
+
+        return Array.from(prefixes);
     }
 }

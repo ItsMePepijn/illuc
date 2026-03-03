@@ -10,7 +10,7 @@
 
 .inline-request-header h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
 }
 
 .inline-request-subtitle {
@@ -25,7 +25,7 @@
     border-radius: 12px;
     background: var(--surfaces-surface_alt);
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: var(--font-size-xs);
 }
 
 .request-questions {
@@ -40,7 +40,7 @@
 }
 
 .request-question-header {
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--text-subtle);

@@ -17,12 +17,12 @@
 }
 
 :host ::ng-deep .start-trigger .caret {
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     color: var(--text-muted);
 }
 
 .start-icon {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     line-height: 1;
     color: var(--brand-accent_strong);
 }
@@ -79,7 +79,7 @@
     padding: 0.45rem 0.65rem;
     border-radius: 10px;
     text-align: left;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -88,7 +88,7 @@
 
 .menu-caret {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 .start-menu-item:hover:not(:disabled) {

@@ -24,7 +24,7 @@
 .limit-hint,
 .context-hint {
     margin: 0;
-    font-size: 12.5px;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     white-space: nowrap;
 }

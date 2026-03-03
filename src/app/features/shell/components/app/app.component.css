@@ -54,7 +54,7 @@
     padding: 0.4rem 0.9rem;
     border-top: 1px solid var(--borders-default);
     background: var(--surfaces-surface_alt);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     display: flex;
     align-items: center;
@@ -123,7 +123,7 @@
 
 
 .input-label {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
 }
 
@@ -136,7 +136,7 @@
 
 .error {
     color: var(--status-danger);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 @media (max-width: 960px) {

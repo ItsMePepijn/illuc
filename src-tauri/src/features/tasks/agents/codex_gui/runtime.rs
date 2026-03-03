@@ -3,6 +3,8 @@ use super::{
 };
 use crate::features::tasks::agents::{AgentCallbacks, AgentRuntime};
 use crate::utils::pty::{ChildHandle, MasterHandle, WriteHandle};
+#[cfg(target_os = "windows")]
+use crate::utils::windows::{build_wsl_process_command, to_wsl_path};
 use anyhow::{Context, Result};
 use parking_lot::Mutex;
 use serde_json::Value;
@@ -17,13 +19,15 @@ pub(super) fn start(
     worktree_path: &Path,
     callbacks: AgentCallbacks,
 ) -> Result<AgentRuntime> {
-    let mut command = Command::new("codex");
-    command
-        .arg("app-server")
-        .current_dir(worktree_path)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
+    #[cfg(target_os = "windows")]
+    let mut command = build_wsl_process_command(worktree_path, "codex", &["app-server"]);
+    #[cfg(not(target_os = "windows"))]
+    let mut command = {
+        let mut command = Command::new("codex");
+        command.arg("app-server").current_dir(worktree_path);
+        command
+    };
+    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
 
     let mut child = command
         .spawn()
@@ -42,7 +46,17 @@ pub(super) fn start(
     {
         let mut state = agent.state.lock();
         state.stdin = Some(BufWriter::new(stdin));
-        state.cwd = Some(worktree_path.to_string_lossy().to_string());
+        #[cfg(target_os = "windows")]
+        {
+            state.cwd = Some(
+                to_wsl_path(worktree_path)
+                    .unwrap_or_else(|| worktree_path.to_string_lossy().to_string()),
+            );
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            state.cwd = Some(worktree_path.to_string_lossy().to_string());
+        }
         state.thread_id = None;
         state.current_turn_id = None;
         state.pending_messages.clear();

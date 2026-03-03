@@ -1,12 +1,5 @@
 <div
-    *ngIf="streamingPlain; else reasoningHtml"
-    class="reasoning-content streaming-plain"
-    [textContent]="plainContent"
+    class="reasoning-content"
+    [innerHTML]="html"
+    (click)="contentClick.emit($event)"
 ></div>
-<ng-template #reasoningHtml>
-    <div
-        class="reasoning-content"
-        [innerHTML]="html"
-        (click)="contentClick.emit($event)"
-    ></div>
-</ng-template>

@@ -52,17 +52,13 @@ export function renderCodexGuiMessage(
               )
             : [],
         isToolRunning: statusLabel === "RUNNING",
-        toolStatusLabel: statusLabel,
+        toolStatusLabel: statusLabel === "RUNNING" ? "" : statusLabel,
         showStreamingIndicator: message.status === "streaming" && !toolMessage,
     };
 }
 
 export function isCodexGuiReasoningMessage(message: Message): boolean {
-    if (message.role !== "system") {
-        return false;
-    }
-    const text = message.content.trim();
-    return text === "Reasoning" || text.startsWith("Reasoning\n");
+    return message.role === "reasoning";
 }
 
 export function isCodexGuiToolMessage(message: Message): boolean {
@@ -189,9 +185,7 @@ function renderContent(content: string, stripPathPrefix: string): string {
 function renderReasoningContent(content: string): string {
     const normalized = content
         .split("\n")
-        .map((line) =>
-            stripReasoningBoldWrapper(line.trim().replace(/^-+\s*/, "")),
-        )
+        .map((line) => stripReasoningBoldWrapper(line.trim()))
         .filter((line) => line.length > 0)
         .join("<br>");
     return DOMPurify.sanitize(normalized, {
@@ -201,23 +195,20 @@ function renderReasoningContent(content: string): string {
 }
 
 function codexGuiReasoningText(content: string): string {
-    const trimmed = content.trim();
-    if (trimmed === "Reasoning") {
+    if (content === "Reasoning") {
         return "";
     }
-    const withoutHeader = trimmed.startsWith("Reasoning\n")
-        ? trimmed.slice("Reasoning\n".length)
+    return content.startsWith("Reasoning\n")
+        ? content.slice("Reasoning\n".length)
         : content;
-    const normalized = withoutHeader
-        .split("\n")
-        .map((line) => stripReasoningBoldWrapper(line))
-        .join("\n");
-    return normalized;
 }
 
 function stripReasoningBoldWrapper(value: string): string {
     const trimmed = value.trim();
     if (trimmed.startsWith("**") && trimmed.endsWith("**") && trimmed.length > 4) {
+        return trimmed.slice(2, -2).trim();
+    }
+    if (trimmed.startsWith("__") && trimmed.endsWith("__") && trimmed.length > 4) {
         return trimmed.slice(2, -2).trim();
     }
     return trimmed;
@@ -262,17 +253,106 @@ function normalizeReadCommandRow(row: string): string {
     }
 
     const command = row.slice(2).trim();
-    const catMatch = command.match(/^cat\s+(.+)$/);
+    const unwrappedCommand = unwrapShellLcCommand(command) ?? command;
+    const searchPattern = extractRgPattern(unwrappedCommand);
+    if (searchPattern) {
+        return `- Search ${searchPattern}`;
+    }
+    const catMatch = unwrappedCommand.match(/^cat\s+(.+)$/);
     if (catMatch) {
         return `- Read ${catMatch[1].trim()}`;
     }
 
-    const sedMatch = command.match(/^sed\s+-n\s+(['"])\d+,\d+p\1\s+(.+)$/);
+    const sedMatch = unwrappedCommand.match(
+        /^sed\s+-n\s+(?:['"])?\d+,\d+p(?:['"])?\s+(.+)$/,
+    );
     if (sedMatch) {
-        return `- Read ${sedMatch[2].trim()}`;
+        return `- Read ${sedMatch[1].trim()}`;
     }
 
     return row;
+}
+
+function extractRgPattern(command: string): string | null {
+    const tokens = command.match(/"[^"]*"|'[^']*'|\S+/g) ?? [];
+    const firstToken = tokens[0];
+    if (!firstToken) {
+        return null;
+    }
+    const binary = unquoteShellArgument(firstToken);
+    const binaryBase = binary.split("/").pop() ?? binary;
+    if (binaryBase !== "rg") {
+        return null;
+    }
+
+    const patterns: string[] = [];
+    for (let index = 1; index < tokens.length; index += 1) {
+        const token = tokens[index];
+        if (token === "--") {
+            const next = tokens[index + 1];
+            if (next) {
+                patterns.push(unquoteShellArgument(next));
+            }
+            break;
+        }
+        if (token === "-e" || token === "--regexp") {
+            const next = tokens[index + 1];
+            if (next) {
+                patterns.push(unquoteShellArgument(next));
+                index += 1;
+            }
+            continue;
+        }
+        if (token.startsWith("--regexp=")) {
+            patterns.push(unquoteShellArgument(token.slice("--regexp=".length)));
+            continue;
+        }
+        if (token.startsWith("-e") && token.length > 2) {
+            patterns.push(unquoteShellArgument(token.slice(2)));
+            continue;
+        }
+        if (token.startsWith("-")) {
+            continue;
+        }
+        patterns.push(unquoteShellArgument(token));
+        break;
+    }
+
+    if (patterns.length === 0) {
+        return null;
+    }
+    return patterns.join(" | ");
+}
+
+function unwrapShellLcCommand(command: string): string | null {
+    const shellMatch = command.match(
+        /^(?:\/bin\/bash|bash|\/bin\/sh|sh)\s+-lc\s+(.+)$/,
+    );
+    if (!shellMatch) {
+        return null;
+    }
+    const body = shellMatch[1].trim();
+    if (!body) {
+        return null;
+    }
+    return unquoteShellArgument(body);
+}
+
+function unquoteShellArgument(value: string): string {
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+        return trimmed;
+    }
+    if (trimmed.startsWith("\"") && trimmed.endsWith("\"")) {
+        return trimmed
+            .slice(1, -1)
+            .replaceAll("\\\"", "\"")
+            .replaceAll("\\\\", "\\");
+    }
+    if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+        return trimmed.slice(1, -1).replaceAll("\\'", "'");
+    }
+    return trimmed;
 }
 
 function patchToolRows(text: string): string[] {
@@ -414,10 +494,38 @@ function toDisplayPath(path: string, prefix: string): string {
     if (!prefix) {
         return normalizedPath;
     }
-    const normalizedPrefix = prefix.replaceAll("\\", "/").endsWith("/")
-        ? prefix.replaceAll("\\", "/")
-        : `${prefix.replaceAll("\\", "/")}/`;
-    return normalizedPath.startsWith(normalizedPrefix)
-        ? normalizedPath.slice(normalizedPrefix.length)
-        : normalizedPath;
+    for (const candidate of matchablePathPrefixes(prefix)) {
+        const normalizedPrefix = candidate.endsWith("/")
+            ? candidate
+            : `${candidate}/`;
+        if (normalizedPath.startsWith(normalizedPrefix)) {
+            return normalizedPath.slice(normalizedPrefix.length);
+        }
+    }
+    return normalizedPath;
+}
+
+function matchablePathPrefixes(prefix: string): string[] {
+    const normalized = prefix.trim().replaceAll("\\", "/").replace(/\/+$/, "");
+    if (!normalized) {
+        return [];
+    }
+
+    const prefixes = new Set<string>([normalized]);
+
+    const windowsMatch = normalized.match(/^([a-zA-Z]):\/(.*)$/);
+    if (windowsMatch) {
+        const drive = windowsMatch[1].toLowerCase();
+        const rest = windowsMatch[2].replace(/^\/+/, "");
+        prefixes.add(`/mnt/${drive}${rest ? `/${rest}` : ""}`);
+    }
+
+    const wslMatch = normalized.match(/^\/mnt\/([a-zA-Z])(?:\/(.*))?$/);
+    if (wslMatch) {
+        const drive = wslMatch[1].toUpperCase();
+        const rest = (wslMatch[2] ?? "").replace(/^\/+/, "");
+        prefixes.add(`${drive}:/${rest}`.replace(/\/+$/, ""));
+    }
+
+    return Array.from(prefixes);
 }

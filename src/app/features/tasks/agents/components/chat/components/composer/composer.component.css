@@ -38,7 +38,7 @@
     outline: none;
     resize: none;
     padding: 13px 14px 5px;
-    font-size: 14.5px;
+    font-family: inherit;
     color: var(--text-default);
     line-height: 1.6;
     min-height: 48px;
@@ -103,7 +103,7 @@
     padding: 4px 9px;
     border: 1px solid transparent;
     border-radius: 8px;
-    font-size: 11.5px;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     cursor: pointer;
     background: transparent;
@@ -160,7 +160,7 @@
 }
 
 .dropdown-section-label {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     letter-spacing: 0.07em;
     text-transform: uppercase;
     color: var(--text-subtle);
@@ -196,12 +196,12 @@
 }
 
 .model-option-name {
-    font-size: 12.5px;
+    font-size: var(--font-size-sm);
     color: var(--text-default);
 }
 
 .model-option-desc {
-    font-size: 10.5px;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
@@ -272,7 +272,7 @@
 
 .input-hint {
     text-align: center;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--text-subtle);
     margin: 9px 0 0;
 }

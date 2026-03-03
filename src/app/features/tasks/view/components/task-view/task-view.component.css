@@ -52,7 +52,7 @@
     background: var(--components-chip_bg);
     border-radius: 999px;
     padding: 0.15rem 0.75rem;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     margin-right: 0.5rem;
     color: var(--components-chip_text);
     letter-spacing: 0.5px;
@@ -128,7 +128,7 @@
 }
 
 .input-label {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
 }
 
@@ -156,7 +156,7 @@
 
 .error {
     color: var(--status-danger);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 .workspace-actions app-open-vscode-button,
@@ -376,7 +376,7 @@
 
 .terminal-idle-eyebrow {
     margin: 0 0 0.4rem;
-    font-size: 0.74rem;
+    font-size: var(--font-size-xs);
     letter-spacing: 0.14rem;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -384,7 +384,7 @@
 
 .terminal-idle-content h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
     color: var(--text-default);
 }
 
@@ -401,7 +401,7 @@
 :host ::ng-deep .terminal-idle-placeholder .start-trigger {
     height: 42px;
     padding: 0 1.15rem;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     border-color: var(--brand-accent);
     /* Use theme tokens here; hardcoding RGBA breaks when the accent changes (dark/dracula/etc). */
     background: linear-gradient(
@@ -536,7 +536,7 @@
     height: 20px;
     border-radius: 2px;
     padding: 0;
-    font-size: 1.6rem;
+    font-size: var(--font-size-xl);
     font-weight: 700;
     line-height: 1;
     border: 1px solid transparent;
@@ -619,7 +619,7 @@ button:disabled {
     border: 1px solid var(--borders-default);
     background: var(--surfaces-surface_strong);
     color: var(--text-default);
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.05rem;
 }
 
@@ -670,21 +670,21 @@ button:disabled {
 
 .landing-text h1 {
     margin: 0;
-    font-size: 2.25rem;
+    font-size: var(--font-size-xl);
     letter-spacing: 0.4rem;
     text-transform: uppercase;
 }
 
 .etymology {
     margin: 0.3rem 0 1.25rem;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.08rem;
     color: var(--text-muted);
     font-style: italic;
 }
 
 .subtitle {
-    font-size: 1rem;
+    font-size: var(--font-size-md);
     line-height: 1.5;
     max-width: 420px;
     color: var(--text-subtle);
@@ -695,7 +695,7 @@ button:disabled {
         padding: 1.75rem 1.5rem;
     }
     .landing-text h1 {
-        font-size: 1.8rem;
+        font-size: var(--font-size-xl);
         letter-spacing: 0.3rem;
     }
 }

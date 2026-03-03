@@ -13,7 +13,7 @@
     overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
-    padding: 36px 0 16px;
+    padding: 36px 0 0;
 }
 
 .messages-shell::-webkit-scrollbar {
@@ -63,6 +63,10 @@
     padding: 0 12px 20px;
 }
 
+.message-row.compact-with-next {
+    padding-bottom: 6px;
+}
+
 .tail-row {
     flex: 0 0 auto;
 }
@@ -101,7 +105,7 @@
 }
 
 .msg-content {
-    font-size: 15px;
+    font-size: var(--font-size-md);
     line-height: 1.75;
     color: var(--text-default);
 }
@@ -144,7 +148,7 @@
     border-radius: 4px;
     padding: 1px 5px;
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 12.5px;
+    font-size: var(--font-size-xs);
     color: var(--brand-accent);
 }
 
@@ -160,7 +164,7 @@
     background: transparent;
     border: none;
     padding: 0;
-    font-size: 13px;
+    font-size: var(--font-size-xs);
     line-height: 1.6;
     color: var(--text-default);
 }
@@ -196,7 +200,7 @@
 
 .tool-glyph {
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 11px;
+    font-size: var(--font-size-xs);
     color: var(--text-subtle);
     flex-shrink: 0;
     margin-top: 1px;
@@ -216,7 +220,7 @@
 
 .tool-cmd {
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 12.5px;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     flex: 0 1 auto;
     min-width: 1px;
@@ -275,7 +279,7 @@
 }
 
 .tool-status {
-    font-size: 10px;
+    font-size: var(--font-size-xs);
     color: var(--status-success);
     flex-shrink: 0;
     opacity: 0.8;

@@ -10,7 +10,6 @@
 }
 
 .typing-label {
-    font-size: 12px;
     white-space: nowrap;
     max-width: min(56ch, 72vw);
     overflow: hidden;

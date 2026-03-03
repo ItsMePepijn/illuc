@@ -38,7 +38,7 @@
 
 .file-list h4 {
     margin: 0 0 0.35rem 0;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     margin-left: 0.5rem;
 }
@@ -49,7 +49,7 @@
     overflow: hidden;
     min-height: 0;
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 0.8rem;
+    font-size: var(--font-size-xs);
     background: var(--surfaces-surface);
     color: var(--text-default);
     contain: paint;
@@ -227,7 +227,7 @@
     background: var(--surfaces-surface);
     border-radius: 999px;
     padding: 0.05rem 0.35rem;
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
     color: var(--text-default);
 }
 
@@ -259,13 +259,13 @@
     background: var(--surfaces-surface_strong);
     border-radius: 999px;
     padding: 0.1rem 0.45rem;
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
     color: var(--text-default);
     z-index: 3;
 }
 
 .diff-thread-collapsed-icon {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
 }
 
 .diff-thread-collapsed-count {
@@ -326,7 +326,7 @@ button {
     border: 1px solid var(--borders-default);
     border-radius: 4px;
     color: inherit;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     padding: 0.2rem 0.6rem;
     cursor: pointer;
 }
@@ -350,7 +350,7 @@ button:disabled {
     border: none;
     color: var(--text-muted);
     padding: 0.25rem 0.75rem;
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     cursor: pointer;
     min-width: 0;
     max-width: 100%;

@@ -1,4 +1,11 @@
 :root {
+    /* Typography */
+    --font-size-md: 1rem;
+    --font-size-xs: calc(var(--font-size-md) * 0.75);
+    --font-size-sm: calc(var(--font-size-md) * 0.85);
+    --font-size-lg: calc(var(--font-size-md) * 1.25);
+    --font-size-xl: calc(var(--font-size-md) * 1.6);
+
     /* Surfaces */
     --surfaces-bg: #f1ece4;
     --surfaces-surface: #f7f3ec;

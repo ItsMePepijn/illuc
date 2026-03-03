@@ -36,6 +36,7 @@ pub enum GuiMessageRole {
     User,
     Assistant,
     System,
+    Reasoning,
 }
 
 impl GuiMessageRole {
@@ -44,6 +45,7 @@ impl GuiMessageRole {
             GuiMessageRole::User => "user",
             GuiMessageRole::Assistant => "assistant",
             GuiMessageRole::System => "system",
+            GuiMessageRole::Reasoning => "reasoning",
         }
     }
 }

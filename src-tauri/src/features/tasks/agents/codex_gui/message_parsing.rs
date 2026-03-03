@@ -15,7 +15,7 @@ pub(super) fn extract_role(item: Option<&Value>, method: &str) -> Option<GuiMess
         Some("fileChange") | Some("file_change") => Some(GuiMessageRole::System),
         Some("fileRead") | Some("file_read") => Some(GuiMessageRole::System),
         Some("plan") => Some(GuiMessageRole::System),
-        Some("reasoning") => Some(GuiMessageRole::System),
+        Some("reasoning") => Some(GuiMessageRole::Reasoning),
         Some("mcpToolCall") | Some("dynamicToolCall") | Some("collabAgentToolCall") => {
             Some(GuiMessageRole::System)
         }
@@ -52,7 +52,6 @@ pub(super) fn extract_role(item: Option<&Value>, method: &str) -> Option<GuiMess
             Some(GuiMessageRole::System)
         }
         _ if method.starts_with("item/plan/")
-            || method.starts_with("item/reasoning/")
             || method.starts_with("item/mcpToolCall/")
             || method.starts_with("item/dynamicToolCall/")
             || method.starts_with("item/collabAgentToolCall/")
@@ -64,11 +63,15 @@ pub(super) fn extract_role(item: Option<&Value>, method: &str) -> Option<GuiMess
         {
             Some(GuiMessageRole::System)
         }
+        _ if method.starts_with("item/reasoning/") => Some(GuiMessageRole::Reasoning),
         _ => None,
     }
 }
 
 pub(super) fn extract_content(params: &Value, item: Option<&Value>) -> String {
+    if is_reasoning_summary_item(item) {
+        return String::new();
+    }
     if let Some(command_text) = extract_command_execution_content(params, item) {
         return command_text;
     }
@@ -107,6 +110,16 @@ pub(super) fn extract_content(params: &Value, item: Option<&Value>) -> String {
     }
 
     String::new()
+}
+
+fn is_reasoning_summary_item(item: Option<&Value>) -> bool {
+    let Some(item) = item else {
+        return false;
+    };
+    matches!(
+        item.get("type").and_then(Value::as_str),
+        Some("reasoning")
+    ) && item.get("summary").is_some()
 }
 
 fn extract_command_execution_content(params: &Value, item: Option<&Value>) -> Option<String> {
@@ -280,25 +293,7 @@ fn extract_special_item_content(params: &Value, item: Option<&Value>) -> Option<
                 .map(|text| format!("Plan\n{}", text.trim()))
                 .unwrap_or_else(|| "Plan".to_string()),
         ),
-        "reasoning" => {
-            let summary = item
-                .get("summary")
-                .and_then(Value::as_array)
-                .map(|parts| {
-                    parts
-                        .iter()
-                        .filter_map(Value::as_str)
-                        .map(str::trim)
-                        .filter(|part| !part.is_empty())
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default();
-            if summary.is_empty() {
-                Some("Reasoning".to_string())
-            } else {
-                Some(format!("Reasoning\n- {}", summary.join("\n- ")))
-            }
-        }
+        "reasoning" => None,
         "webSearch" => item
             .get("query")
             .and_then(Value::as_str)
@@ -442,6 +437,9 @@ pub(super) fn collect_history_events(value: &Value) -> Vec<GuiMessageEvent> {
         };
         for item in items {
             let item_type = item.get("type").and_then(Value::as_str);
+            if is_reasoning_summary_item(Some(item)) {
+                continue;
+            }
             let is_command = matches!(
                 item_type,
                 Some("commandExecution") | Some("command_execution")
@@ -458,6 +456,7 @@ pub(super) fn collect_history_events(value: &Value) -> Vec<GuiMessageEvent> {
                         Some("user") => Some(GuiMessageRole::User),
                         Some("assistant") => Some(GuiMessageRole::Assistant),
                         Some("system") => Some(GuiMessageRole::System),
+                        Some("reasoning") => Some(GuiMessageRole::Reasoning),
                         _ => None,
                     }
                 }),

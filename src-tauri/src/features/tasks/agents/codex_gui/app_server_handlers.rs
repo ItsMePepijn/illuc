@@ -309,12 +309,22 @@ pub(super) fn handle_notification(state: &Arc<Mutex<CodexGuiAgentState>>, value:
         }
     }
 
+    if method.starts_with("item/reasoning/") {
+        if let Some(callbacks) = update_activity_from_notification(state, value, "Thinking", false) {
+            emit_activity_from_state(state, &callbacks);
+        }
+    }
+
     if !method.starts_with("item/") {
         return;
     }
 
     let params = value.get("params").unwrap_or(&Value::Null);
     let item = params.get("item");
+
+    if method.starts_with("item/reasoning/") && has_reasoning_summary(value, item) {
+        return;
+    }
 
     let Some(role) = extract_role(item, method) else {
         return;
@@ -447,7 +457,7 @@ fn activity_label_from_notification(value: &Value) -> Option<String> {
             Some(format!("Reading {}", path))
         }
         "fileChange" | "file_change" => Some("Applying file changes".to_string()),
-        "reasoning" => Some("Thinking".to_string()),
+        "reasoning" => reasoning_activity_summary(item).or_else(|| Some("Thinking".to_string())),
         "plan" => Some("Planning".to_string()),
         "agentMessage" | "agent_message" => {
             let phase = item.get("phase").and_then(Value::as_str).unwrap_or("");
@@ -471,6 +481,57 @@ fn activity_label_from_notification(value: &Value) -> Option<String> {
         }
         _ => None,
     }
+}
+
+fn reasoning_activity_summary(item: &Value) -> Option<String> {
+    summary_to_label(item.get("summary")?)
+}
+
+fn has_reasoning_summary(value: &Value, item: Option<&Value>) -> bool {
+    item.and_then(|entry| entry.get("summary"))
+        .and_then(summary_to_label)
+        .is_some()
+        || value
+            .pointer("/params/summary")
+            .and_then(summary_to_label)
+            .is_some()
+}
+
+fn summary_to_label(summary: &Value) -> Option<String> {
+    if let Some(text) = summary.as_str() {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    if let Some(array) = summary.as_array() {
+        let joined = array
+            .iter()
+            .filter_map(summary_entry_text)
+            .map(str::trim)
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>()
+            .join(" · ");
+        if !joined.is_empty() {
+            return Some(joined);
+        }
+    }
+
+    if let Some(text) = summary.get("text").and_then(Value::as_str) {
+        let trimmed = text.trim();
+        if !trimmed.is_empty() {
+            return Some(trimmed.to_string());
+        }
+    }
+
+    None
+}
+
+fn summary_entry_text(entry: &Value) -> Option<&str> {
+    entry
+        .as_str()
+        .or_else(|| entry.get("text").and_then(Value::as_str))
 }
 
 fn plan_activity_label(value: &Value) -> Option<String> {
@@ -591,7 +652,11 @@ fn parse_request_event(
                 .get("grantRoot")
                 .and_then(Value::as_str)
                 .map(str::to_string),
-            available_decisions: vec!["approved".to_string(), "denied".to_string()],
+            available_decisions: params
+                .get("availableDecisions")
+                .and_then(Value::as_array)
+                .map(string_vec)
+                .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
         },
         "item/tool/requestUserInput" => GuiRequestEvent::UserInput {
             request_id: request_id_text.clone(),
