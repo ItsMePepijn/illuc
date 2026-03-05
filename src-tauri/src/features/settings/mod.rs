@@ -127,7 +127,11 @@ pub fn ensure_user_settings_file(app: &tauri::AppHandle) -> anyhow::Result<PathB
 
     ensure_default_theme_file(&themes_dir, "light", DEFAULT_LIGHT_THEME)?;
     ensure_default_theme_file(&themes_dir, "dark", DEFAULT_DARK_THEME)?;
-    ensure_default_theme_file(&themes_dir, "amber-monochrome", DEFAULT_AMBER_MONOCHROME_THEME)?;
+    ensure_default_theme_file(
+        &themes_dir,
+        "amber-monochrome",
+        DEFAULT_AMBER_MONOCHROME_THEME,
+    )?;
 
     Ok(settings_path)
 }

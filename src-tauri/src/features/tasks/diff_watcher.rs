@@ -48,7 +48,10 @@ fn has_review_store_change(event: &Event) -> bool {
     if !is_content_change_event(event) {
         return false;
     }
-    event.paths.iter().any(|path| is_review_store_path(path.as_path()))
+    event
+        .paths
+        .iter()
+        .any(|path| is_review_store_path(path.as_path()))
 }
 
 fn is_review_store_path(path: &std::path::Path) -> bool {

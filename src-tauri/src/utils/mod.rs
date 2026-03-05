@@ -3,7 +3,6 @@ pub mod fs;
 pub mod path;
 pub mod pty;
 pub mod screen;
-#[cfg(target_os = "windows")]
 pub mod windows;
 #[cfg(target_os = "windows")]
 pub mod wsl_pty;

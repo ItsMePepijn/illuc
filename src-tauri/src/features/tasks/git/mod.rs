@@ -54,7 +54,10 @@ fn configure_windows_long_paths(repo: &Repository) {
     match repo.config() {
         Ok(mut config) => {
             if let Err(error) = config.set_bool("core.longpaths", true) {
-                warn!("failed to set core.longpaths=true for repository: {}", error);
+                warn!(
+                    "failed to set core.longpaths=true for repository: {}",
+                    error
+                );
             }
         }
         Err(error) => {

@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 pub mod codex;
 pub mod copilot;
+pub mod open_code;
 
 pub struct AgentRuntime {
     pub child: Arc<Mutex<ChildHandle>>,
