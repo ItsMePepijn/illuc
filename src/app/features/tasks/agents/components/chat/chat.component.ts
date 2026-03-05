@@ -31,6 +31,10 @@ import {
     UsageWindowSnapshot,
 } from "../usage-window-rail/usage-window-rail.component";
 
+const LIMIT_STATUS_POLL_INTERVAL_MS = 60_000;
+const LIMIT_STATUS_BOOTSTRAP_POLL_INTERVAL_MS = 2_500;
+const LIMIT_STATUS_BOOTSTRAP_MAX_ATTEMPTS = 12;
+
 @Component({
     selector: "app-codex-gui-chat",
     standalone: true,
@@ -78,6 +82,8 @@ export class ChatComponent implements OnChanges, OnDestroy {
     private tokenUsageSubscription?: Subscription;
     private requestSubscription?: Subscription;
     private limitStatusTimerId: number | null = null;
+    private limitStatusBootstrapTimerId: number | null = null;
+    private limitStatusBootstrapAttempts = 0;
 
     constructor(
         private readonly taskStore: TaskStore,
@@ -217,6 +223,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
         this.planSubscription?.unsubscribe();
         this.tokenUsageSubscription?.unsubscribe();
         this.requestSubscription?.unsubscribe();
+        this.stopLimitStatusPolling();
         if (!this.taskId) {
             this.messages = [];
             this.messagesHydrated = true;
@@ -355,9 +362,10 @@ export class ChatComponent implements OnChanges, OnDestroy {
     private startLimitStatusPolling(taskId: string): void {
         this.stopLimitStatusPolling();
         void this.refreshLimitStatus(taskId);
+        this.startLimitStatusBootstrapPolling(taskId);
         this.limitStatusTimerId = window.setInterval(() => {
             void this.refreshLimitStatus(taskId);
-        }, 60_000);
+        }, LIMIT_STATUS_POLL_INTERVAL_MS);
     }
 
     private stopLimitStatusPolling(): void {
@@ -365,6 +373,43 @@ export class ChatComponent implements OnChanges, OnDestroy {
             window.clearInterval(this.limitStatusTimerId);
             this.limitStatusTimerId = null;
         }
+        this.stopLimitStatusBootstrapPolling();
+    }
+
+    private startLimitStatusBootstrapPolling(taskId: string): void {
+        this.stopLimitStatusBootstrapPolling();
+        this.limitStatusBootstrapAttempts = 0;
+        this.limitStatusBootstrapTimerId = window.setInterval(() => {
+            if (this.taskId !== taskId) {
+                this.stopLimitStatusBootstrapPolling();
+                return;
+            }
+            if (this.limitStatus !== null) {
+                this.stopLimitStatusBootstrapPolling();
+                return;
+            }
+            this.limitStatusBootstrapAttempts += 1;
+            void this.refreshLimitStatus(taskId).finally(() => {
+                if (this.taskId !== taskId) {
+                    this.stopLimitStatusBootstrapPolling();
+                    return;
+                }
+                if (
+                    this.limitStatus !== null ||
+                    this.limitStatusBootstrapAttempts >= LIMIT_STATUS_BOOTSTRAP_MAX_ATTEMPTS
+                ) {
+                    this.stopLimitStatusBootstrapPolling();
+                }
+            });
+        }, LIMIT_STATUS_BOOTSTRAP_POLL_INTERVAL_MS);
+    }
+
+    private stopLimitStatusBootstrapPolling(): void {
+        if (this.limitStatusBootstrapTimerId !== null) {
+            window.clearInterval(this.limitStatusBootstrapTimerId);
+            this.limitStatusBootstrapTimerId = null;
+        }
+        this.limitStatusBootstrapAttempts = 0;
     }
 
     private async refreshLimitStatus(taskId: string): Promise<void> {

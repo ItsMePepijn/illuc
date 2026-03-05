@@ -58,7 +58,7 @@
 
     /* Scrollbar */
     --scrollbar-track: rgba(96, 90, 82, 0.08);
-    --scrollbar-thumb: rgba(96, 90, 82, 0.3);
+    --scrollbar-thumb: rgba(96, 90, 82, 0.2);
     --scrollbar-thumb_hover: rgba(96, 90, 82, 0.42);
     --scrollbar-thumb_active: rgba(96, 90, 82, 0.55);
     --scrollbar-size: 6px;

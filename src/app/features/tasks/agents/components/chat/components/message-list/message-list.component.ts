@@ -34,6 +34,7 @@ import {
     CodexGuiBottomSyncController,
 } from "./codex-gui-message-list-scroll-controllers";
 import { TypingIndicatorComponent } from "../typing-indicator/typing-indicator.component";
+import { ThrobberComponent } from "../throbber/throbber.component";
 import { ReasoningMessageComponent } from "./components/reasoning-message/reasoning-message.component";
 import { StandardMessageComponent } from "./components/standard-message/standard-message.component";
 import { ToolMessageComponent } from "./components/tool-message/tool-message.component";
@@ -126,6 +127,7 @@ function estimateWrappedLineCount(text: string, charsPerLine: number): number {
         DynamicSizeVirtualScrollStrategy,
         LoadingSpinnerComponent,
         TypingIndicatorComponent,
+        ThrobberComponent,
         UserMessageComponent,
         ToolMessageComponent,
         ReasoningMessageComponent,
@@ -179,6 +181,8 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     private viewport?: RxVirtualScrollViewportComponent;
     private scrollHost?: HTMLElement;
     private removeScrollListener?: () => void;
+    private resizeObserver?: ResizeObserver;
+    private resizeSyncFrameId?: number;
     private historyRenderSubscription?: Subscription;
     private historyMeasurementFrameId?: number;
 
@@ -242,6 +246,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
 
     ngOnDestroy(): void {
         this.removeScrollListener?.();
+        this.disconnectResizeObserver();
         this.clearActivationBottomSync();
         this.clearPendingBottomSnap();
         this.historyRenderSubscription?.unsubscribe();
@@ -527,6 +532,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
 
     private bindScrollHost(): void {
         this.removeScrollListener?.();
+        this.disconnectResizeObserver();
         const scrollHost = this.scrollHost;
         if (!scrollHost) {
             this.removeScrollListener = undefined;
@@ -550,9 +556,44 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                 passive: true,
             });
         });
+        this.bindResizeObserver(scrollHost);
         onScroll();
         this.removeScrollListener = () =>
             scrollHost.removeEventListener("scroll", onScroll);
+    }
+
+    private bindResizeObserver(scrollHost: HTMLElement): void {
+        if (typeof ResizeObserver === "undefined") {
+            return;
+        }
+        this.resizeObserver = new ResizeObserver(() => {
+            if (!this.isActive || !this.bottomPinController.isPinned) {
+                return;
+            }
+            this.zone.runOutsideAngular(() => {
+                if (this.resizeSyncFrameId !== undefined) {
+                    cancelAnimationFrame(this.resizeSyncFrameId);
+                }
+                this.resizeSyncFrameId = requestAnimationFrame(() => {
+                    this.resizeSyncFrameId = undefined;
+                    if (!this.isActive || !this.bottomPinController.isPinned) {
+                        return;
+                    }
+                    this.requestBottomSync();
+                });
+            });
+        });
+        this.resizeObserver.observe(scrollHost);
+    }
+
+    private disconnectResizeObserver(): void {
+        this.resizeObserver?.disconnect();
+        this.resizeObserver = undefined;
+        if (this.resizeSyncFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.resizeSyncFrameId);
+        this.resizeSyncFrameId = undefined;
     }
 
     private shouldUseBottomFollow(

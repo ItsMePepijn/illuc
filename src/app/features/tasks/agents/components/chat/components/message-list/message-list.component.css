@@ -22,7 +22,7 @@
 
 .messages-shell::-webkit-scrollbar-thumb {
     border-radius: 2px;
-    background: var(--borders-default);
+    background: var(--scrollbar-thumb);
 }
 
 .messages-viewport {
@@ -291,23 +291,5 @@
 
 .streaming-indicator {
     margin-top: 6px;
-    display: inline-block;
-    width: var(--throbber-size);
-    height: var(--throbber-size);
-    border-radius: 999px;
-    background: var(--brand-accent);
-    animation: pulse-single 1.8s ease-in-out infinite;
-}
-
-@keyframes pulse-single {
-    0%,
-    80%,
-    100% {
-        opacity: 0.3;
-        transform: scale(1);
-    }
-    40% {
-        opacity: 1;
-        transform: scale(1.2);
-    }
+    flex: 0 0 auto;
 }

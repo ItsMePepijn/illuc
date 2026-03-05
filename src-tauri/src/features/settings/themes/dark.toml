@@ -52,7 +52,7 @@ segmented_active_text = "#f8f8f2"
 
 [scrollbar]
 track = "rgba(68, 71, 90, 0.35)"
-thumb = "rgba(248, 248, 242, 0.22)"
+thumb = "rgba(248, 248, 242, 0.16)"
 thumb_hover = "rgba(248, 248, 242, 0.32)"
 thumb_active = "rgba(248, 248, 242, 0.42)"
 size = "6px"

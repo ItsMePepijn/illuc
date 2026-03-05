@@ -108,9 +108,9 @@
         [showLabel]="item.showTypingLabel"
     ></app-codex-gui-typing-indicator>
 
-    <span
+    <app-codex-gui-throbber
         *ngIf="item.showStreamingIndicator"
         class="streaming-indicator"
         aria-hidden="true"
-    ></span>
+    ></app-codex-gui-throbber>
 </ng-template>

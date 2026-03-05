@@ -16,6 +16,10 @@ export type UsageWindowSnapshot = {
     workingPeriods?: Array<{ startAt: string; endAt: string }>;
 };
 
+const USAGE_POLL_INTERVAL_MS = 60_000;
+const USAGE_BOOTSTRAP_POLL_INTERVAL_MS = 2_500;
+const USAGE_BOOTSTRAP_MAX_ATTEMPTS = 12;
+
 @Component({
     selector: "app-usage-window-rail",
     standalone: true,
@@ -35,6 +39,8 @@ export class UsageWindowRailComponent implements OnChanges, OnDestroy {
     usageSectionTitles: string[] = [];
 
     private usageTimerId: number | null = null;
+    private usageBootstrapTimerId: number | null = null;
+    private usageBootstrapAttempts = 0;
 
     constructor(private readonly cdr: ChangeDetectorRef) {}
 
@@ -102,9 +108,10 @@ export class UsageWindowRailComponent implements OnChanges, OnDestroy {
             return;
         }
         void this.refreshUsage(taskId);
+        this.startUsageBootstrapPolling(taskId);
         this.usageTimerId = window.setInterval(() => {
             void this.refreshUsage(taskId);
-        }, 60_000);
+        }, USAGE_POLL_INTERVAL_MS);
     }
 
     private stopUsagePolling(): void {
@@ -112,6 +119,43 @@ export class UsageWindowRailComponent implements OnChanges, OnDestroy {
             window.clearInterval(this.usageTimerId);
             this.usageTimerId = null;
         }
+        this.stopUsageBootstrapPolling();
+    }
+
+    private startUsageBootstrapPolling(taskId: string): void {
+        this.stopUsageBootstrapPolling();
+        this.usageBootstrapAttempts = 0;
+        this.usageBootstrapTimerId = window.setInterval(() => {
+            if (this.taskId !== taskId || !this.fetchUsage) {
+                this.stopUsageBootstrapPolling();
+                return;
+            }
+            if (this.usageRemainingRatio !== null) {
+                this.stopUsageBootstrapPolling();
+                return;
+            }
+            this.usageBootstrapAttempts += 1;
+            void this.refreshUsage(taskId).finally(() => {
+                if (this.taskId !== taskId) {
+                    this.stopUsageBootstrapPolling();
+                    return;
+                }
+                if (
+                    this.usageRemainingRatio !== null ||
+                    this.usageBootstrapAttempts >= USAGE_BOOTSTRAP_MAX_ATTEMPTS
+                ) {
+                    this.stopUsageBootstrapPolling();
+                }
+            });
+        }, USAGE_BOOTSTRAP_POLL_INTERVAL_MS);
+    }
+
+    private stopUsageBootstrapPolling(): void {
+        if (this.usageBootstrapTimerId !== null) {
+            window.clearInterval(this.usageBootstrapTimerId);
+            this.usageBootstrapTimerId = null;
+        }
+        this.usageBootstrapAttempts = 0;
     }
 
     private async refreshUsage(taskId: string): Promise<void> {
