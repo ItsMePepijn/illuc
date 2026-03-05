@@ -1,0 +1,6 @@
+<div
+    class="msg-content"
+    [class.system-content]="role === 'system'"
+    [innerHTML]="html"
+    (click)="contentClick.emit($event)"
+></div>

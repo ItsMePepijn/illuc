@@ -45,6 +45,84 @@ pub fn emit_review_changed(app: &AppHandle, task_id: Uuid) {
     }
 }
 
+pub fn emit_codex_gui_message(
+    app: &AppHandle,
+    task_id: Uuid,
+    message_id: String,
+    role: &'static str,
+    content: String,
+    is_delta: bool,
+    is_final: bool,
+) {
+    let payload = CodexGuiMessagePayload {
+        task_id,
+        message_id,
+        role,
+        content,
+        is_delta,
+        is_final,
+    };
+    if let Err(error) = app.emit("task_codex_gui_message", payload) {
+        log::warn!("failed to emit task_codex_gui_message event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_hydrated(app: &AppHandle, task_id: Uuid) {
+    let payload = CodexGuiHydratedPayload { task_id };
+    if let Err(error) = app.emit("task_codex_gui_hydrated", payload) {
+        log::warn!("failed to emit task_codex_gui_hydrated event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_activity(
+    app: &AppHandle,
+    task_id: Uuid,
+    label: Option<String>,
+    started_at: Option<chrono::DateTime<chrono::Utc>>,
+) {
+    let payload = CodexGuiActivityPayload {
+        task_id,
+        label,
+        started_at,
+    };
+    if let Err(error) = app.emit("task_codex_gui_activity", payload) {
+        log::warn!("failed to emit task_codex_gui_activity event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_plan(
+    app: &AppHandle,
+    task_id: Uuid,
+    explanation: Option<String>,
+    plan: Vec<CodexGuiPlanStepPayload>,
+) {
+    let payload = CodexGuiPlanPayload {
+        task_id,
+        explanation,
+        plan,
+    };
+    if let Err(error) = app.emit("task_codex_gui_plan", payload) {
+        log::warn!("failed to emit task_codex_gui_plan event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_token_usage(
+    app: &AppHandle,
+    task_id: Uuid,
+    usage: CodexGuiTokenUsagePayload,
+) {
+    let payload = CodexGuiTokenUsageEventPayload { task_id, usage };
+    if let Err(error) = app.emit("task_codex_gui_token_usage", payload) {
+        log::warn!("failed to emit task_codex_gui_token_usage event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_request(app: &AppHandle, payload: CodexGuiRequestPayload) {
+    if let Err(error) = app.emit("task_codex_gui_request", payload) {
+        log::warn!("failed to emit task_codex_gui_request event: {error}");
+    }
+}
+
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TerminalOutputPayload {
@@ -71,4 +149,108 @@ struct DiffChangedPayload {
 #[serde(rename_all = "camelCase")]
 struct ReviewChangedPayload {
     task_id: Uuid,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiMessagePayload {
+    task_id: Uuid,
+    message_id: String,
+    role: &'static str,
+    content: String,
+    is_delta: bool,
+    is_final: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiHydratedPayload {
+    task_id: Uuid,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiActivityPayload {
+    task_id: Uuid,
+    label: Option<String>,
+    started_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGuiPlanStepPayload {
+    pub step: String,
+    pub status: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiPlanPayload {
+    task_id: Uuid,
+    explanation: Option<String>,
+    plan: Vec<CodexGuiPlanStepPayload>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGuiTokenUsagePayload {
+    pub total_tokens: u64,
+    pub input_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub output_tokens: u64,
+    pub reasoning_output_tokens: u64,
+    pub last_total_tokens: u64,
+    pub last_input_tokens: u64,
+    pub last_cached_input_tokens: u64,
+    pub last_output_tokens: u64,
+    pub last_reasoning_output_tokens: u64,
+    pub model_context_window: Option<u64>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiTokenUsageEventPayload {
+    task_id: Uuid,
+    usage: CodexGuiTokenUsagePayload,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGuiQuestionOptionPayload {
+    pub label: String,
+    pub description: String,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGuiQuestionPayload {
+    pub id: String,
+    pub header: String,
+    pub question: String,
+    pub is_other: bool,
+    pub is_secret: bool,
+    pub options: Vec<CodexGuiQuestionOptionPayload>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CodexGuiRequestPayload {
+    pub task_id: Uuid,
+    pub request_id: Option<String>,
+    pub kind: String,
+    pub item_id: Option<String>,
+    pub approval_id: Option<String>,
+    pub command: Option<String>,
+    pub cwd: Option<String>,
+    pub reason: Option<String>,
+    pub network_host: Option<String>,
+    pub network_protocol: Option<String>,
+    pub additional_read_roots: Vec<String>,
+    pub additional_write_roots: Vec<String>,
+    pub additional_network: bool,
+    pub available_decisions: Vec<String>,
+    pub proposed_exec_policy: Vec<String>,
+    pub proposed_network_policy: Vec<String>,
+    pub grant_root: Option<String>,
+    pub questions: Vec<CodexGuiQuestionPayload>,
 }

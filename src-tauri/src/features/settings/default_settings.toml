@@ -6,3 +6,10 @@
 #
 # theme = "amber-monochrome"
 # Uncomment `theme` to force a theme. If omitted, Illuc defaults to the system light/dark preference.
+
+# Set your working hours using `opening_hours` syntax. This is used for the agent token usage pace rail.
+# Examples:
+# working_hours = "Mo-Fr 09:00-17:00"
+# working_hours = "Mo-Tu 09:00-17:00; We off; Th-Fr 09:00-17:00"
+# working_hours = "24/7"
+working_hours = "Mo-Fr 09:00-17:00"

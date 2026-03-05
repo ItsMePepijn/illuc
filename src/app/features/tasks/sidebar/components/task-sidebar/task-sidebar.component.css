@@ -1,5 +1,5 @@
 .task-sidebar {
-    --sidebar-width: 320px;
+    --sidebar-width: 360px;
     display: flex;
     flex-direction: column;
     border-right: 1px solid var(--borders-default);
@@ -37,7 +37,7 @@
 }
 
 .repo-label {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     letter-spacing: 0.14rem;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -69,7 +69,7 @@
 
 .repo-path {
     display: block;
-    font-size: 0.82rem;
+    font-size: var(--font-size-sm);
     line-height: 1.25;
     color: var(--text-default);
     text-decoration: none;
@@ -80,7 +80,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.76rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
@@ -101,13 +101,13 @@
 }
 
 .repo-empty-title {
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     font-weight: 650;
     color: var(--text-default);
 }
 
 .repo-empty-copy {
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     line-height: 1.35;
     color: var(--text-muted);
 }
@@ -181,7 +181,7 @@
     border-radius: 999px;
     border: 1px solid transparent;
     background: transparent;
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
@@ -293,7 +293,7 @@
     border: 1px solid rgba(96, 90, 82, 0.14);
     border-radius: 999px;
     padding: 0.1rem 0.48rem;
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
     font-weight: 750;
     letter-spacing: 0.04rem;
     color: var(--text-default);
@@ -310,7 +310,7 @@
 
 .branch {
     color: var(--text-muted);
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -325,7 +325,7 @@
 }
 
 .status {
-    font-size: 0.72rem;
+    font-size: var(--font-size-xs);
     padding: 0;
     border-radius: 0;
     border: 0;
@@ -363,11 +363,6 @@
 :host ::ng-deep .actions button.icon-btn {
     width: 28px;
     height: 28px;
-}
-
-:host ::ng-deep .actions button.icon-btn .button-spinner {
-    width: 14px;
-    height: 14px;
 }
 
 :host ::ng-deep .actions button.action-btn.warn {

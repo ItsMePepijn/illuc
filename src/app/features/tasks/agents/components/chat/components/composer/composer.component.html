@@ -1,0 +1,131 @@
+<form class="input-area" (submit)="$event.preventDefault(); onSend()">
+    <div class="input-wrapper">
+        <div class="context-status-row">
+            <app-codex-gui-context-status
+                [limitWindowDurationMins]="limitWindowDurationMins"
+                [limitUsedPercent]="limitUsedPercent"
+                [contextWindowUsed]="contextWindowUsed"
+                [contextWindowSize]="contextWindowSize"
+            ></app-codex-gui-context-status>
+        </div>
+
+        <div class="input-box">
+            <textarea
+                #composerInput
+                name="prompt"
+                [ngModel]="prompt"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="onPromptInput($event)"
+                rows="1"
+                placeholder="Reply to Codex..."
+                (keydown)="onKeyDown($event)"
+            ></textarea>
+
+            <div class="input-toolbar">
+                <!-- TODO(attachments): re-enable attach button once upload flow is implemented.
+                <button class="plus-btn" type="button" aria-label="Attach">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M12 5v14" />
+                        <path d="M5 12h14" />
+                    </svg>
+                </button>
+                -->
+                <span class="toolbar-spacer" aria-hidden="true"></span>
+
+                    <div class="input-right">
+                        <div class="model-selector" [class.open]="modelMenuOpen">
+                        <button
+                            type="button"
+                            class="model-pill"
+                            [class.open]="modelMenuOpen"
+                            (click)="toggleModelMenu($event)"
+                        >
+                            <span class="model-pill-dot"></span>
+                            <span class="model-pill-label">{{ modelLabel(selectedModel) }}</span>
+                            <svg class="model-chevron" viewBox="0 0 24 24" stroke-width="1.8">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </button>
+
+                        <div class="model-dropdown" [class.open]="modelMenuOpen">
+                            <div class="dropdown-section-label">Models</div>
+                            <button
+                                type="button"
+                                class="model-option"
+                                *ngFor="let option of modelOptions"
+                                [class.selected]="option.value === selectedModel"
+                                (click)="selectModelOption(option.value, $event)"
+                            >
+                                <span class="model-option-info">
+                                    <span class="model-option-name">{{ modelLabel(option.value) }}</span>
+                                </span>
+                                <span class="model-option-check">✓</span>
+                            </button>
+                            </div>
+                        </div>
+
+                        <div
+                            *ngIf="effortOptions.length > 0"
+                            class="model-selector"
+                            [class.open]="effortMenuOpen"
+                        >
+                            <button
+                                type="button"
+                                class="model-pill"
+                                [class.open]="effortMenuOpen"
+                                (click)="toggleEffortMenu($event)"
+                            >
+                                <span class="model-pill-dot"></span>
+                                <span class="model-pill-label">{{ effortSelectionLabel(selectedEffort) }}</span>
+                                <svg class="model-chevron" viewBox="0 0 24 24" stroke-width="1.8">
+                                    <polyline points="6 9 12 15 18 9"></polyline>
+                                </svg>
+                            </button>
+
+                            <div class="model-dropdown" [class.open]="effortMenuOpen">
+                                <div class="dropdown-section-label">Reasoning</div>
+                                <button
+                                    type="button"
+                                    class="model-option"
+                                    *ngFor="let option of effortOptions"
+                                    [class.selected]="option.value === selectedEffort"
+                                    (click)="selectEffortOption(option.value, $event)"
+                                >
+                                    <span class="model-option-info">
+                                        <span class="model-option-name">{{ effortLabel(option.value) }}</span>
+                                    </span>
+                                    <span class="model-option-check">✓</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            class="send-btn"
+                            type="submit"
+                        [disabled]="sending || !prompt.trim()"
+                        aria-label="Send"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
+                            <path d="M12 19V8" />
+                            <path d="m6 12 6-6 6 6" />
+                        </svg>
+                    </button>
+                    <button
+                        *ngIf="isWorking"
+                        class="stop-btn"
+                        type="button"
+                        (click)="onStop()"
+                        aria-label="Stop"
+                        title="Stop agent"
+                    >
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <rect x="7" y="7" width="10" height="10" rx="1.5" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <p class="input-hint">Enter to send · Shift+Enter for newline</p>
+    </div>
+</form>

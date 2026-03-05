@@ -18,7 +18,7 @@
 
 .tree-caret {
     display: inline-block;
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
     transform: rotate(90deg);
     transition: transform 0.15s ease;
     color: var(--text-muted);
@@ -34,7 +34,7 @@
 }
 
 .folder-label {
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -43,7 +43,7 @@
 
 .file-row .path {
     font-family: "JetBrains Mono", "Fira Code", monospace;
-    font-size: 0.78rem;
+    font-size: var(--font-size-xs);
     color: var(--text-default);
     flex: 1;
     white-space: nowrap;

@@ -19,7 +19,7 @@
 
 .eyebrow {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     letter-spacing: 0.2rem;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -39,7 +39,7 @@
 
 .first-task-content h2 {
     margin: 0.1rem 0 0.75rem;
-    font-size: 1.7rem;
+    font-size: var(--font-size-xl);
 }
 
 .first-task-subtitle {
@@ -63,12 +63,12 @@
     border: 1px solid var(--borders-default);
     border-radius: 6px;
     padding: 0.05rem 0.35rem;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 .first-task-hint {
     margin: 1.1rem 0 0;
     color: var(--text-muted);
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     word-break: break-all;
 }

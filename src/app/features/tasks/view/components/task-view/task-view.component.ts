@@ -3,6 +3,7 @@ import {
     ChangeDetectorRef,
     Component,
     EventEmitter,
+    HostListener,
     Input,
     Output,
     ViewChild,
@@ -22,10 +23,13 @@ import { IconStopSquareComponent } from "../../../actions/components/icon-stop-s
 import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { StartAgentDropdownComponent } from "../../../agents/components/start-agent-dropdown/start-agent-dropdown.component";
+import { ChatComponent } from "../../../agents/components/chat/chat.component";
+import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 import { TaskHomeDashboardComponent } from "../../../home/components/task-home-dashboard/task-home-dashboard.component";
 import { TaskGettingStartedComponent } from "../../../home/components/task-getting-started/task-getting-started.component";
 import { TaskStore } from "../../../task.store";
+import { CodexGuiStore } from "../../../agents/codex-gui.store";
 
 @Component({
     selector: "app-task-view",
@@ -43,6 +47,8 @@ import { TaskStore } from "../../../task.store";
         OpenVsCodeButtonComponent,
         OpenTerminalButtonComponent,
         StartAgentDropdownComponent,
+        ChatComponent,
+        IconLoadingButtonComponent,
         LoadingButtonComponent,
         TaskHomeDashboardComponent,
         TaskGettingStartedComponent,
@@ -61,6 +67,10 @@ export class TaskViewComponent {
     @Input() selectRepoLoading = false;
     @Input() selectRepoError = "";
     activePane: "terminal" | "diff" = "terminal";
+    codexActionsMenuOpen = false;
+    startingNewChat = false;
+    compacting = false;
+    rollingBack = false;
     isShellTerminalOpen = false;
     isShellResizing = false;
     shellTerminalHeight = 260;
@@ -77,6 +87,7 @@ export class TaskViewComponent {
     @Output() selectBaseRepo = new EventEmitter<void>();
     showCommitModal = false;
     showPushModal = false;
+    pendingCodexAction: "new-chat" | "rollback" | null = null;
     commitMessage = "";
     commitStageAll = true;
     commitError = "";
@@ -90,6 +101,7 @@ export class TaskViewComponent {
 
     constructor(
         private readonly taskStore: TaskStore,
+        private readonly codexGuiStore: CodexGuiStore,
         private readonly zone: NgZone,
         private readonly cdr: ChangeDetectorRef,
     ) {}
@@ -105,6 +117,14 @@ export class TaskViewComponent {
         if (!this.isRunning()) {
             this.activePane = "terminal";
         }
+        if (!this.task || !this.isCodexGuiTask(this.task) || !this.isRunning()) {
+            this.codexActionsMenuOpen = false;
+        }
+    }
+
+    @HostListener("document:click")
+    closeCodexActionsMenu(): void {
+        this.codexActionsMenuOpen = false;
     }
 
     statusLabel(): string {
@@ -146,10 +166,110 @@ export class TaskViewComponent {
         }
     }
 
+    async compactCodexThread(): Promise<void> {
+        if (!this.task || !this.isCodexGuiTask(this.task) || this.compacting) {
+            return;
+        }
+        this.codexActionsMenuOpen = false;
+        this.compacting = true;
+        try {
+            await this.codexGuiStore.compactThread(this.task.taskId);
+        } finally {
+            this.compacting = false;
+            this.cdr.markForCheck();
+        }
+    }
+
+    async startNewCodexChat(): Promise<void> {
+        if (!this.task || !this.isCodexGuiTask(this.task) || this.startingNewChat) {
+            return;
+        }
+        this.codexActionsMenuOpen = false;
+        this.pendingCodexAction = "new-chat";
+    }
+
+    async confirmStartNewCodexChat(): Promise<void> {
+        if (!this.task || !this.isCodexGuiTask(this.task) || this.startingNewChat) {
+            return;
+        }
+        this.pendingCodexAction = null;
+        this.startingNewChat = true;
+        try {
+            await this.codexGuiStore.newChat(this.task.taskId);
+        } finally {
+            this.startingNewChat = false;
+            this.cdr.markForCheck();
+        }
+    }
+
+    async rollbackCodexTurn(): Promise<void> {
+        if (!this.task || !this.isCodexGuiTask(this.task) || this.rollingBack) {
+            return;
+        }
+        this.codexActionsMenuOpen = false;
+        this.pendingCodexAction = "rollback";
+    }
+
+    async confirmRollbackCodexTurn(): Promise<void> {
+        if (!this.task || !this.isCodexGuiTask(this.task) || this.rollingBack) {
+            return;
+        }
+        this.pendingCodexAction = null;
+        this.rollingBack = true;
+        try {
+            await this.codexGuiStore.rollbackThread(this.task.taskId, 1);
+        } finally {
+            this.rollingBack = false;
+            this.cdr.markForCheck();
+        }
+    }
+
+    closeCodexConfirmModal(): void {
+        if (this.startingNewChat || this.rollingBack) {
+            return;
+        }
+        this.pendingCodexAction = null;
+    }
+
+    codexConfirmTitle(): string {
+        return this.pendingCodexAction === "new-chat"
+            ? "Start new chat?"
+            : "Rollback last turn?";
+    }
+
+    codexConfirmMessage(): string {
+        return this.pendingCodexAction === "new-chat"
+            ? "This clears the current Codex chat history for this task, but does not revert file changes."
+            : "Rollback removes the latest turn from Codex thread history, but it does not revert file changes.";
+    }
+
+    codexConfirmButtonLabel(): string {
+        if (this.pendingCodexAction === "new-chat") {
+            return this.startingNewChat ? "Starting..." : "Start new chat";
+        }
+        return this.rollingBack ? "Rolling back..." : "Rollback";
+    }
+
+    async confirmCodexAction(): Promise<void> {
+        if (this.pendingCodexAction === "new-chat") {
+            await this.confirmStartNewCodexChat();
+            return;
+        }
+        if (this.pendingCodexAction === "rollback") {
+            await this.confirmRollbackCodexTurn();
+        }
+    }
+
     onDiscard(): void {
         if (this.task) {
             this.discardTask.emit(this.task.taskId);
         }
+    }
+
+    toggleCodexActionsMenu(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.codexActionsMenuOpen = !this.codexActionsMenuOpen;
     }
 
     openCommitModal(): void {
@@ -251,6 +371,10 @@ export class TaskViewComponent {
 
     setActivePane(pane: "terminal" | "diff"): void {
         this.activePane = pane;
+    }
+
+    isCodexGuiTask(task: TaskSummary): boolean {
+        return task.agentKind === AgentKind.CodexGui;
     }
 
     toggleShellTerminal(): void {

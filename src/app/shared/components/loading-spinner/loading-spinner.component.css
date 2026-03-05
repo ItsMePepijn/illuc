@@ -1,0 +1,18 @@
+:host {
+    display: inline-flex;
+}
+
+.loading-spinner {
+    width: var(--spinner-size, 56px);
+    height: var(--spinner-size, 56px);
+    border-radius: 50%;
+    border: var(--spinner-thickness, 5px) solid rgba(96, 90, 82, 0.25);
+    border-top-color: var(--brand-accent);
+    animation: loading-spinner-spin var(--spinner-speed, 900ms) linear infinite;
+}
+
+@keyframes loading-spinner-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

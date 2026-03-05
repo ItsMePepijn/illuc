@@ -52,7 +52,7 @@
     background: var(--components-chip_bg);
     border-radius: 999px;
     padding: 0.15rem 0.75rem;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     margin-right: 0.5rem;
     color: var(--components-chip_text);
     letter-spacing: 0.5px;
@@ -128,7 +128,7 @@
 }
 
 .input-label {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
 }
 
@@ -156,7 +156,7 @@
 
 .error {
     color: var(--status-danger);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 .workspace-actions app-open-vscode-button,
@@ -185,7 +185,7 @@
     top: 0;
     bottom: 0;
     left: 0;
-    width: 50%;
+    width: min(50%, calc(80ch + 24px));
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -196,7 +196,8 @@
         z-index 0.2s ease;
 }
 
-.terminal-column app-task-terminal {
+.terminal-column app-task-terminal,
+.terminal-column app-codex-gui-chat {
     flex: 1;
     display: flex;
     min-height: 0;
@@ -231,9 +232,112 @@
     gap: 0.45rem;
 }
 
+:host ::ng-deep .terminal-toolbar-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.codex-actions-menu {
+    position: relative;
+    display: inline-flex;
+}
+
+:host ::ng-deep .terminal-toolbar-actions .codex-actions-trigger.icon-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+}
+
+:host ::ng-deep .codex-actions-menu.is-open .codex-actions-trigger {
+    color: var(--text-default);
+    border-color: var(--borders-strong);
+    background: var(--surfaces-surface_strong);
+}
+
+.codex-actions-trigger-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.codex-actions-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--borders-default);
+    border-radius: 10px;
+    background: var(--surfaces-surface);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+    display: grid;
+    gap: 4px;
+    z-index: 3;
+}
+
+.codex-actions-item {
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-default);
+    font: inherit;
+    text-align: left;
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.codex-actions-item:hover:not(:disabled) {
+    background: var(--surfaces-surface_alt);
+}
+
+.codex-actions-item:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.codex-actions-item-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--text-muted);
+}
+
+.codex-actions-item-icon svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+}
+
+.codex-actions-item-label {
+    min-width: 0;
+}
+
 :host ::ng-deep .terminal-toolbar-title .action-btn.icon-btn {
     width: 24px;
     height: 24px;
+}
+
+:host ::ng-deep .terminal-toolbar-actions .action-btn.icon-btn {
+    width: 24px;
+    height: 24px;
+}
+
+:host ::ng-deep .terminal-toolbar-actions .warn {
+    color: var(--status-danger);
+}
+
+.terminal-toolbar-icon {
+    width: 16px;
+    height: 16px;
+    display: block;
 }
 
 .terminal-session-body {
@@ -245,6 +349,14 @@
 :host ::ng-deep .terminal-session-body app-task-terminal .terminal-panel {
     border: 0;
     border-radius: 0;
+}
+
+:host ::ng-deep .terminal-session-body app-task-terminal,
+:host ::ng-deep .terminal-session-body app-codex-gui-chat {
+    flex: 1;
+    width: 100%;
+    margin: 0;
+    min-height: 0;
 }
 
 .terminal-idle-placeholder {
@@ -264,7 +376,7 @@
 
 .terminal-idle-eyebrow {
     margin: 0 0 0.4rem;
-    font-size: 0.74rem;
+    font-size: var(--font-size-xs);
     letter-spacing: 0.14rem;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -272,7 +384,7 @@
 
 .terminal-idle-content h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--font-size-lg);
     color: var(--text-default);
 }
 
@@ -289,7 +401,7 @@
 :host ::ng-deep .terminal-idle-placeholder .start-trigger {
     height: 42px;
     padding: 0 1.15rem;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     border-color: var(--brand-accent);
     /* Use theme tokens here; hardcoding RGBA breaks when the accent changes (dark/dracula/etc). */
     background: linear-gradient(
@@ -324,10 +436,17 @@
         z-index 0.2s ease;
 }
 
-.diff-column app-task-diff,
-.terminal-column app-task-terminal {
+.diff-column app-task-diff {
     flex: 1;
+    min-height: 0;
     display: block;
+}
+
+.terminal-column app-task-terminal,
+.terminal-column app-codex-gui-chat {
+    flex: 1;
+    min-height: 0;
+    display: flex;
 }
 
 .terminal-column.active {
@@ -417,7 +536,7 @@
     height: 20px;
     border-radius: 2px;
     padding: 0;
-    font-size: 1.6rem;
+    font-size: var(--font-size-xl);
     font-weight: 700;
     line-height: 1;
     border: 1px solid transparent;
@@ -500,7 +619,7 @@ button:disabled {
     border: 1px solid var(--borders-default);
     background: var(--surfaces-surface_strong);
     color: var(--text-default);
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.05rem;
 }
 
@@ -551,21 +670,21 @@ button:disabled {
 
 .landing-text h1 {
     margin: 0;
-    font-size: 2.25rem;
+    font-size: var(--font-size-xl);
     letter-spacing: 0.4rem;
     text-transform: uppercase;
 }
 
 .etymology {
     margin: 0.3rem 0 1.25rem;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.08rem;
     color: var(--text-muted);
     font-style: italic;
 }
 
 .subtitle {
-    font-size: 1rem;
+    font-size: var(--font-size-md);
     line-height: 1.5;
     max-width: 420px;
     color: var(--text-subtle);
@@ -576,7 +695,7 @@ button:disabled {
         padding: 1.75rem 1.5rem;
     }
     .landing-text h1 {
-        font-size: 1.8rem;
+        font-size: var(--font-size-xl);
         letter-spacing: 0.3rem;
     }
 }

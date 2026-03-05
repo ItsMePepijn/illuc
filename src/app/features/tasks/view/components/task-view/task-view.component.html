@@ -78,15 +78,129 @@
                                 <app-icon-stop-square></app-icon-stop-square>
                             </app-task-action-button>
                         </div>
+                        <div class="terminal-toolbar-actions">
+                            <app-icon-loading-button
+                                *ngIf="isRunning() && current && isCodexGuiTask(current)"
+                                [loading]="rollingBack"
+                                [disabled]="!isRunning()"
+                                title="Rollback last turn"
+                                ariaLabel="Rollback last turn"
+                                buttonClass="action-btn icon-btn warn"
+                                (action)="rollbackCodexTurn()"
+                            >
+                                <svg
+                                    class="terminal-toolbar-icon"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.8"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M9 14 4 9l5-5" />
+                                    <path d="M4 9h9a7 7 0 1 1 0 14h-1" />
+                                </svg>
+                            </app-icon-loading-button>
+                            <div
+                                class="codex-actions-menu"
+                                [class.is-open]="codexActionsMenuOpen"
+                                *ngIf="isRunning() && current && isCodexGuiTask(current)"
+                            >
+                                <app-icon-loading-button
+                                    title="More chat actions"
+                                    ariaLabel="More chat actions"
+                                    buttonClass="action-btn codex-actions-trigger"
+                                    [stopPropagation]="true"
+                                    (action)="toggleCodexActionsMenu($event)"
+                                >
+                                    <svg
+                                        class="terminal-toolbar-icon codex-actions-trigger-icon"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                        aria-hidden="true"
+                                    >
+                                        <circle cx="6" cy="12" r="1.75" />
+                                        <circle cx="12" cy="12" r="1.75" />
+                                        <circle cx="18" cy="12" r="1.75" />
+                                    </svg>
+                                </app-icon-loading-button>
+
+                                <div
+                                    class="codex-actions-popover"
+                                    *ngIf="codexActionsMenuOpen"
+                                    (click)="$event.stopPropagation()"
+                                >
+                                    <button
+                                        type="button"
+                                        class="codex-actions-item"
+                                        [disabled]="startingNewChat"
+                                        (click)="startNewCodexChat()"
+                                    >
+                                        <span class="codex-actions-item-icon" aria-hidden="true">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path d="M12 5v14" />
+                                                <path d="M5 12h14" />
+                                            </svg>
+                                        </span>
+                                        <span class="codex-actions-item-label">
+                                            {{ startingNewChat ? "Starting..." : "New chat" }}
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="codex-actions-item"
+                                        [disabled]="compacting"
+                                        (click)="compactCodexThread()"
+                                    >
+                                        <span class="codex-actions-item-icon" aria-hidden="true">
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.8"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                            >
+                                                <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+                                                <path d="M20 4v6h-6" />
+                                            </svg>
+                                        </span>
+                                        <span class="codex-actions-item-label">
+                                            {{ compacting ? "Compacting..." : "Compact chat" }}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </header>
                     <div class="terminal-session-body">
                         <app-task-terminal
-                            *ngIf="isRunning(); else idleTerminal"
+                            *ngIf="isRunning() && !isCodexGuiTask(current); else chatOrIdle"
                             [taskId]="current.taskId"
                             [mode]="'agent'"
                             [agentKind]="current.agentKind"
                             [showToolbar]="false"
                         ></app-task-terminal>
+                        <ng-template #chatOrIdle>
+                            <app-codex-gui-chat
+                                *ngIf="isRunning() && isCodexGuiTask(current); else idleTerminal"
+                                [taskId]="current.taskId"
+                                [stripPathPrefix]="current.worktreePath"
+                                [isActive]="!backgroundMode"
+                                [isWorking]="
+                                    current.status === 'WORKING' ||
+                                    current.status === 'AWAITING_APPROVAL'
+                                "
+                            ></app-codex-gui-chat>
+                        </ng-template>
                         <ng-template #idleTerminal>
                             <div class="terminal-idle-placeholder">
                                 <div class="terminal-idle-content">
@@ -236,6 +350,31 @@
                 (action)="submitPush()"
             >
                 Push
+            </app-loading-button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="pendingCodexAction">
+    <div class="modal">
+        <h3>{{ codexConfirmTitle() }}</h3>
+        <p class="modal-subtitle">{{ codexConfirmMessage() }}</p>
+        <div class="modal-actions">
+            <app-loading-button
+                buttonType="button"
+                buttonClass="ghost"
+                [disabled]="startingNewChat || rollingBack"
+                (action)="closeCodexConfirmModal()"
+            >
+                Cancel
+            </app-loading-button>
+            <app-loading-button
+                buttonType="button"
+                buttonClass="primary"
+                [loading]="startingNewChat || rollingBack"
+                (action)="confirmCodexAction()"
+            >
+                {{ codexConfirmButtonLabel() }}
             </app-loading-button>
         </div>
     </div>

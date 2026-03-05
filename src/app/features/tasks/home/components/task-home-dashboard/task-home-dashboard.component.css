@@ -33,12 +33,12 @@
 
 .home-header h2 {
     margin: 0;
-    font-size: 1.6rem;
+    font-size: var(--font-size-xl);
 }
 
 .eyebrow {
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--font-size-sm);
     letter-spacing: 0.2rem;
     text-transform: uppercase;
     color: var(--text-muted);
@@ -91,7 +91,7 @@
     border-radius: 999px;
     border: 1px solid var(--borders-default);
     background: var(--surfaces-surface_strong);
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
 }
 
 .summary-label {
@@ -125,7 +125,7 @@
 }
 
 .grid-header {
-    font-size: 0.7rem;
+    font-size: var(--font-size-xs);
     text-transform: uppercase;
     letter-spacing: 0.12rem;
     color: var(--text-muted);
@@ -152,11 +152,11 @@
 
 .task-title {
     font-weight: 600;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
 }
 
 .task-branch {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
 }
 
@@ -173,7 +173,7 @@
 }
 
 .day-label small {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-subtle);
 }
 
@@ -216,7 +216,7 @@
 .landing-error {
     margin-top: 1rem;
     color: #d64545;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     font-style: italic;
 }
 
@@ -227,7 +227,7 @@
     border: 1px solid var(--borders-default);
     background: var(--surfaces-surface_strong);
     color: var(--text-default);
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.05rem;
 }
 
@@ -278,21 +278,21 @@
 
 .landing-text h1 {
     margin: 0;
-    font-size: 2.25rem;
+    font-size: var(--font-size-xl);
     letter-spacing: 0.4rem;
     text-transform: uppercase;
 }
 
 .etymology {
     margin: 0.3rem 0 1.25rem;
-    font-size: 0.95rem;
+    font-size: var(--font-size-md);
     letter-spacing: 0.08rem;
     color: var(--text-muted);
     font-style: italic;
 }
 
 .subtitle {
-    font-size: 1rem;
+    font-size: var(--font-size-md);
     line-height: 1.5;
     max-width: 420px;
     color: var(--text-subtle);
@@ -303,7 +303,7 @@
         padding: 1.75rem 1.5rem;
     }
     .landing-text h1 {
-        font-size: 1.8rem;
+        font-size: var(--font-size-xl);
         letter-spacing: 0.3rem;
     }
 }

@@ -52,6 +52,7 @@ import { TaskStore } from "../../../task.store";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { TaskReviewService } from "../../../review/task-review.service";
 import { tauriListen } from "../../../../../shared/tauri/tauri-zone";
+import { LoadingSpinnerComponent } from "../../../../../shared/components/loading-spinner/loading-spinner.component";
 import {
     FileTreeComponent,
     FileTreeNode,
@@ -116,6 +117,7 @@ function diffScrollStrategyFactory() {
         FileTreeComponent,
         ScrollingModule,
         FormsModule,
+        LoadingSpinnerComponent,
         TaskDiffThreadComponent,
     ],
     templateUrl: "./task-diff.component.html",
@@ -146,6 +148,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     diffMode: DiffMode = "worktree";
     readonly rowHeight = 28;
     private diffSubscription?: Subscription;
+    private diffJumpSubscription?: Subscription;
     private diffWatchStop?: () => Promise<void>;
     private reviewWatchUnlisten?: UnlistenFn;
     private reviewRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -171,6 +174,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     readonly closingThreadKeys = new Set<string>();
     private readonly closingThreadTimers = new Map<string, ReturnType<typeof setTimeout>>();
     private shouldAutoCollapseThreads = true;
+    private pendingJumpPath: string | null = null;
 
     constructor(
         private readonly zone: NgZone,
@@ -185,6 +189,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         if (changes["taskId"]) {
             void this.restartDiffWatch();
             void this.restartReviewWatch();
+            this.restartDiffJumpWatch();
         }
         if (changes["taskId"] || changes["worktreePath"]) {
             this.activeThreadKey = null;
@@ -209,6 +214,7 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         }
         void this.stopReviewWatch();
         void this.stopDiffWatch();
+        this.diffJumpSubscription?.unsubscribe();
     }
 
     setDiffMode(mode: DiffMode): void {
@@ -347,8 +353,10 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
     scrollToFile(path: string): void {
         const index = this.rowIndexByPath.get(path);
         if (index === undefined) {
+            this.pendingJumpPath = path;
             return;
         }
+        this.pendingJumpPath = null;
         this.diffViewport?.scrollToIndex(index, "smooth");
     }
 
@@ -433,7 +441,28 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
             }
         }
         this.rowIndexByPath = indexByPath;
+        if (this.pendingJumpPath) {
+            const path = this.pendingJumpPath;
+            requestAnimationFrame(() => this.scrollToFile(path));
+        }
         return rows;
+    }
+
+    private restartDiffJumpWatch(): void {
+        this.diffJumpSubscription?.unsubscribe();
+        this.pendingJumpPath = null;
+        if (!this.taskId) {
+            return;
+        }
+        const taskId = this.taskId;
+        this.diffJumpSubscription = this.taskStore
+            .diffJump$(taskId)
+            .subscribe((path) => {
+                if (this.taskId !== taskId) {
+                    return;
+                }
+                this.scrollToFile(path);
+            });
     }
 
     private resolveFilePath(filePath: string): string | null {

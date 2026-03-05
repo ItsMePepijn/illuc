@@ -13,6 +13,7 @@ const DEFAULT_DARK_THEME: &str = include_str!("themes/dark.toml");
 const DEFAULT_AMBER_MONOCHROME_THEME: &str = include_str!("themes/amber-monochrome.toml");
 const DEFAULT_THEME_NAME: &str = "light";
 const DEFAULT_SYNTAX_THEME_NAME: &str = "light";
+const DEFAULT_WORKING_HOURS: &str = "Mo-Fr 09:00-17:00";
 pub mod commands;
 pub mod watcher;
 
@@ -23,7 +24,7 @@ pub(crate) struct ThemeSettingsSnapshot {
 }
 
 pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Theme>>) -> String {
-    let resolved = match window_theme {
+    let mut resolved = match window_theme {
         Some(Ok(tauri::Theme::Dark)) => "dark".to_string(),
         Some(Ok(tauri::Theme::Light)) => "light".to_string(),
         Some(Ok(_)) => DEFAULT_THEME_NAME.to_string(),
@@ -34,7 +35,6 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
     // Prefer the explicit desktop setting when available.
     #[cfg(target_os = "linux")]
     {
-        let mut resolved = resolved;
         if let Some(color_scheme) = gnome_color_scheme() {
             if matches!(color_scheme.as_str(), "prefer-dark" | "dark") {
                 resolved = "dark".to_string();
@@ -47,7 +47,6 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
                 resolved = "dark".to_string();
             }
         }
-        return resolved;
     }
 
     resolved
@@ -156,6 +155,17 @@ pub fn load_selected_syntax_theme_name(
     Ok(extract_syntax_theme_name(&theme_table))
 }
 
+pub fn load_working_hours_expression(app: &tauri::AppHandle) -> anyhow::Result<String> {
+    let settings = load_settings_table(app)?;
+    Ok(settings
+        .get("working_hours")
+        .and_then(toml::Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(DEFAULT_WORKING_HOURS)
+        .to_string())
+}
+
 pub(crate) fn load_theme_settings_snapshot(
     app: &tauri::AppHandle,
     default_theme_name: &str,
@@ -195,12 +205,7 @@ fn load_selected_theme_table(
     app: &tauri::AppHandle,
     default_theme_name: &str,
 ) -> anyhow::Result<toml::map::Map<String, toml::Value>> {
-    let settings_path = ensure_user_settings_file(app)?;
-    let content = std::fs::read_to_string(&settings_path)
-        .with_context(|| format!("failed to read {}", settings_path.display()))?;
-    let parsed: toml::Value = content
-        .parse()
-        .with_context(|| format!("failed to parse {}", settings_path.display()))?;
+    let parsed = load_settings_table(app)?;
 
     let theme_name = parsed
         .get("theme")
@@ -234,6 +239,18 @@ fn load_selected_theme_table(
         return Ok(toml::map::Map::new());
     };
     Ok(theme_table.clone())
+}
+
+fn load_settings_table(
+    app: &tauri::AppHandle,
+) -> anyhow::Result<toml::map::Map<String, toml::Value>> {
+    let settings_path = ensure_user_settings_file(app)?;
+    let content = std::fs::read_to_string(&settings_path)
+        .with_context(|| format!("failed to read {}", settings_path.display()))?;
+    let parsed: toml::Value = content
+        .parse()
+        .with_context(|| format!("failed to parse {}", settings_path.display()))?;
+    Ok(parsed.as_table().cloned().unwrap_or_default())
 }
 
 fn flatten_theme_table(

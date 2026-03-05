@@ -1,0 +1,90 @@
+.inline-request {
+    margin: 0 12px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--borders-default);
+    background: color-mix(in srgb, var(--surfaces-surface_alt) 92%, transparent);
+    display: grid;
+    gap: 10px;
+}
+
+.inline-request-header h3 {
+    margin: 0;
+    font-size: var(--font-size-sm);
+}
+
+.inline-request-subtitle {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.request-metadata {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: var(--surfaces-surface_alt);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.request-questions {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.request-question {
+    display: grid;
+    gap: 6px;
+}
+
+.request-question-header {
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-subtle);
+}
+
+.request-question-copy {
+    color: var(--text-default);
+    line-height: 1.5;
+}
+
+.request-question select,
+.request-question textarea {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_alt);
+    color: var(--text-default);
+    font: inherit;
+    padding: 10px 12px;
+    box-sizing: border-box;
+}
+
+.inline-request-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.inline-request-actions button {
+    border-radius: 999px;
+    padding: 8px 12px;
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--borders-default);
+}
+
+.inline-request-actions .ghost {
+    background: var(--surfaces-surface_alt);
+    color: var(--text-default);
+}
+
+.inline-request-actions .primary {
+    background: var(--brand-accent);
+    color: var(--surfaces-surface);
+    border-color: transparent;
+}

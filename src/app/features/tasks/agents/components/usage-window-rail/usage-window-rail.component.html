@@ -1,0 +1,26 @@
+<aside
+    *ngIf="usageRemainingRatio !== null && usageSections > 0"
+    class="usage-rail"
+    aria-label="Weekly usage"
+>
+    <span
+        class="usage-rail-icon"
+        aria-label="Usage rail help"
+        [title]="usageRailTitle()"
+    ></span>
+    <div class="usage-segments">
+        <span
+            class="usage-segment"
+            *ngFor="let item of usageSectionItems(); let i = index"
+            [title]="usageSectionTitle(i)"
+        >
+            <span class="usage-segment-fill" [style.height.%]="usageSegmentFillPercent(item)"></span>
+        </span>
+        <span
+            *ngIf="usageNowPositionRatio !== null"
+            class="usage-now-pointer"
+            [style.top.%]="usageNowPositionRatio * 100"
+            [title]="usageNowPointerTitle()"
+        ></span>
+    </div>
+</aside>
