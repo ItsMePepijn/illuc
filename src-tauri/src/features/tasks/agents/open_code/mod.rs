@@ -28,6 +28,7 @@ const OPENCODE_TUI_CONFIG_CONTENT: &str = "{\n  \"theme\": \"system\"\n}\n";
 const OPENCODE_GIT_EXCLUDE_ENTRY: &str = "/tui.json";
 const OPENCODE_SIDEBAR_MARKER: &str = "• OpenCode";
 const OPENCODE_SIDEBAR_TOGGLE: &[u8] = b"\x18b";
+const OPENCODE_APPROVAL_MARKER: &str = "Permission required";
 
 #[derive(Clone)]
 pub struct OpenCodeAgent {
@@ -66,7 +67,11 @@ impl OpenCodeAgent {
         let mut state = self.state.lock();
         state.last_output = Some(timestamp);
         state.screen.process(raw);
-        let status = TaskStatus::Working;
+        let status = if screen_has_approval_prompt(&state.screen.full_text()) {
+            TaskStatus::AwaitingApproval
+        } else {
+            TaskStatus::Working
+        };
         let status_changed = state.last_status != Some(status);
         if status_changed {
             state.last_status = Some(status);
@@ -103,7 +108,10 @@ impl OpenCodeAgent {
         let mut state = self.state.lock();
         let last = state.last_output?;
         if now.duration_since(last) >= Duration::from_millis(1000)
-            && state.last_status == Some(TaskStatus::Working)
+            && matches!(
+                state.last_status,
+                Some(TaskStatus::Working | TaskStatus::AwaitingApproval)
+            )
         {
             state.last_status = Some(TaskStatus::Idle);
             return Some(TaskStatus::Idle);
@@ -303,4 +311,24 @@ fn ensure_git_exclude_entry(worktree_path: &Path, entry: &str) -> anyhow::Result
     fs::write(&exclude_path, updated)
         .with_context(|| format!("failed writing {}", exclude_path.display()))?;
     Ok(())
+}
+
+fn screen_has_approval_prompt(screen_text: &str) -> bool {
+    let mut search_from = 0;
+    while let Some(relative_index) = screen_text[search_from..].find(OPENCODE_APPROVAL_MARKER) {
+        let marker_index = search_from + relative_index;
+        let prefix = &screen_text[..marker_index];
+        let trailing_whitespace_len: usize = prefix
+            .chars()
+            .rev()
+            .take_while(|ch| ch.is_whitespace())
+            .map(char::len_utf8)
+            .sum();
+        let triangle_end = prefix.len().saturating_sub(trailing_whitespace_len);
+        if prefix[..triangle_end].ends_with('△') {
+            return true;
+        }
+        search_from = marker_index + OPENCODE_APPROVAL_MARKER.len();
+    }
+    false
 }
