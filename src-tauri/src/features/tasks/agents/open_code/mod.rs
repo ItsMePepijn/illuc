@@ -1,3 +1,5 @@
+mod resuming;
+
 use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
 use crate::features::tasks::TaskStatus;
 use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
@@ -17,6 +19,7 @@ use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use resuming::find_latest_session_id;
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
@@ -119,6 +122,7 @@ impl Agent for OpenCodeAgent {
     ) -> anyhow::Result<AgentRuntime> {
         let pty_system = native_pty_system();
         Self::ensure_project_config(worktree_path)?;
+        let latest_session_id = find_latest_session_id(worktree_path)?;
         let rows = rows.max(1);
         let cols = cols.max(1);
         let pair = pty_system.openpty(PtySize {
@@ -139,12 +143,21 @@ impl Agent for OpenCodeAgent {
         let writer = Arc::new(Mutex::new(writer));
 
         #[cfg(target_os = "windows")]
-        let command = build_wsl_command(worktree_path, "opencode", &["--continue"]);
+        let command = {
+            let args: Vec<&str> = if let Some(session_id) = latest_session_id.as_deref() {
+                vec!["--session", session_id]
+            } else {
+                vec![]
+            };
+            build_wsl_command(worktree_path, "opencode", &args)
+        };
 
         #[cfg(not(target_os = "windows"))]
         let command = {
             let mut command = CommandBuilder::new("opencode");
-            command.args(["--continue"]);
+            if let Some(session_id) = latest_session_id.as_deref() {
+                command.args(["--session", session_id]);
+            }
             command.cwd(worktree_path);
             command
         };
