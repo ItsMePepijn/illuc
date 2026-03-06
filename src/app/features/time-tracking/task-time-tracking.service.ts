@@ -1,4 +1,4 @@
-import { Injectable, NgZone, signal } from "@angular/core";
+import { Injectable, NgZone, OnDestroy, signal } from "@angular/core";
 import {
     TimeTrackingEntry,
     TimeTrackingPayload,
@@ -13,7 +13,7 @@ const DEFAULT_TRACKING: TimeTrackingPayload = {
 @Injectable({
     providedIn: "root",
 })
-export class TaskTimeTrackingService {
+export class TaskTimeTrackingService implements OnDestroy {
     private readonly trackingSignal = signal<TimeTrackingPayload | null>(null);
     readonly tracking = this.trackingSignal.asReadonly();
 
@@ -26,6 +26,12 @@ export class TaskTimeTrackingService {
 
     constructor(private readonly zone: NgZone) {
         window.addEventListener("beforeunload", this.handleUnload);
+    }
+
+    ngOnDestroy(): void {
+        window.removeEventListener("beforeunload", this.handleUnload);
+        this.stopTimer();
+        void this.flushActive();
     }
 
     async syncContext(

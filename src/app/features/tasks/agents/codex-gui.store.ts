@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, OnDestroy } from "@angular/core";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import {
@@ -16,6 +16,7 @@ import {
     WorkingPeriod,
 } from "./codex-gui/models";
 import { tauriInvoke, tauriListen } from "../../../shared/tauri/tauri-zone";
+import { readIllucHmrState } from "../../../shared/hmr/hmr-state";
 
 export type CodexGuiActivityState = {
     label: string;
@@ -49,7 +50,7 @@ export type CodexGuiRequestState = RequestEvent;
 @Injectable({
     providedIn: "root",
 })
-export class CodexGuiStore {
+export class CodexGuiStore implements OnDestroy {
     private readonly codexGuiMessages = new Map<string, Message[]>();
     private readonly codexGuiMessageStreams = new Map<
         string,
@@ -90,10 +91,49 @@ export class CodexGuiStore {
         CodexGuiModelCapability[]
     >();
     private readonly unlistenFns: UnlistenFn[] = [];
+    private readonly unloadHandler = () => this.teardown();
 
     constructor(private readonly zone: NgZone) {
+        const snapshot = readIllucHmrState()?.codexGuiStore;
+        if (snapshot) {
+            this.restoreDevState(snapshot);
+        }
         this.registerEventListeners();
-        window.addEventListener("unload", () => this.teardown());
+        window.addEventListener("unload", this.unloadHandler);
+    }
+
+    ngOnDestroy(): void {
+        window.removeEventListener("unload", this.unloadHandler);
+        this.teardown();
+    }
+
+    snapshotDevState(): CodexGuiStoreDevState {
+        return {
+            messages: Object.fromEntries(this.codexGuiMessages),
+            hydrated: Object.fromEntries(this.codexGuiHydrated),
+            activity: Object.fromEntries(this.codexGuiActivity),
+            plan: Object.fromEntries(this.codexGuiPlan),
+            tokenUsage: Object.fromEntries(this.codexGuiTokenUsage),
+            request: Object.fromEntries(this.codexGuiRequest),
+            selectedModel: Object.fromEntries(this.codexGuiSelectedModel),
+            selectedEffort: Object.fromEntries(this.codexGuiSelectedEffort),
+            modelCapabilities: Object.fromEntries(this.codexGuiModelCapabilities),
+        };
+    }
+
+    restoreDevState(snapshot: CodexGuiStoreDevState): void {
+        this.restoreMap(this.codexGuiMessages, snapshot.messages);
+        this.restoreMap(this.codexGuiHydrated, snapshot.hydrated);
+        this.restoreMap(this.codexGuiActivity, snapshot.activity);
+        this.restoreMap(this.codexGuiPlan, snapshot.plan);
+        this.restoreMap(this.codexGuiTokenUsage, snapshot.tokenUsage);
+        this.restoreMap(this.codexGuiRequest, snapshot.request);
+        this.restoreMap(this.codexGuiSelectedModel, snapshot.selectedModel);
+        this.restoreMap(this.codexGuiSelectedEffort, snapshot.selectedEffort);
+        this.restoreMap(
+            this.codexGuiModelCapabilities,
+            snapshot.modelCapabilities,
+        );
     }
 
     clearAll(): void {
@@ -842,7 +882,29 @@ export class CodexGuiStore {
         }
         map.set(taskId, normalized);
     }
+
+    private restoreMap<T>(
+        target: Map<string, T>,
+        source: Record<string, T> | undefined,
+    ): void {
+        target.clear();
+        for (const [key, value] of Object.entries(source ?? {})) {
+            target.set(key, value);
+        }
+    }
 }
+
+export type CodexGuiStoreDevState = {
+    messages: Record<string, Message[]>;
+    hydrated: Record<string, boolean>;
+    activity: Record<string, CodexGuiActivityState>;
+    plan: Record<string, CodexGuiPlanState | null>;
+    tokenUsage: Record<string, CodexGuiTokenUsageState | null>;
+    request: Record<string, CodexGuiRequestState | null>;
+    selectedModel: Record<string, string>;
+    selectedEffort: Record<string, string>;
+    modelCapabilities: Record<string, CodexGuiModelCapability[]>;
+};
 
 type CodexGuiModelsResponse = {
     models: string[];

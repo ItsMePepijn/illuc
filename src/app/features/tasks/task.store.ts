@@ -1,4 +1,4 @@
-import { Injectable, NgZone, computed, signal } from "@angular/core";
+import { Injectable, NgZone, OnDestroy, computed, signal } from "@angular/core";
 import { type Event as TauriEvent, type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import { AgentKind, BaseRepoInfo, TaskSummary } from "./models";
@@ -12,11 +12,12 @@ import { TaskGitService } from "./git/task-git.service";
 import { TERMINAL_SCROLLBACK } from "./terminal/terminal.constants";
 import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
 import { CodexGuiStore } from "./agents/codex-gui.store";
+import { readIllucHmrState } from "../../shared/hmr/hmr-state";
 
 @Injectable({
     providedIn: "root",
 })
-export class TaskStore {
+export class TaskStore implements OnDestroy {
     private readonly maxTerminalLines = TERMINAL_SCROLLBACK;
     private readonly tasksSignal = signal<TaskSummary[]>([]);
     private readonly baseRepoSignal = signal<BaseRepoInfo | null>(null);
@@ -52,6 +53,7 @@ export class TaskStore {
     private readonly worktreeTerminalOpenState = new Map<string, boolean>();
     private readonly diffJumpStreams = new Map<string, Subject<string>>();
     private readonly unlistenFns: UnlistenFn[] = [];
+    private readonly unloadHandler = () => this.teardown();
 
     private readonly diffRefreshDelayMs = 250;
 
@@ -73,8 +75,64 @@ export class TaskStore {
         private readonly taskGit: TaskGitService,
         private readonly codexGuiStore: CodexGuiStore,
     ) {
+        const snapshot = readIllucHmrState()?.taskStore;
+        if (snapshot) {
+            this.restoreDevState(snapshot);
+        }
         this.registerEventListeners();
-        window.addEventListener("unload", () => this.teardown());
+        window.addEventListener("unload", this.unloadHandler);
+    }
+
+    ngOnDestroy(): void {
+        window.removeEventListener("unload", this.unloadHandler);
+        this.teardown();
+    }
+
+    snapshotDevState(): TaskStoreDevState {
+        return {
+            baseRepo: this.baseRepoSignal(),
+            tasks: [...this.tasksSignal()],
+            selectedTaskId: this.selectedTaskIdSignal(),
+            branchOptions: [...this.branchOptionsSignal()],
+            viewMode: this.viewModeSignal(),
+            terminalBuffers: Object.fromEntries(this.terminalBuffers),
+            worktreeTerminalBuffers: Object.fromEntries(
+                this.worktreeTerminalBuffers,
+            ),
+            worktreeTerminalOpenState: Object.fromEntries(
+                this.worktreeTerminalOpenState,
+            ),
+            terminalSizes: Object.fromEntries(this.terminalSizes),
+            worktreeTerminalSizes: Object.fromEntries(
+                this.worktreeTerminalSizes,
+            ),
+            lastTerminalSize: this.lastTerminalSize,
+            lastWorktreeTerminalSize: this.lastWorktreeTerminalSize,
+        };
+    }
+
+    restoreDevState(snapshot: TaskStoreDevState): void {
+        this.baseRepoSignal.set(snapshot.baseRepo ?? null);
+        this.tasksSignal.set(snapshot.tasks ?? []);
+        this.selectedTaskIdSignal.set(snapshot.selectedTaskId ?? null);
+        this.branchOptionsSignal.set(snapshot.branchOptions ?? []);
+        this.viewModeSignal.set(snapshot.viewMode ?? "task");
+        this.restoreMap(this.terminalBuffers, snapshot.terminalBuffers);
+        this.restoreMap(
+            this.worktreeTerminalBuffers,
+            snapshot.worktreeTerminalBuffers,
+        );
+        this.restoreMap(
+            this.worktreeTerminalOpenState,
+            snapshot.worktreeTerminalOpenState,
+        );
+        this.restoreMap(this.terminalSizes, snapshot.terminalSizes);
+        this.restoreMap(
+            this.worktreeTerminalSizes,
+            snapshot.worktreeTerminalSizes,
+        );
+        this.lastTerminalSize = snapshot.lastTerminalSize ?? null;
+        this.lastWorktreeTerminalSize = snapshot.lastWorktreeTerminalSize ?? null;
     }
 
     async selectBaseRepo(path: string): Promise<BaseRepoInfo> {
@@ -538,7 +596,32 @@ export class TaskStore {
         }
     }
 
+    private restoreMap<T>(
+        target: Map<string, T>,
+        source: Record<string, T> | undefined,
+    ): void {
+        target.clear();
+        for (const [key, value] of Object.entries(source ?? {})) {
+            target.set(key, value);
+        }
+    }
+
 }
+
+export type TaskStoreDevState = {
+    baseRepo: BaseRepoInfo | null;
+    tasks: TaskSummary[];
+    selectedTaskId: string | null;
+    branchOptions: string[];
+    viewMode: "task" | "home";
+    terminalBuffers: Record<string, string>;
+    worktreeTerminalBuffers: Record<string, string>;
+    worktreeTerminalOpenState: Record<string, boolean>;
+    terminalSizes: Record<string, { cols: number; rows: number }>;
+    worktreeTerminalSizes: Record<string, { cols: number; rows: number }>;
+    lastTerminalSize: { cols: number; rows: number } | null;
+    lastWorktreeTerminalSize: { cols: number; rows: number } | null;
+};
 
 export type DiffWatchState = {
     payload: DiffPayload | null;
