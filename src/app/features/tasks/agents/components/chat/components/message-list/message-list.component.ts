@@ -170,7 +170,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     readonly historyRenderCallback = new Subject<CodexGuiListItem[]>();
 
     historyListItems: CodexGuiListItem[] = [];
-    tailItem: CodexGuiListItem | null = null;
+    tailItems: CodexGuiListItem[] = [];
     initialScrollIndex = 0;
 
     private readonly messageItemCache = new Map<string, CachedMessageItem>();
@@ -221,12 +221,17 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             changes["stripPathPrefix"]
         ) {
             const previousHistoryLength = this.historyListItems.length;
-            const previousTailKey = this.tailItem?.key;
+            const previousTailAnchorKey = this.tailItems[0]?.key;
 
             this.rebuildItems();
 
             if (this.bottomPinController.isPinned) {
-                if (this.shouldUseBottomFollow(previousTailKey, previousHistoryLength)) {
+                if (
+                    this.shouldUseBottomFollow(
+                        previousTailAnchorKey,
+                        previousHistoryLength,
+                    )
+                ) {
                     this.requestBottomFollow();
                 } else {
                     this.requestBottomSync();
@@ -275,19 +280,27 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     }
 
     private rebuildItems(): void {
-        const tailMessage = this.messages.at(-1);
-        const liveTailMessage =
-            tailMessage?.status === "streaming" ? tailMessage : null;
-        const historyMessages = liveTailMessage
-            ? this.messages.slice(0, -1)
-            : this.messages;
+        let liveTailIndex = -1;
+        for (let index = 0; index < this.messages.length; index += 1) {
+            if (this.messages[index]?.status === "streaming") {
+                liveTailIndex = index;
+                break;
+            }
+        }
+        const historyMessages =
+            liveTailIndex >= 0
+                ? this.messages.slice(0, liveTailIndex)
+                : this.messages;
+        const liveTailMessages =
+            liveTailIndex >= 0 ? this.messages.slice(liveTailIndex) : [];
 
         this.historyListItems = historyMessages.map((message) =>
             this.buildMessageItem(message),
         );
-        this.tailItem = liveTailMessage
-            ? this.buildMessageItem(liveTailMessage)
-            : this.buildTypingIndicatorItem();
+        this.tailItems =
+            liveTailMessages.length > 0
+                ? liveTailMessages.map((message) => this.buildMessageItem(message))
+                : this.buildTypingIndicatorItems();
         this.applyToolSpacingCompaction();
         this.initialScrollIndex = Math.max(this.historyListItems.length - 1, 0);
         this.pruneMeasuredHistoryItemHeights();
@@ -298,12 +311,17 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             const current = this.historyListItems[index];
             const next =
                 this.historyListItems[index + 1] ??
-                (index === this.historyListItems.length - 1 ? this.tailItem : null);
+                (index === this.historyListItems.length - 1
+                    ? this.tailItems[0] ?? null
+                    : null);
             current.compactWithNext =
                 current.renderKind === "tool" && next?.renderKind === "tool";
         }
-        if (this.tailItem) {
-            this.tailItem.compactWithNext = false;
+        for (let index = 0; index < this.tailItems.length; index += 1) {
+            const current = this.tailItems[index];
+            const next = this.tailItems[index + 1] ?? null;
+            current.compactWithNext =
+                current.renderKind === "tool" && next?.renderKind === "tool";
         }
     }
 
@@ -454,31 +472,33 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         });
     }
 
-    private buildTypingIndicatorItem(): CodexGuiListItem | null {
+    private buildTypingIndicatorItems(): CodexGuiListItem[] {
         if (!this.shouldShowGlobalTypingIndicator(this.messages, this.isWorking)) {
-            return null;
+            return [];
         }
 
         const label = this.globalTypingLabel(this.messages);
-        return {
-            key: "typing-indicator",
-            trackKey: "typing-indicator",
-            rowRole: "assistant",
-            dataRole: "assistant",
-            dataStatus: "streaming",
-            renderKind: "typing",
-            html: "",
-            plainContent: "",
-            streamingPlain: false,
-            toolRowsHtml: [],
-            isToolRunning: false,
-            toolStatusLabel: "",
-            showStreamingIndicator: false,
-            typingLabel: this.activityLabel.trim() || label,
-            typingStartedAt: this.activityStartedAt,
-            showTypingLabel: this.shouldShowGlobalTypingLabel(label),
-            compactWithNext: false,
-        };
+        return [
+            {
+                key: "typing-indicator",
+                trackKey: "typing-indicator",
+                rowRole: "assistant",
+                dataRole: "assistant",
+                dataStatus: "streaming",
+                renderKind: "typing",
+                html: "",
+                plainContent: "",
+                streamingPlain: false,
+                toolRowsHtml: [],
+                isToolRunning: false,
+                toolStatusLabel: "",
+                showStreamingIndicator: false,
+                typingLabel: this.activityLabel.trim() || label,
+                typingStartedAt: this.activityStartedAt,
+                showTypingLabel: this.shouldShowGlobalTypingLabel(label),
+                compactWithNext: false,
+            },
+        ];
     }
 
     private buildMessageItem(message: Message): CodexGuiListItem {
@@ -597,12 +617,12 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     }
 
     private shouldUseBottomFollow(
-        previousTailKey: string | undefined,
+        previousTailAnchorKey: string | undefined,
         previousHistoryLength: number,
     ): boolean {
         return (
-            !!this.tailItem &&
-            this.tailItem.key === previousTailKey &&
+            this.tailItems.length > 0 &&
+            this.tailItems[0]?.key === previousTailAnchorKey &&
             this.historyListItems.length === previousHistoryLength
         );
     }

@@ -9,7 +9,7 @@
             isActive &&
             !showInitialLoading &&
             historyListItems.length === 0 &&
-            !tailItem
+            tailItems.length === 0
         "
     >
         Ask Codex to inspect the repo, explain diffs, or implement a task.
@@ -31,7 +31,6 @@
                 templateCacheSize: templateCacheSize;
                 renderCallback: historyRenderCallback
             "
-            data-animate="false"
             [attr.data-track-key]="item.trackKey"
             [class.user-row]="item.rowRole === 'user'"
             [class.assistant-row]="item.rowRole !== 'user'"
@@ -49,24 +48,25 @@
         </article>
     </rx-virtual-scroll-viewport>
 
-    <article
-        *ngIf="isActive && !showInitialLoading && tailItem as item"
-        class="message-row tail-row"
-        data-animate="true"
-        [class.user-row]="item.rowRole === 'user'"
-        [class.assistant-row]="item.rowRole !== 'user'"
-        [class.compact-with-next]="item.compactWithNext"
-        [attr.data-role]="item.dataRole"
-        [attr.data-status]="item.dataStatus"
-        [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
-    >
-        <div class="msg-body">
-            <ng-container
-                [ngTemplateOutlet]="messageRow"
-                [ngTemplateOutletContext]="{ $implicit: item }"
-            ></ng-container>
-        </div>
-    </article>
+    <ng-container *ngIf="isActive && !showInitialLoading">
+        <article
+            *ngFor="let item of tailItems; trackBy: trackByItem"
+            class="message-row tail-row"
+            [class.user-row]="item.rowRole === 'user'"
+            [class.assistant-row]="item.rowRole !== 'user'"
+            [class.compact-with-next]="item.compactWithNext"
+            [attr.data-role]="item.dataRole"
+            [attr.data-status]="item.dataStatus"
+            [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
+        >
+            <div class="msg-body">
+                <ng-container
+                    [ngTemplateOutlet]="messageRow"
+                    [ngTemplateOutletContext]="{ $implicit: item }"
+                ></ng-container>
+            </div>
+        </article>
+    </ng-container>
 </div>
 
 <ng-template #messageRow let-item>
