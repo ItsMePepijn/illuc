@@ -1,10 +1,12 @@
 use crate::commands::CommandResult;
 use crate::error::TaskError;
 use crate::features::tasks::agents::{AgentCallbacks, AgentRuntime};
+use crate::features::tasks::agents::codex_gui::types::GuiRequestEvent;
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::events::{
-    emit_codex_gui_activity, emit_codex_gui_hydrated, emit_codex_gui_message, emit_codex_gui_plan,
-    emit_codex_gui_request, emit_codex_gui_token_usage, CodexGuiPlanStepPayload,
+    emit_codex_gui_activity, emit_codex_gui_history, emit_codex_gui_hydrated,
+    emit_codex_gui_message, emit_codex_gui_plan, emit_codex_gui_request,
+    emit_codex_gui_token_usage, CodexGuiPlanStepPayload,
     CodexGuiQuestionOptionPayload, CodexGuiQuestionPayload, CodexGuiRequestPayload,
     CodexGuiTokenUsagePayload,
 };
@@ -79,6 +81,7 @@ pub async fn task_start(
     let exit_manager = manager.inner().clone();
     let exit_app = app_handle.clone();
     let gui_message_app = app_handle.clone();
+    let gui_history_app = app_handle.clone();
     let gui_activity_app = app_handle.clone();
     let gui_plan_app = app_handle.clone();
     let gui_token_usage_app = app_handle.clone();
@@ -101,9 +104,13 @@ pub async fn task_start(
                 event.message_id,
                 event.role.as_str(),
                 event.content,
+                event.presentation,
                 event.is_delta,
                 event.is_final,
             );
+        }),
+        on_gui_history: Arc::new(move |events| {
+            emit_codex_gui_history(&gui_history_app, task_id, events);
         }),
         on_gui_activity: Arc::new(move |event| {
             emit_codex_gui_activity(&gui_activity_app, task_id, event.label, event.started_at);
@@ -144,7 +151,7 @@ pub async fn task_start(
         }),
         on_gui_request: Arc::new(move |event| {
             let payload = match event {
-                crate::features::tasks::agents::GuiRequestEvent::Cleared => {
+                GuiRequestEvent::Cleared => {
                     CodexGuiRequestPayload {
                         task_id,
                         request_id: None,
@@ -166,7 +173,7 @@ pub async fn task_start(
                         questions: Vec::new(),
                     }
                 }
-                crate::features::tasks::agents::GuiRequestEvent::CommandApproval {
+                GuiRequestEvent::CommandApproval {
                     request_id,
                     item_id,
                     approval_id,
@@ -201,7 +208,7 @@ pub async fn task_start(
                     grant_root: None,
                     questions: Vec::new(),
                 },
-                crate::features::tasks::agents::GuiRequestEvent::FileChangeApproval {
+                GuiRequestEvent::FileChangeApproval {
                     request_id,
                     item_id,
                     reason,
@@ -227,7 +234,7 @@ pub async fn task_start(
                     grant_root,
                     questions: Vec::new(),
                 },
-                crate::features::tasks::agents::GuiRequestEvent::UserInput {
+                GuiRequestEvent::UserInput {
                     request_id,
                     item_id,
                     questions,

@@ -16,7 +16,7 @@
     </div>
 
     <rx-virtual-scroll-viewport
-        *ngIf="isActive && !showInitialLoading"
+        *ngIf="isActive && !showInitialLoading && historyListItems.length > 0"
         class="messages-viewport"
         [dynamic]="estimateHistoryItemSize"
         [initialScrollIndex]="initialScrollIndex"
@@ -78,9 +78,10 @@
 
     <app-codex-gui-tool-message
         *ngIf="item.renderKind === 'tool'"
-        [rowsHtml]="item.toolRowsHtml"
+        [rows]="item.toolRows"
         [isRunning]="item.isToolRunning"
         [statusLabel]="item.toolStatusLabel"
+        [stripPathPrefix]="stripPathPrefix"
         (contentClick)="onContentClick($event)"
     ></app-codex-gui-tool-message>
 

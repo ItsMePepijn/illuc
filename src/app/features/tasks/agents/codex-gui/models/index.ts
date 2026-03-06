@@ -1,7 +1,9 @@
 export * from "./activity-event.model";
+export * from "./history-event.model";
 export * from "./hydrated-event.model";
 export * from "./limit-status.model";
 export * from "./message-event.model";
+export * from "./message-presentation.model";
 export * from "./message-status.model";
 export * from "./message.model";
 export * from "./plan-event.model";
@@ -12,5 +14,6 @@ export * from "./request-question.model";
 export * from "./role.model";
 export * from "./token-usage-event.model";
 export * from "./token-usage.model";
+export * from "./tool-row.model";
 export * from "./usage-snapshot.model";
 export * from "./working-period.model";

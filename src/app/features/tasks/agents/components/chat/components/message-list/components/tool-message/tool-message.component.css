@@ -42,9 +42,8 @@
     word-break: break-all;
 }
 
-.tool-cmd :is(a, code) {
-    font-family: inherit;
-    font-size: inherit;
+.tool-label {
+    color: var(--text-default);
 }
 
 :host ::ng-deep .tool-cmd a,
@@ -67,28 +66,15 @@
     border-bottom-color: var(--brand-accent);
 }
 
-.tool-cmd .t-bin {
-    color: var(--text-default);
+.tool-stat {
+    margin-left: 8px;
 }
 
-.tool-cmd .t-flag {
-    color: var(--text-subtle);
-}
-
-.tool-cmd .t-arg {
-    color: var(--brand-accent);
-    opacity: 0.86;
-}
-
-.tool-cmd .t-str {
+.tool-stat.added {
     color: var(--status-success);
 }
 
-:host ::ng-deep .tool-cmd .t-added {
-    color: var(--status-success);
-}
-
-:host ::ng-deep .tool-cmd .t-removed {
+.tool-stat.removed {
     color: var(--status-danger);
 }
 

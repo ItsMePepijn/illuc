@@ -3,8 +3,10 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import {
     ActivityEvent,
+    HistoryEvent,
     HydratedEvent,
     LimitStatus,
+    MessagePresentation,
     Message,
     MessageEvent,
     PlanEvent,
@@ -12,7 +14,7 @@ import {
     TokenUsageEvent,
     UsageSnapshot,
     WorkingPeriod,
-} from "./models";
+} from "./codex-gui/models";
 import { tauriInvoke, tauriListen } from "../../../shared/tauri/tauri-zone";
 
 export type CodexGuiActivityState = {
@@ -116,9 +118,11 @@ export class CodexGuiStore {
         if (!taskId) {
             return;
         }
+        this.replaceCodexGuiMessages(taskId, []);
         this.setCodexGuiHydrated(taskId, false);
         this.setCodexGuiActivity(taskId, null);
         this.setCodexGuiPlan(taskId, null);
+        this.setCodexGuiTokenUsage(taskId, null);
         this.setCodexGuiRequest(taskId, null);
     }
 
@@ -158,6 +162,14 @@ export class CodexGuiStore {
             id: this.newMessageId(),
             role: "user",
             content: text,
+            presentation: {
+                kind: "user",
+                text,
+                textFormat: "markdown",
+                toolRows: [],
+                toolStatusLabel: null,
+                isToolRunning: false,
+            },
             createdAt: new Date().toISOString(),
             status: "complete",
         });
@@ -176,6 +188,14 @@ export class CodexGuiStore {
                 id: this.newMessageId(),
                 role: "system",
                 content: `Codex GUI send failed: ${detail}`,
+                presentation: {
+                    kind: "standard",
+                    text: `Codex GUI send failed: ${detail}`,
+                    textFormat: "markdown",
+                    toolRows: [],
+                    toolStatusLabel: null,
+                    isToolRunning: false,
+                },
                 createdAt: new Date().toISOString(),
                 status: "error",
             });
@@ -230,6 +250,7 @@ export class CodexGuiStore {
                 id: event.messageId,
                 role: event.role as Message["role"],
                 content: event.content,
+                presentation: event.presentation,
                 createdAt: new Date().toISOString(),
                 status: event.isFinal ? "complete" : "streaming",
             })),
@@ -360,6 +381,14 @@ export class CodexGuiStore {
             "task_codex_gui_message",
             (event) => {
                 this.applyCodexGuiEvent(event.payload);
+            },
+        ).then((unlisten) => this.unlistenFns.push(unlisten));
+
+        void tauriListen<HistoryEvent>(
+            this.zone,
+            "task_codex_gui_history",
+            (event) => {
+                this.applyCodexGuiHistory(event.payload);
             },
         ).then((unlisten) => this.unlistenFns.push(unlisten));
 
@@ -598,6 +627,23 @@ export class CodexGuiStore {
         this.ensureCodexGuiMessageStream(taskId).next(messages);
     }
 
+    private applyCodexGuiHistory(event: HistoryEvent): void {
+        if (!event.taskId) {
+            return;
+        }
+        this.replaceCodexGuiMessages(
+            event.taskId,
+            (event.events ?? []).map((item) => ({
+                id: item.messageId,
+                role: item.role,
+                content: item.content,
+                presentation: item.presentation,
+                createdAt: new Date().toISOString(),
+                status: item.isFinal ? "complete" : "streaming",
+            })),
+        );
+    }
+
     private applyCodexGuiEvent(event: MessageEvent): void {
         const current = this.codexGuiMessages.get(event.taskId) ?? [];
         const existingIndex = current.findIndex((message) => message.id === event.messageId);
@@ -612,6 +658,12 @@ export class CodexGuiStore {
                 ...existing,
                 content: mergedContent,
                 role: event.role,
+                presentation: this.mergeCodexGuiPresentation(
+                    existing.presentation,
+                    event.presentation,
+                    mergedContent,
+                    event.isDelta,
+                ),
                 status: event.isFinal ? "complete" : existing.status,
             };
             const updated = [...current];
@@ -629,9 +681,31 @@ export class CodexGuiStore {
             id: event.messageId,
             role: event.role,
             content: incomingContent,
+            presentation: event.presentation,
             createdAt: new Date().toISOString(),
             status: event.isFinal ? "complete" : "streaming",
         });
+    }
+
+    private mergeCodexGuiPresentation(
+        existing: MessagePresentation,
+        incoming: MessagePresentation,
+        mergedContent: string,
+        isDelta: boolean,
+    ): MessagePresentation {
+        if (!isDelta) {
+            return incoming;
+        }
+
+        if (incoming.kind === "tool") {
+            return incoming;
+        }
+
+        return {
+            ...existing,
+            ...incoming,
+            text: mergedContent,
+        };
     }
 
     private parseCodexGuiUsage(response: CodexGuiUsageResponse): UsageSnapshot | null {
@@ -793,6 +867,7 @@ type CodexGuiRollbackResponse = {
         messageId: string;
         role: string;
         content: string;
+        presentation: MessagePresentation;
         isDelta: boolean;
         isFinal: boolean;
     }>;

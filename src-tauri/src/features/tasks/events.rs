@@ -1,3 +1,4 @@
+use crate::features::tasks::agents::codex_gui::types::{GuiMessageEvent, GuiMessagePresentation};
 use crate::features::tasks::{TaskSummary, TerminalKind};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -51,6 +52,7 @@ pub fn emit_codex_gui_message(
     message_id: String,
     role: &'static str,
     content: String,
+    presentation: GuiMessagePresentation,
     is_delta: bool,
     is_final: bool,
 ) {
@@ -59,11 +61,36 @@ pub fn emit_codex_gui_message(
         message_id,
         role,
         content,
+        presentation,
         is_delta,
         is_final,
     };
     if let Err(error) = app.emit("task_codex_gui_message", payload) {
         log::warn!("failed to emit task_codex_gui_message event: {error}");
+    }
+}
+
+pub fn emit_codex_gui_history(
+    app: &AppHandle,
+    task_id: Uuid,
+    events: Vec<GuiMessageEvent>,
+) {
+    let payload = CodexGuiHistoryPayload {
+        task_id,
+        events: events
+            .into_iter()
+            .map(|event| CodexGuiHistoryMessagePayload {
+                message_id: event.message_id,
+                role: event.role.as_str(),
+                content: event.content,
+                presentation: event.presentation,
+                is_delta: event.is_delta,
+                is_final: event.is_final,
+            })
+            .collect(),
+    };
+    if let Err(error) = app.emit("task_codex_gui_history", payload) {
+        log::warn!("failed to emit task_codex_gui_history event: {error}");
     }
 }
 
@@ -158,6 +185,25 @@ struct CodexGuiMessagePayload {
     message_id: String,
     role: &'static str,
     content: String,
+    presentation: GuiMessagePresentation,
+    is_delta: bool,
+    is_final: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiHistoryPayload {
+    task_id: Uuid,
+    events: Vec<CodexGuiHistoryMessagePayload>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CodexGuiHistoryMessagePayload {
+    message_id: String,
+    role: &'static str,
+    content: String,
+    presentation: GuiMessagePresentation,
     is_delta: bool,
     is_final: bool,
 }

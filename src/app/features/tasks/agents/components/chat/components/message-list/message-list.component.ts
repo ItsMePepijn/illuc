@@ -19,12 +19,10 @@ import {
     RxVirtualScrollElementDirective,
     RxVirtualScrollViewportComponent,
 } from "@rx-angular/template/virtual-scrolling";
-import { Message } from "../../../../models";
+import { Message, ToolRow } from "../../../../codex-gui/models";
 import { LoadingSpinnerComponent } from "../../../../../../../shared/components/loading-spinner/loading-spinner.component";
 import {
-    codexGuiToolStatusLabel,
     globalTypingLabel,
-    isCodexGuiToolMessage,
     renderCodexGuiMessage,
     shouldShowGlobalTypingIndicator,
 } from "./codex-gui-message-list-renderer";
@@ -51,7 +49,7 @@ type CodexGuiListItem = {
     html: string;
     plainContent: string;
     streamingPlain: boolean;
-    toolRowsHtml: string[];
+    toolRows: ToolRow[];
     isToolRunning: boolean;
     toolStatusLabel: string;
     showStreamingIndicator: boolean;
@@ -222,8 +220,12 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         ) {
             const previousHistoryLength = this.historyListItems.length;
             const previousTailAnchorKey = this.tailItems[0]?.key;
+            const previousRenderedItemCount =
+                this.historyListItems.length + this.tailItems.length;
 
             this.rebuildItems();
+            const nextRenderedItemCount =
+                this.historyListItems.length + this.tailItems.length;
 
             if (this.bottomPinController.isPinned) {
                 if (
@@ -235,6 +237,14 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                     this.requestBottomFollow();
                 } else {
                     this.requestBottomSync();
+                }
+
+                if (
+                    this.isActive &&
+                    previousRenderedItemCount === 0 &&
+                    nextRenderedItemCount > 0
+                ) {
+                    this.scheduleActivationBottomSync();
                 }
             }
         }
@@ -360,9 +370,9 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     }
 
     private estimateToolMessageHeight(item: CodexGuiListItem): number {
-        const rowHeights = item.toolRowsHtml.reduce((height, rowHtml) => {
+        const rowHeights = item.toolRows.reduce((height, row) => {
             const wrappedLines = estimateWrappedLineCount(
-                stripHtmlTags(rowHtml),
+                [row.label, row.value ?? "", row.path ?? ""].join(" "),
                 72,
             );
             return height + 18 + Math.max(0, wrappedLines - 1) * 18;
@@ -370,7 +380,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         const height =
             CHAT_ROW_PADDING_PX +
             rowHeights +
-            Math.max(0, item.toolRowsHtml.length - 1) * 2 +
+            Math.max(0, item.toolRows.length - 1) * 2 +
             (item.toolStatusLabel ? 6 : 0) +
             (item.isToolRunning ? 4 : 0);
         return clampHeight(height, CHAT_MIN_TOOL_ROW_HEIGHT_PX, 720);
@@ -489,7 +499,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                 html: "",
                 plainContent: "",
                 streamingPlain: false,
-                toolRowsHtml: [],
+            toolRows: [],
                 isToolRunning: false,
                 toolStatusLabel: "",
                 showStreamingIndicator: false,
@@ -504,7 +514,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     private buildMessageItem(message: Message): CodexGuiListItem {
         const cacheKey = `${this.stripPathPrefix}\u0000${message.id}`;
         const sourceKey =
-            `${message.role}\u0000${message.status}\u0000${message.content}`;
+            `${message.role}\u0000${message.status}\u0000${message.content}\u0000${JSON.stringify(message.presentation)}`;
         const cached = this.messageItemCache.get(cacheKey);
         if (cached?.sourceKey === sourceKey) {
             return cached.item;
@@ -522,7 +532,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             html: rendered.html,
             plainContent: rendered.plainContent,
             streamingPlain: rendered.streamingPlain,
-            toolRowsHtml: rendered.toolRowsHtml,
+            toolRows: rendered.toolRows,
             isToolRunning: rendered.isToolRunning,
             toolStatusLabel: rendered.toolStatusLabel,
             showStreamingIndicator: rendered.showStreamingIndicator,

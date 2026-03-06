@@ -11,7 +11,7 @@ import {
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { Subscription } from "rxjs";
-import { LimitStatus, Message } from "../../models";
+import { LimitStatus, Message } from "../../codex-gui/models";
 import {
     CodexGuiActivityState,
     CodexGuiStore,

@@ -1,5 +1,6 @@
 use crate::commands::CommandResult;
 use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_common::require_running_codex_gui_record_mut;
+use crate::features::tasks::agents::codex_gui::types::GuiMessagePresentation;
 use crate::features::tasks::TaskManager;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -23,6 +24,7 @@ pub struct RollbackEvent {
     pub message_id: String,
     pub role: String,
     pub content: String,
+    pub presentation: GuiMessagePresentation,
     pub is_delta: bool,
     pub is_final: bool,
 }
@@ -45,6 +47,7 @@ pub async fn task_codex_gui_rollback(
                 message_id: event.message_id,
                 role: event.role.as_str().to_string(),
                 content: event.content,
+                presentation: event.presentation,
                 is_delta: event.is_delta,
                 is_final: event.is_final,
             })

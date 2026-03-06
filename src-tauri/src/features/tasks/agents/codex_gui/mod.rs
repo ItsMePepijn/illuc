@@ -1,12 +1,14 @@
-mod app_server_handlers;
+mod event_handlers;
 pub mod commands;
 mod message_parsing;
 mod rpc;
 mod runtime;
+pub mod types;
 
 use crate::features::tasks::agents::{
-    Agent, AgentCallbacks, AgentModelCapability, AgentRuntime, GuiMessageEvent,
+    Agent, AgentCallbacks, AgentModelCapability, AgentRuntime,
 };
+use crate::features::tasks::agents::codex_gui::types::GuiMessageEvent;
 use crate::utils::pty::{ProcessExitStatus, ProcessHandle, TerminalMaster, TerminalSize};
 use anyhow::Context;
 use chrono::{DateTime, Utc};

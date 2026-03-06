@@ -45,6 +45,10 @@ Example structure:
 For Rust (`src-tauri/`), prefer grouping by feature module as well:
 - `src-tauri/src/features/tasks/` (including `src-tauri/src/features/tasks/agents/`), `src-tauri/src/features/launcher/`
 - Keep commands, models, and helpers close to the feature module.
+- Organize Rust type files around top-level feature types such as events, requests, responses, domain objects, or other primary API/domain types.
+- Each top-level type should usually have its own file.
+- If a small supporting type exists only to serve one top-level type, keep it in the same file as that top-level type.
+- Do not create a separate file for a nested/supporting enum or struct unless that type is meaningfully reused by multiple top-level types or modules.
 
 ### If uncertain
 Ask the user which slice should own the change before creating new structure.

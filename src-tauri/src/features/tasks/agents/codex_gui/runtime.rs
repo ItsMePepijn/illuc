@@ -1,5 +1,5 @@
 use super::{
-    app_server_handlers, rpc, CodexGuiAgent, CodexGuiAgentState, NullMaster, NullWriter, StdChild,
+    event_handlers, rpc, CodexGuiAgent, CodexGuiAgentState, NullMaster, NullWriter, StdChild,
 };
 use crate::features::tasks::agents::{AgentCallbacks, AgentRuntime};
 use crate::utils::pty::{ChildHandle, MasterHandle, WriteHandle};
@@ -10,7 +10,9 @@ use parking_lot::Mutex;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, BufWriter};
 use std::path::Path;
-use std::process::{Command, Stdio};
+#[cfg(not(target_os = "windows"))]
+use std::process::Command;
+use std::process::Stdio;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -41,7 +43,7 @@ pub(super) fn start(
         .take()
         .context("failed to open codex app-server stdout")?;
     let stderr = child.stderr.take();
-    app_server_handlers::spawn_stderr_logger(stderr);
+    event_handlers::spawn_stderr_logger(stderr);
 
     {
         let mut state = agent.state.lock();
@@ -148,7 +150,7 @@ fn spawn_reader_loop(
                 message.get("method").and_then(|value| value.as_str()),
             ) {
                 if let Err(error) =
-                    app_server_handlers::handle_server_request(&state, &message, request_id, method)
+                    event_handlers::handle_server_request(&state, &message, request_id, method)
                 {
                     log::warn!(
                         "failed to respond to app-server request {}: {}",
@@ -160,12 +162,12 @@ fn spawn_reader_loop(
             }
 
             if message.get("id").is_some() {
-                app_server_handlers::handle_response(&state, &message);
+                event_handlers::handle_response(&state, &message);
                 continue;
             }
 
             if message.get("method").is_some() {
-                app_server_handlers::handle_notification(&state, &message);
+                event_handlers::handle_notification(&state, &message);
             }
         }
     });
