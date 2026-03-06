@@ -8,9 +8,9 @@
             <span class="tool-glyph" [class.placeholder]="!first">&gt;_</span>
         </ng-template>
         <span class="tool-cmd">
-            <span class="tool-label">{{ row.label }}</span>
+            <span *ngIf="showLabel(row)" class="tool-label">{{ row.label }}</span>
             <ng-container *ngIf="rowValue(row) as value">
-                <span *ngIf="value.length > 0">&nbsp;</span>
+                <span *ngIf="showLabel(row) && value.length > 0">&nbsp;</span>
                 <a *ngIf="rowHref(row) as href; else plainValue" [href]="href">{{ value }}</a>
                 <ng-template #plainValue>{{ value }}</ng-template>
             </ng-container>

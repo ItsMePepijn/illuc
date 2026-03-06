@@ -32,6 +32,10 @@ export class ToolMessageComponent {
         return row.value?.trim() ?? "";
     }
 
+    showLabel(row: ToolRow): boolean {
+        return row.kind !== "command";
+    }
+
     rowHref(row: ToolRow): string | null {
         if (!row.path) {
             return null;

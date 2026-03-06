@@ -236,7 +236,8 @@ fn build_command_tool_rows(params: &Value, item: Option<&Value>, content: &str) 
         return Vec::new();
     };
 
-    let command_source = unwrap_shell_lc_command(command.as_str()).unwrap_or(command.as_str());
+    let unwrapped_command = unwrap_shell_lc_command(command.as_str());
+    let command_source = unwrapped_command.as_deref().unwrap_or(command.as_str());
     let patch_rows = patch_tool_rows(command_source);
     if !patch_rows.is_empty() {
         return patch_rows;
@@ -268,7 +269,7 @@ fn build_command_tool_rows(params: &Value, item: Option<&Value>, content: &str) 
     let command_value = delta
         .filter(|value| !value.is_empty())
         .map(str::to_string)
-        .unwrap_or(command);
+        .unwrap_or_else(|| command_source.to_string());
     vec![GuiToolRow {
         kind: GuiToolRowKind::Command,
         label: "Command".to_string(),
@@ -837,13 +838,28 @@ fn split_command_tokens(command: &str) -> Vec<String> {
     tokens
 }
 
-fn unwrap_shell_lc_command(command: &str) -> Option<&str> {
+fn unwrap_shell_lc_command(command: &str) -> Option<String> {
     for prefix in ["/bin/bash -lc ", "bash -lc ", "/bin/sh -lc ", "sh -lc "] {
         if let Some(rest) = command.strip_prefix(prefix) {
-            return Some(rest.trim());
+            return Some(unquote_shell_argument(rest.trim()));
         }
     }
-    None
+
+    let tokens = split_command_tokens(command);
+    if tokens.len() < 3 {
+        return None;
+    }
+
+    let shell = unquote_shell_argument(tokens[0].as_str());
+    let shell_base = shell.rsplit('/').next().unwrap_or(shell.as_str());
+    if !matches!(shell_base, "bash" | "sh" | "zsh" | "fish") {
+        return None;
+    }
+    if !matches!(tokens[1].as_str(), "-lc" | "-c") {
+        return None;
+    }
+
+    Some(unquote_shell_argument(tokens[2].trim()))
 }
 
 fn unquote_shell_argument(value: &str) -> String {
@@ -1113,4 +1129,59 @@ pub(super) fn fallback_message_id() -> String {
         .unwrap_or_else(|_| Duration::from_millis(0))
         .as_millis();
     format!("assistant-{}", millis)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn command_tool_rows_normalize_absolute_path_shell_cat_to_read() {
+        let params = json!({});
+        let item = json!({
+            "type": "commandExecution",
+            "command": "/usr/bin/bash -lc 'cat package.json'",
+        });
+
+        let rows = build_command_tool_rows(&params, Some(&item), "");
+
+        assert_eq!(rows.len(), 1);
+        assert!(matches!(rows[0].kind, GuiToolRowKind::Read));
+        assert_eq!(rows[0].label, "Read");
+        assert_eq!(rows[0].path.as_deref(), Some("package.json"));
+        assert!(rows[0].value.is_none());
+    }
+
+    #[test]
+    fn command_tool_rows_normalize_absolute_path_shell_rg_to_search() {
+        let params = json!({});
+        let item = json!({
+            "type": "commandExecution",
+            "command": "/usr/bin/bash -lc 'rg foo src'",
+        });
+
+        let rows = build_command_tool_rows(&params, Some(&item), "");
+
+        assert_eq!(rows.len(), 1);
+        assert!(matches!(rows[0].kind, GuiToolRowKind::Search));
+        assert_eq!(rows[0].label, "Search");
+        assert_eq!(rows[0].value.as_deref(), Some("foo"));
+        assert!(rows[0].path.is_none());
+    }
+
+    #[test]
+    fn command_tool_rows_unwrap_generic_shell_command_value() {
+        let params = json!({});
+        let item = json!({
+            "type": "commandExecution",
+            "command": "/usr/bin/bash -lc 'echo \"or whatever\"'",
+        });
+
+        let rows = build_command_tool_rows(&params, Some(&item), "");
+
+        assert_eq!(rows.len(), 1);
+        assert!(matches!(rows[0].kind, GuiToolRowKind::Command));
+        assert_eq!(rows[0].value.as_deref(), Some("echo \"or whatever\""));
+    }
 }
