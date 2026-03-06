@@ -1,6 +1,5 @@
 import { CommonModule } from "@angular/common";
 import {
-    ChangeDetectorRef,
     ChangeDetectionStrategy,
     Component,
     ElementRef,
@@ -13,12 +12,7 @@ import {
     SimpleChanges,
     ViewChild,
 } from "@angular/core";
-import {
-    DynamicSizeVirtualScrollStrategy,
-    RxVirtualFor,
-    RxVirtualScrollElementDirective,
-    RxVirtualScrollViewportComponent,
-} from "@rx-angular/template/virtual-scrolling";
+import { Datasource, SizeStrategy, UiScrollModule } from "ngx-ui-scroll";
 import { Message, ToolRow } from "../../../../codex-gui/models";
 import { LoadingSpinnerComponent } from "../../../../../../../shared/components/loading-spinner/loading-spinner.component";
 import {
@@ -26,18 +20,12 @@ import {
     renderCodexGuiMessage,
     shouldShowGlobalTypingIndicator,
 } from "./codex-gui-message-list-renderer";
-import {
-    CodexGuiBottomFollowController,
-    CodexGuiBottomPinController,
-    CodexGuiBottomSyncController,
-} from "./codex-gui-message-list-scroll-controllers";
 import { TypingIndicatorComponent } from "../typing-indicator/typing-indicator.component";
 import { ThrobberComponent } from "../throbber/throbber.component";
 import { ReasoningMessageComponent } from "./components/reasoning-message/reasoning-message.component";
 import { StandardMessageComponent } from "./components/standard-message/standard-message.component";
 import { ToolMessageComponent } from "./components/tool-message/tool-message.component";
 import { UserMessageComponent } from "./components/user-message/user-message.component";
-import { Subject, Subscription } from "rxjs";
 
 type CodexGuiListItem = {
     key: string;
@@ -59,70 +47,19 @@ type CodexGuiListItem = {
     compactWithNext: boolean;
 };
 
-type CachedMessageItem = {
-    sourceKey: string;
-    revision: number;
-    item: CodexGuiListItem;
-};
-
 const STICK_THRESHOLD_PX = 64;
-const CHAT_RUNWAY_ITEMS = 10;
-const CHAT_RUNWAY_ITEMS_OPPOSITE = 2;
-const CHAT_TEMPLATE_CACHE_SIZE = 0;
-const CHAT_BOTTOM_SNAP_ATTEMPTS = 24;
+const CHAT_BUFFER_SIZE = 10;
+const CHAT_PADDING = 0.5;
 const CHAT_ACTIVATION_SYNC_DELAYS_MS = [0, 40, 120, 280];
-const CHAT_ROW_PADDING_PX = 20;
-const CHAT_MIN_USER_ROW_HEIGHT_PX = 60;
-const CHAT_MIN_STANDARD_ROW_HEIGHT_PX = 68;
-const CHAT_MIN_REASONING_ROW_HEIGHT_PX = 44;
-const CHAT_MIN_TOOL_ROW_HEIGHT_PX = 36;
-
-function clampHeight(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, Math.ceil(value)));
-}
-
-function countMatches(source: string, pattern: RegExp): number {
-    return source.match(pattern)?.length ?? 0;
-}
-
-function stripHtmlTags(html: string): string {
-    return html
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<\/p>/gi, "\n")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/&nbsp;/g, " ")
-        .replace(/&amp;/g, "&")
-        .replace(/&lt;/g, "<")
-        .replace(/&gt;/g, ">")
-        .replace(/\s+\n/g, "\n")
-        .replace(/\n\s+/g, "\n")
-        .replace(/[ \t]{2,}/g, " ")
-        .trim();
-}
-
-function estimateWrappedLineCount(text: string, charsPerLine: number): number {
-    const normalized = text.replace(/\r/g, "").trim();
-    if (!normalized) {
-        return 1;
-    }
-    return normalized
-        .split("\n")
-        .reduce(
-            (lineCount, line) =>
-                lineCount + Math.max(1, Math.ceil(line.length / charsPerLine)),
-            0,
-        );
-}
+const CHAT_RESUME_BOTTOM_SYNC_FRAMES = 4;
+const CHAT_SETTLE_BOTTOM_SYNC_FRAMES = 1;
 
 @Component({
     selector: "app-codex-gui-message-list",
     standalone: true,
     imports: [
         CommonModule,
-        RxVirtualFor,
-        RxVirtualScrollViewportComponent,
-        RxVirtualScrollElementDirective,
-        DynamicSizeVirtualScrollStrategy,
+        UiScrollModule,
         LoadingSpinnerComponent,
         TypingIndicatorComponent,
         ThrobberComponent,
@@ -145,132 +82,95 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     @Input() isActive = true;
     @Output() diffFileRequested = new EventEmitter<string>();
 
-    @ViewChild(RxVirtualScrollViewportComponent)
-    set viewportRef(
-        viewport: RxVirtualScrollViewportComponent | undefined,
-    ) {
-        this.viewport = viewport;
-        this.flushPendingScrollToBottom();
-    }
-
     @ViewChild("scrollHost")
     set scrollHostRef(host: ElementRef<HTMLElement> | undefined) {
         this.scrollHost = host?.nativeElement;
         this.bindScrollHost();
-        this.flushPendingScrollToBottom();
+        if (this.pinnedToBottom) {
+            this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
+        }
     }
 
-    readonly runwayItems = CHAT_RUNWAY_ITEMS;
-    readonly runwayItemsOpposite = CHAT_RUNWAY_ITEMS_OPPOSITE;
-    readonly templateCacheSize = CHAT_TEMPLATE_CACHE_SIZE;
-    readonly estimateHistoryItemSize = (item: CodexGuiListItem): number =>
-        this.estimateItemSize(item);
-    readonly historyRenderCallback = new Subject<CodexGuiListItem[]>();
+    @ViewChild("tailContent")
+    set tailContentRef(host: ElementRef<HTMLElement> | undefined) {
+        this.tailContent = host?.nativeElement;
+        this.bindTailObserver();
+    }
 
-    historyListItems: CodexGuiListItem[] = [];
+    readonly datasource = new Datasource<CodexGuiListItem>({
+        get: (index, count, success) => {
+            success(this.getRenderedItems(index, count));
+        },
+        settings: {
+            minIndex: 0,
+            startIndex: 0,
+            bufferSize: CHAT_BUFFER_SIZE,
+            padding: CHAT_PADDING,
+            sizeStrategy: SizeStrategy.Average,
+        },
+    });
+
+    historyItems: CodexGuiListItem[] = [];
     tailItems: CodexGuiListItem[] = [];
-    initialScrollIndex = 0;
 
-    private readonly messageItemCache = new Map<string, CachedMessageItem>();
-    private readonly measuredHistoryItemHeights = new Map<string, number>();
-    private readonly bottomPinController: CodexGuiBottomPinController;
-    private readonly bottomFollowController: CodexGuiBottomFollowController;
-    private readonly bottomSyncController: CodexGuiBottomSyncController;
-    private viewport?: RxVirtualScrollViewportComponent;
+    private appliedHistoryItems: CodexGuiListItem[] = [];
     private scrollHost?: HTMLElement;
+    private tailContent?: HTMLElement;
     private removeScrollListener?: () => void;
     private resizeObserver?: ResizeObserver;
+    private tailResizeObserver?: ResizeObserver;
     private resizeSyncFrameId?: number;
-    private historyRenderSubscription?: Subscription;
-    private historyMeasurementFrameId?: number;
+    private tailResizeSyncFrameId?: number;
+    private adapterCheckFrameId?: number;
+    private bottomSyncFrameId?: number;
+    private bottomSyncFramesRemaining = 0;
+    private pinnedToBottom = true;
+    private activationTimeoutIds: number[] = [];
+    private adapterWork = Promise.resolve();
+    private destroyed = false;
 
-    constructor(
-        private readonly zone: NgZone,
-        private readonly cdr: ChangeDetectorRef,
-    ) {
-        this.bottomPinController = new CodexGuiBottomPinController(
-            STICK_THRESHOLD_PX,
-        );
-        this.bottomFollowController = new CodexGuiBottomFollowController(
-            zone,
-            () => this.bottomPinController.pin(),
-        );
-        this.bottomSyncController = new CodexGuiBottomSyncController(
-            zone,
-            CHAT_BOTTOM_SNAP_ATTEMPTS,
-            CHAT_ACTIVATION_SYNC_DELAYS_MS,
-            () => this.bottomPinController.pin(),
-        );
-        this.historyRenderSubscription = this.historyRenderCallback.subscribe(() => {
-            this.scheduleHistoryMeasurement();
-        });
-    }
+    constructor(private readonly zone: NgZone) {}
 
     ngOnChanges(changes: SimpleChanges): void {
-        if (changes["stripPathPrefix"]) {
-            this.messageItemCache.clear();
-        }
-
-        if (
+        const contentChanged =
             changes["messages"] ||
             changes["isWorking"] ||
             changes["activityLabel"] ||
             changes["activityStartedAt"] ||
-            changes["stripPathPrefix"]
-        ) {
-            const previousHistoryLength = this.historyListItems.length;
-            const previousTailAnchorKey = this.tailItems[0]?.key;
-            const previousRenderedItemCount =
-                this.historyListItems.length + this.tailItems.length;
+            changes["stripPathPrefix"];
+        const becameVisible =
+            changes["showInitialLoading"] &&
+            !this.showInitialLoading &&
+            this.isActive;
+        const becameActive = changes["isActive"]?.currentValue === true;
 
+        if (contentChanged) {
             this.rebuildItems();
-            const nextRenderedItemCount =
-                this.historyListItems.length + this.tailItems.length;
-
-            if (this.bottomPinController.isPinned) {
-                if (
-                    this.shouldUseBottomFollow(
-                        previousTailAnchorKey,
-                        previousHistoryLength,
-                    )
-                ) {
-                    this.requestBottomFollow();
-                } else {
-                    this.requestBottomSync();
-                }
-
-                if (
-                    this.isActive &&
-                    previousRenderedItemCount === 0 &&
-                    nextRenderedItemCount > 0
-                ) {
-                    this.scheduleActivationBottomSync();
-                }
+            this.scheduleHistorySync();
+            if (this.pinnedToBottom && this.tailItems.length > 0) {
+                this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
             }
         }
 
-        if (changes["isActive"]?.currentValue) {
-            this.bottomPinController.pin();
-            this.requestBottomSync();
-            this.scheduleActivationBottomSync();
+        if (becameVisible || becameActive) {
+            this.pinnedToBottom = true;
+            this.scheduleHistorySync(true);
+            this.scheduleActivationSync();
+            this.requestBottomSync(CHAT_RESUME_BOTTOM_SYNC_FRAMES);
         } else if (changes["isActive"]) {
-            this.clearActivationBottomSync();
-            this.clearPendingBottomSnap();
+            this.clearActivationSync();
+            this.cancelBottomSync();
         }
     }
 
     ngOnDestroy(): void {
+        this.destroyed = true;
         this.removeScrollListener?.();
         this.disconnectResizeObserver();
-        this.clearActivationBottomSync();
-        this.clearPendingBottomSnap();
-        this.historyRenderSubscription?.unsubscribe();
-        this.historyRenderCallback.complete();
-        this.cancelHistoryMeasurement();
-    }
-
-    trackByItem(_index: number, item: CodexGuiListItem): string {
-        return item.trackKey;
+        this.disconnectTailObserver();
+        this.clearActivationSync();
+        this.cancelAdapterCheck();
+        this.cancelBottomSync();
     }
 
     onContentClick(event: MouseEvent): void {
@@ -289,6 +189,10 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.diffFileRequested.emit(this.normalizeDiffPath(path));
     }
 
+    trackByItem(_index: number, item: CodexGuiListItem): string {
+        return item.trackKey;
+    }
+
     private rebuildItems(): void {
         let liveTailIndex = -1;
         for (let index = 0; index < this.messages.length; index += 1) {
@@ -297,6 +201,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                 break;
             }
         }
+
         const historyMessages =
             liveTailIndex >= 0
                 ? this.messages.slice(0, liveTailIndex)
@@ -304,227 +209,62 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         const liveTailMessages =
             liveTailIndex >= 0 ? this.messages.slice(liveTailIndex) : [];
 
-        this.historyListItems = historyMessages.map((message) =>
+        this.historyItems = historyMessages.map((message) =>
             this.buildMessageItem(message),
         );
-        this.tailItems =
-            liveTailMessages.length > 0
-                ? liveTailMessages.map((message) => this.buildMessageItem(message))
-                : this.buildTypingIndicatorItems();
+        this.tailItems = liveTailMessages.map((message) =>
+            this.buildMessageItem(message),
+        );
+        const typingIndicator = this.buildTypingIndicatorItem();
+        if (typingIndicator) {
+            this.tailItems = [...this.tailItems, typingIndicator];
+        }
         this.applyToolSpacingCompaction();
-        this.initialScrollIndex = Math.max(this.historyListItems.length - 1, 0);
-        this.pruneMeasuredHistoryItemHeights();
     }
 
-    private applyToolSpacingCompaction(): void {
-        for (let index = 0; index < this.historyListItems.length; index += 1) {
-            const current = this.historyListItems[index];
-            const next =
-                this.historyListItems[index + 1] ??
-                (index === this.historyListItems.length - 1
-                    ? this.tailItems[0] ?? null
-                    : null);
-            current.compactWithNext =
-                current.renderKind === "tool" && next?.renderKind === "tool";
-        }
-        for (let index = 0; index < this.tailItems.length; index += 1) {
-            const current = this.tailItems[index];
-            const next = this.tailItems[index + 1] ?? null;
-            current.compactWithNext =
-                current.renderKind === "tool" && next?.renderKind === "tool";
-        }
-    }
-
-    private estimateItemSize(item: CodexGuiListItem): number {
-        const measuredHeight = this.measuredHistoryItemHeights.get(item.trackKey);
-        if (measuredHeight !== undefined) {
-            return measuredHeight;
-        }
-        switch (item.renderKind) {
-            case "user":
-                return this.estimateUserMessageHeight(item);
-            case "tool":
-                return this.estimateToolMessageHeight(item);
-            case "reasoning":
-                return this.estimateReasoningMessageHeight(item);
-            case "typing":
-                return 56;
-            case "standard":
-            default:
-                return this.estimateStandardMessageHeight(item);
-        }
-    }
-
-    private estimateUserMessageHeight(item: CodexGuiListItem): number {
-        const text = stripHtmlTags(item.html);
-        const wrappedLines = estimateWrappedLineCount(text, 42);
-        const codeBlockCount = countMatches(item.html, /<pre\b/gi);
-        const listCount = countMatches(item.html, /<(ul|ol)\b/gi);
-        const height =
-            CHAT_ROW_PADDING_PX +
-            16 +
-            wrappedLines * 26 +
-            codeBlockCount * 56 +
-            listCount * 20;
-        return clampHeight(height, CHAT_MIN_USER_ROW_HEIGHT_PX, 480);
-    }
-
-    private estimateToolMessageHeight(item: CodexGuiListItem): number {
-        const rowHeights = item.toolRows.reduce((height, row) => {
-            const wrappedLines = estimateWrappedLineCount(
-                [row.label, row.value ?? "", row.path ?? ""].join(" "),
-                72,
-            );
-            return height + 18 + Math.max(0, wrappedLines - 1) * 18;
-        }, 0);
-        const height =
-            CHAT_ROW_PADDING_PX +
-            rowHeights +
-            Math.max(0, item.toolRows.length - 1) * 2 +
-            (item.toolStatusLabel ? 6 : 0) +
-            (item.isToolRunning ? 4 : 0);
-        return clampHeight(height, CHAT_MIN_TOOL_ROW_HEIGHT_PX, 720);
-    }
-
-    private estimateReasoningMessageHeight(item: CodexGuiListItem): number {
-        const wrappedLines = estimateWrappedLineCount(item.plainContent, 64);
-        const height = CHAT_ROW_PADDING_PX + wrappedLines * 24;
-        return clampHeight(height, CHAT_MIN_REASONING_ROW_HEIGHT_PX, 480);
-    }
-
-    private estimateStandardMessageHeight(item: CodexGuiListItem): number {
-        const text = item.streamingPlain ? item.plainContent : stripHtmlTags(item.html);
-        const wrappedLines = estimateWrappedLineCount(
-            text,
-            item.dataRole === "system" || item.dataRole === "reasoning" ? 58 : 64,
-        );
-        const preCount = countMatches(item.html, /<pre\b/gi);
-        const blockquoteCount = countMatches(item.html, /<blockquote\b/gi);
-        const listItemCount = countMatches(item.html, /<li\b/gi);
-        const headingCount = countMatches(item.html, /<h[1-6]\b/gi);
-        const tableCount = countMatches(item.html, /<table\b/gi);
-        const height =
-            CHAT_ROW_PADDING_PX +
-            wrappedLines * 26 +
-            preCount * 72 +
-            blockquoteCount * 24 +
-            listItemCount * 10 +
-            headingCount * 20 +
-            tableCount * 96 +
-            (item.dataRole === "system" || item.dataRole === "reasoning" ? 12 : 0);
-        return clampHeight(height, CHAT_MIN_STANDARD_ROW_HEIGHT_PX, 1400);
-    }
-
-    private pruneMeasuredHistoryItemHeights(): void {
-        const activeKeys = new Set(this.historyListItems.map((item) => item.trackKey));
-        for (const key of this.measuredHistoryItemHeights.keys()) {
-            if (!activeKeys.has(key)) {
-                this.measuredHistoryItemHeights.delete(key);
-            }
-        }
-    }
-
-    private scheduleHistoryMeasurement(): void {
-        this.cancelHistoryMeasurement();
-        this.zone.runOutsideAngular(() => {
-            this.historyMeasurementFrameId = requestAnimationFrame(() => {
-                this.historyMeasurementFrameId = undefined;
-                this.measureRenderedHistoryRows();
-            });
-        });
-    }
-
-    private cancelHistoryMeasurement(): void {
-        if (this.historyMeasurementFrameId === undefined) {
-            return;
-        }
-        cancelAnimationFrame(this.historyMeasurementFrameId);
-        this.historyMeasurementFrameId = undefined;
-    }
-
-    private measureRenderedHistoryRows(): void {
-        const rowElements = Array.from(
-            this.scrollHost?.querySelectorAll<HTMLElement>(
-                ".messages-viewport .message-row[data-track-key]",
-            ) ?? [],
-        );
-        if (rowElements.length === 0) {
-            return;
-        }
-
-        let hasMeasurementsChanged = false;
-        for (const row of rowElements) {
-            const trackKey = row.dataset["trackKey"];
-            if (!trackKey) {
-                continue;
-            }
-            const measuredHeight = Math.ceil(row.offsetHeight);
-            if (measuredHeight <= 0) {
-                continue;
-            }
-            if (this.measuredHistoryItemHeights.get(trackKey) === measuredHeight) {
-                continue;
-            }
-            this.measuredHistoryItemHeights.set(trackKey, measuredHeight);
-            hasMeasurementsChanged = true;
-        }
-
-        if (!hasMeasurementsChanged) {
-            return;
-        }
-
-        this.zone.run(() => {
-            this.historyListItems = [...this.historyListItems];
-            this.cdr.detectChanges();
-            if (this.bottomPinController.isPinned) {
-                this.flushPendingScrollToBottom();
-            }
-        });
-    }
-
-    private buildTypingIndicatorItems(): CodexGuiListItem[] {
+    private buildTypingIndicatorItem(): CodexGuiListItem | null {
         if (!this.shouldShowGlobalTypingIndicator(this.messages, this.isWorking)) {
-            return [];
+            return null;
         }
 
         const label = this.globalTypingLabel(this.messages);
-        return [
-            {
-                key: "typing-indicator",
-                trackKey: "typing-indicator",
-                rowRole: "assistant",
-                dataRole: "assistant",
-                dataStatus: "streaming",
-                renderKind: "typing",
-                html: "",
-                plainContent: "",
-                streamingPlain: false,
+        return {
+            key: "typing-indicator",
+            trackKey: [
+                "typing-indicator",
+                this.activityLabel.trim() || label,
+                this.activityStartedAt ?? "",
+                this.isWorking ? "working" : "idle",
+            ].join("\u0000"),
+            rowRole: "assistant",
+            dataRole: "assistant",
+            dataStatus: "streaming",
+            renderKind: "typing",
+            html: "",
+            plainContent: "",
+            streamingPlain: false,
             toolRows: [],
-                isToolRunning: false,
-                toolStatusLabel: "",
-                showStreamingIndicator: false,
-                typingLabel: this.activityLabel.trim() || label,
-                typingStartedAt: this.activityStartedAt,
-                showTypingLabel: this.shouldShowGlobalTypingLabel(label),
-                compactWithNext: false,
-            },
-        ];
+            isToolRunning: false,
+            toolStatusLabel: "",
+            showStreamingIndicator: false,
+            typingLabel: this.activityLabel.trim() || label,
+            typingStartedAt: this.activityStartedAt,
+            showTypingLabel: this.shouldShowGlobalTypingLabel(label),
+            compactWithNext: false,
+        };
     }
 
     private buildMessageItem(message: Message): CodexGuiListItem {
-        const cacheKey = `${this.stripPathPrefix}\u0000${message.id}`;
-        const sourceKey =
-            `${message.role}\u0000${message.status}\u0000${message.content}\u0000${JSON.stringify(message.presentation)}`;
-        const cached = this.messageItemCache.get(cacheKey);
-        if (cached?.sourceKey === sourceKey) {
-            return cached.item;
-        }
-        const revision = cached ? cached.revision + 1 : 0;
-
         const rendered = renderCodexGuiMessage(message, this.stripPathPrefix);
-        const item: CodexGuiListItem = {
+        return {
             key: message.id,
-            trackKey: `${message.id}:${revision}`,
+            trackKey: [
+                message.id,
+                message.role,
+                message.status,
+                message.content,
+                JSON.stringify(message.presentation),
+            ].join("\u0000"),
             rowRole: message.role === "user" ? "user" : "assistant",
             dataRole: message.role,
             dataStatus: message.status,
@@ -541,28 +281,220 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             showTypingLabel: false,
             compactWithNext: false,
         };
-        this.messageItemCache.set(cacheKey, { sourceKey, revision, item });
-        return item;
     }
 
-    private shouldShowGlobalTypingIndicator(
-        messages: readonly Message[],
-        isWorking: boolean,
+    private applyToolSpacingCompaction(): void {
+        for (let index = 0; index < this.historyItems.length; index += 1) {
+            const current = this.historyItems[index];
+            const next =
+                this.historyItems[index + 1] ??
+                (index === this.historyItems.length - 1
+                    ? this.tailItems[0] ?? null
+                    : null);
+            current.compactWithNext =
+                current.renderKind === "tool" && next?.renderKind === "tool";
+        }
+        for (let index = 0; index < this.tailItems.length; index += 1) {
+            const current = this.tailItems[index];
+            const next = this.tailItems[index + 1] ?? null;
+            current.compactWithNext =
+                current.renderKind === "tool" && next?.renderKind === "tool";
+        }
+    }
+
+    private getRenderedItems(index: number, count: number): CodexGuiListItem[] {
+        if (count <= 0) {
+            return [];
+        }
+        const startIndex = Math.max(0, index);
+        if (startIndex >= this.appliedHistoryItems.length) {
+            return [];
+        }
+        return this.appliedHistoryItems.slice(startIndex, startIndex + count);
+    }
+
+    private scheduleHistorySync(forceReload = false): void {
+        const nextItems = [...this.historyItems];
+        this.queueAdapterWork(async () => {
+            if (this.destroyed) {
+                return;
+            }
+
+            const previousItems = [...this.appliedHistoryItems];
+            this.appliedHistoryItems = this.mergeAppliedItems(previousItems, nextItems);
+            const applied = await this.applyAdapterChange(
+                previousItems,
+                nextItems,
+                forceReload,
+            );
+            if (!applied) {
+                this.appliedHistoryItems = previousItems;
+            }
+        });
+    }
+
+    private queueAdapterWork(task: () => Promise<void>): void {
+        this.adapterWork = this.adapterWork
+            .catch(() => undefined)
+            .then(async () => {
+                if (this.destroyed) {
+                    return;
+                }
+                await task();
+            });
+    }
+
+    private async applyAdapterChange(
+        previousItems: readonly CodexGuiListItem[],
+        nextItems: readonly CodexGuiListItem[],
+        forceReload: boolean,
+    ): Promise<boolean> {
+        if (!this.isActive || this.showInitialLoading) {
+            return false;
+        }
+
+        const adapter = this.datasource.adapter;
+        if (!adapter.init) {
+            return false;
+        }
+
+        if (nextItems.length === 0) {
+            await adapter.reload(0);
+            return true;
+        }
+
+        if (forceReload || previousItems.length === 0) {
+            await this.reloadScroller(
+                this.pinnedToBottom
+                    ? this.getBottomStartIndex(nextItems.length)
+                    : this.getAnchorIndex(),
+                CHAT_RESUME_BOTTOM_SYNC_FRAMES,
+            );
+            return true;
+        }
+
+        if (this.haveSameKeys(previousItems, nextItems)) {
+            await adapter.update({
+                predicate: (item) => {
+                    const replacement = nextItems[item.$index];
+                    if (!replacement) {
+                        return false;
+                    }
+                    return replacement.trackKey === item.data.trackKey
+                        ? true
+                        : [replacement];
+                },
+                fixRight: this.pinnedToBottom,
+            });
+            if (this.pinnedToBottom) {
+                this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
+            }
+            this.scheduleAdapterCheck();
+            return true;
+        }
+
+        const commonPrefixLength = this.getCommonPrefixLength(previousItems, nextItems);
+        if (
+            commonPrefixLength === previousItems.length &&
+            nextItems.length > previousItems.length
+        ) {
+            await adapter.append({
+                items: nextItems.slice(previousItems.length),
+                ...(this.pinnedToBottom ? { eof: true } : { virtualize: true }),
+            });
+            await adapter.check();
+            if (this.pinnedToBottom) {
+                this.requestBottomSync(CHAT_RESUME_BOTTOM_SYNC_FRAMES);
+            }
+            return true;
+        }
+
+        await this.reloadScroller(
+            this.pinnedToBottom
+                ? this.getBottomStartIndex(nextItems.length)
+                : this.getAnchorIndex(),
+            CHAT_RESUME_BOTTOM_SYNC_FRAMES,
+        );
+        return true;
+    }
+
+    private mergeAppliedItems(
+        previousItems: readonly CodexGuiListItem[],
+        nextItems: readonly CodexGuiListItem[],
+    ): CodexGuiListItem[] {
+        if (previousItems.length === 0 || nextItems.length === 0) {
+            return [...nextItems];
+        }
+
+        const previousByKey = new Map(
+            previousItems.map((item) => [item.key, item] as const),
+        );
+
+        return nextItems.map((item) => {
+            const previous = previousByKey.get(item.key);
+            return previous && previous.trackKey === item.trackKey ? previous : item;
+        });
+    }
+
+    private async reloadScroller(
+        startIndex: number,
+        bottomSyncFrames = CHAT_SETTLE_BOTTOM_SYNC_FRAMES,
+    ): Promise<void> {
+        if (this.appliedHistoryItems.length === 0) {
+            await this.datasource.adapter.reload(0);
+            return;
+        }
+
+        const clampedIndex = Math.max(
+            0,
+            Math.min(startIndex, this.appliedHistoryItems.length - 1),
+        );
+        await this.datasource.adapter.reload(clampedIndex);
+        await this.datasource.adapter.check();
+        if (this.pinnedToBottom) {
+            this.requestBottomSync(bottomSyncFrames);
+        }
+    }
+
+    private haveSameKeys(
+        previousItems: readonly CodexGuiListItem[],
+        nextItems: readonly CodexGuiListItem[],
     ): boolean {
-        return shouldShowGlobalTypingIndicator(messages, isWorking);
+        if (previousItems.length !== nextItems.length) {
+            return false;
+        }
+        for (let index = 0; index < previousItems.length; index += 1) {
+            if (previousItems[index].key !== nextItems[index].key) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    private globalTypingLabel(messages: readonly Message[]): string {
-        return globalTypingLabel(messages);
+    private getCommonPrefixLength(
+        previousItems: readonly CodexGuiListItem[],
+        nextItems: readonly CodexGuiListItem[],
+    ): number {
+        const maxLength = Math.min(previousItems.length, nextItems.length);
+        let index = 0;
+        while (index < maxLength && previousItems[index].key === nextItems[index].key) {
+            index += 1;
+        }
+        return index;
     }
 
-    private shouldShowGlobalTypingLabel(label: string): boolean {
-        return (this.activityLabel.trim() || label).trim().length > 0;
+    private getBottomStartIndex(itemCount: number): number {
+        return Math.max(0, itemCount - 1);
+    }
+
+    private getAnchorIndex(): number {
+        return this.datasource.adapter.firstVisible?.$index ?? 0;
     }
 
     private bindScrollHost(): void {
         this.removeScrollListener?.();
         this.disconnectResizeObserver();
+
         const scrollHost = this.scrollHost;
         if (!scrollHost) {
             this.removeScrollListener = undefined;
@@ -570,15 +502,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         }
 
         const onScroll = (): void => {
-            const distanceFromBottom =
-                scrollHost.scrollHeight -
-                scrollHost.scrollTop -
-                scrollHost.clientHeight;
-            if (distanceFromBottom <= STICK_THRESHOLD_PX) {
-                this.bottomPinController.pin();
-                return;
-            }
-            this.bottomPinController.updateFromScrollHost(scrollHost);
+            this.pinnedToBottom = this.isNearBottom(scrollHost);
         };
 
         this.zone.runOutsideAngular(() => {
@@ -596,24 +520,58 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         if (typeof ResizeObserver === "undefined") {
             return;
         }
+
         this.resizeObserver = new ResizeObserver(() => {
-            if (!this.isActive || !this.bottomPinController.isPinned) {
+            if (!this.isActive || this.showInitialLoading) {
                 return;
             }
+
             this.zone.runOutsideAngular(() => {
                 if (this.resizeSyncFrameId !== undefined) {
                     cancelAnimationFrame(this.resizeSyncFrameId);
                 }
                 this.resizeSyncFrameId = requestAnimationFrame(() => {
                     this.resizeSyncFrameId = undefined;
-                    if (!this.isActive || !this.bottomPinController.isPinned) {
-                        return;
-                    }
-                    this.requestBottomSync();
+                    this.queueAdapterWork(async () => {
+                        if (!this.datasource.adapter.init) {
+                            return;
+                        }
+                        await this.datasource.adapter.check();
+                        if (this.pinnedToBottom && this.tailItems.length === 0) {
+                            this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
+                        }
+                    });
                 });
             });
         });
         this.resizeObserver.observe(scrollHost);
+    }
+
+    private bindTailObserver(): void {
+        this.disconnectTailObserver();
+        if (typeof ResizeObserver === "undefined" || !this.tailContent) {
+            return;
+        }
+
+        this.tailResizeObserver = new ResizeObserver(() => {
+            if (!this.isActive || !this.pinnedToBottom) {
+                return;
+            }
+
+            this.zone.runOutsideAngular(() => {
+                if (this.tailResizeSyncFrameId !== undefined) {
+                    cancelAnimationFrame(this.tailResizeSyncFrameId);
+                }
+                this.tailResizeSyncFrameId = requestAnimationFrame(() => {
+                    this.tailResizeSyncFrameId = undefined;
+                    if (!this.isActive || !this.pinnedToBottom) {
+                        return;
+                    }
+                    this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
+                });
+            });
+        });
+        this.tailResizeObserver.observe(this.tailContent);
     }
 
     private disconnectResizeObserver(): void {
@@ -626,51 +584,134 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.resizeSyncFrameId = undefined;
     }
 
-    private shouldUseBottomFollow(
-        previousTailAnchorKey: string | undefined,
-        previousHistoryLength: number,
+    private disconnectTailObserver(): void {
+        this.tailResizeObserver?.disconnect();
+        this.tailResizeObserver = undefined;
+        if (this.tailResizeSyncFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.tailResizeSyncFrameId);
+        this.tailResizeSyncFrameId = undefined;
+    }
+
+    private scheduleAdapterCheck(): void {
+        if (this.adapterCheckFrameId !== undefined) {
+            return;
+        }
+        this.zone.runOutsideAngular(() => {
+            this.adapterCheckFrameId = requestAnimationFrame(() => {
+                this.adapterCheckFrameId = undefined;
+                this.queueAdapterWork(async () => {
+                    if (!this.datasource.adapter.init) {
+                        return;
+                    }
+                    await this.datasource.adapter.check();
+                });
+            });
+        });
+    }
+
+    private cancelAdapterCheck(): void {
+        if (this.adapterCheckFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.adapterCheckFrameId);
+        this.adapterCheckFrameId = undefined;
+    }
+
+    private requestBottomSync(frames = CHAT_SETTLE_BOTTOM_SYNC_FRAMES): void {
+        this.scheduleBottomSync(frames);
+    }
+
+    private scheduleBottomSync(frames: number): void {
+        if (!this.scrollHost) {
+            return;
+        }
+        this.bottomSyncFramesRemaining = Math.max(
+            this.bottomSyncFramesRemaining,
+            frames,
+        );
+        if (this.bottomSyncFrameId !== undefined) {
+            return;
+        }
+        this.zone.runOutsideAngular(() => {
+            this.bottomSyncFrameId = requestAnimationFrame(() => {
+                this.bottomSyncFrameId = undefined;
+                const scrollHost = this.scrollHost;
+                if (!scrollHost) {
+                    this.bottomSyncFramesRemaining = 0;
+                    return;
+                }
+                scrollHost.scrollTop = scrollHost.scrollHeight;
+                this.pinnedToBottom = true;
+                this.bottomSyncFramesRemaining = Math.max(
+                    0,
+                    this.bottomSyncFramesRemaining - 1,
+                );
+                if (this.bottomSyncFramesRemaining > 0) {
+                    this.scheduleBottomSync(this.bottomSyncFramesRemaining);
+                }
+            });
+        });
+    }
+
+    private cancelBottomSync(): void {
+        this.bottomSyncFramesRemaining = 0;
+        if (this.bottomSyncFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.bottomSyncFrameId);
+        this.bottomSyncFrameId = undefined;
+    }
+
+    private isNearBottom(scrollHost: HTMLElement): boolean {
+        const distanceFromBottom =
+            scrollHost.scrollHeight -
+            scrollHost.scrollTop -
+            scrollHost.clientHeight;
+        return distanceFromBottom <= STICK_THRESHOLD_PX;
+    }
+
+    private scheduleActivationSync(): void {
+        this.clearActivationSync();
+        this.zone.runOutsideAngular(() => {
+            this.activationTimeoutIds = CHAT_ACTIVATION_SYNC_DELAYS_MS.map((delayMs) =>
+                window.setTimeout(() => {
+                    if (
+                        !this.isActive ||
+                        this.showInitialLoading ||
+                        (this.historyItems.length === 0 && this.tailItems.length === 0)
+                    ) {
+                        return;
+                    }
+                    if (this.pinnedToBottom) {
+                        this.requestBottomSync(CHAT_RESUME_BOTTOM_SYNC_FRAMES);
+                    }
+                }, delayMs),
+            );
+        });
+    }
+
+    private clearActivationSync(): void {
+        for (const timeoutId of this.activationTimeoutIds) {
+            clearTimeout(timeoutId);
+        }
+        this.activationTimeoutIds = [];
+    }
+
+    private shouldShowGlobalTypingIndicator(
+        messages: readonly Message[],
+        isWorking: boolean,
     ): boolean {
-        return (
-            this.tailItems.length > 0 &&
-            this.tailItems[0]?.key === previousTailAnchorKey &&
-            this.historyListItems.length === previousHistoryLength
-        );
+        return shouldShowGlobalTypingIndicator(messages, isWorking);
     }
 
-    private requestBottomSync(): void {
-        this.bottomSyncController.request({
-            scrollHost: this.scrollHost,
-        });
+    private globalTypingLabel(messages: readonly Message[]): string {
+        return globalTypingLabel(messages);
     }
 
-    private flushPendingScrollToBottom(): void {
-        this.bottomSyncController.flush({
-            scrollHost: this.scrollHost,
-        });
-    }
-
-    private requestBottomFollow(): void {
-        this.bottomFollowController.request(this.scrollHost, () =>
-            this.requestBottomSync(),
-        );
-    }
-
-    private scheduleActivationBottomSync(): void {
-        this.bottomSyncController.scheduleActivationSync({
-            isActive: () => this.isActive,
-            requestBottomSync: () => {
-                this.requestBottomSync();
-            },
-        });
-    }
-
-    private clearActivationBottomSync(): void {
-        this.bottomSyncController.clearActivationSync();
-    }
-
-    private clearPendingBottomSnap(): void {
-        this.bottomFollowController.clear();
-        this.bottomSyncController.clear();
+    private shouldShowGlobalTypingLabel(label: string): boolean {
+        return (this.activityLabel.trim() || label).trim().length > 0;
     }
 
     private pathFromAnchorHref(href: string): string | null {
@@ -696,22 +737,6 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             }
         }
         return null;
-    }
-
-    private toDisplayPath(path: string, prefix: string): string {
-        const normalizedPath = path.replaceAll("\\", "/");
-        if (!prefix) {
-            return normalizedPath;
-        }
-        for (const candidate of this.matchablePathPrefixes(prefix)) {
-            const normalizedPrefix = candidate.endsWith("/")
-                ? candidate
-                : `${candidate}/`;
-            if (normalizedPath.startsWith(normalizedPrefix)) {
-                return normalizedPath.slice(normalizedPrefix.length);
-            }
-        }
-        return normalizedPath;
     }
 
     private normalizeDiffPath(path: string): string {

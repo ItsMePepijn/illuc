@@ -4,7 +4,6 @@ import {
     ChangeDetectorRef,
     Component,
     Input,
-    NgZone,
     OnChanges,
     OnDestroy,
     SimpleChanges,
@@ -88,7 +87,6 @@ export class ChatComponent implements OnChanges, OnDestroy {
     constructor(
         private readonly taskStore: TaskStore,
         private readonly codexGuiStore: CodexGuiStore,
-        private readonly zone: NgZone,
         private readonly cdr: ChangeDetectorRef,
     ) {}
 
@@ -186,6 +184,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
             { decision },
         );
         this.requestAnswers = {};
+        this.cdr.markForCheck();
     }
 
     async submitUserInput(): Promise<void> {
@@ -203,6 +202,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
             { answers },
         );
         this.requestAnswers = {};
+        this.cdr.markForCheck();
     }
 
     trackPlanStep(_index: number, step: { step: string; status: string }): string {
@@ -256,54 +256,42 @@ export class ChatComponent implements OnChanges, OnDestroy {
         this.messageSubscription = this.codexGuiStore
             .messages$(this.taskId)
             .subscribe((messages) => {
-                this.zone.run(() => {
-                    this.messages = messages;
-                    if (messages.length > 0) {
-                        this.messagesHydrated = true;
-                    }
-                    this.cdr.detectChanges();
-                });
+                this.messages = messages;
+                if (messages.length > 0) {
+                    this.messagesHydrated = true;
+                }
+                this.cdr.markForCheck();
             });
         this.hydrationSubscription = this.codexGuiStore
             .hydrated$(this.taskId)
             .subscribe((hydrated) => {
-                this.zone.run(() => {
-                    this.messagesHydrated = hydrated || this.messages.length > 0;
-                    this.cdr.detectChanges();
-                });
+                this.messagesHydrated = hydrated || this.messages.length > 0;
+                this.cdr.markForCheck();
             });
         this.activitySubscription = this.codexGuiStore
             .activity$(this.taskId)
             .subscribe((activity) => {
-                this.zone.run(() => {
-                    this.activity = activity;
-                    this.cdr.detectChanges();
-                });
+                this.activity = activity;
+                this.cdr.markForCheck();
             });
         this.planSubscription = this.codexGuiStore
             .plan$(this.taskId)
             .subscribe((plan) => {
-                this.zone.run(() => {
-                    this.plan = plan;
-                    this.cdr.detectChanges();
-                });
+                this.plan = plan;
+                this.cdr.markForCheck();
             });
         this.tokenUsageSubscription = this.codexGuiStore
             .tokenUsage$(this.taskId)
             .subscribe((tokenUsage) => {
-                this.zone.run(() => {
-                    this.tokenUsage = tokenUsage;
-                    this.cdr.detectChanges();
-                });
+                this.tokenUsage = tokenUsage;
+                this.cdr.markForCheck();
             });
         this.requestSubscription = this.codexGuiStore
             .request$(this.taskId)
             .subscribe((request) => {
-                this.zone.run(() => {
-                    this.pendingRequest = request;
-                    this.requestAnswers = this.buildInitialRequestAnswers(request);
-                    this.cdr.detectChanges();
-                });
+                this.pendingRequest = request;
+                this.requestAnswers = this.buildInitialRequestAnswers(request);
+                this.cdr.markForCheck();
             });
 
         void this.loadAvailableModels();
@@ -418,14 +406,13 @@ export class ChatComponent implements OnChanges, OnDestroy {
             if (this.taskId !== taskId) {
                 return;
             }
-            this.zone.run(() => {
-                this.limitStatus = limitStatus;
-                this.cdr.markForCheck();
-            });
+            this.limitStatus = limitStatus;
+            this.cdr.markForCheck();
         } catch {
             // Preserve the last successful snapshot during transient backend errors.
         }
     }
+
 
     private refreshEffortOptions(): void {
         const taskId = this.taskId;

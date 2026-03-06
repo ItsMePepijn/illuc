@@ -16,6 +16,10 @@
     padding: 36px 0 0;
 }
 
+.messages-shell.is-hidden {
+    display: none;
+}
+
 .messages-shell::-webkit-scrollbar {
     width: 4px;
 }
@@ -25,19 +29,10 @@
     background: var(--scrollbar-thumb);
 }
 
-.messages-viewport {
-    display: block;
-    flex: none;
-    width: 100%;
-    min-height: 1px;
-}
-
-:host ::ng-deep .messages-viewport .rx-virtual-scroll__runway {
-    min-width: 100%;
-}
-
 .empty-state {
     display: grid;
+    flex: 1;
+    width: 100%;
     min-height: 100%;
     place-items: center;
     margin: 0 auto;
@@ -50,6 +45,8 @@
 
 .loading-state {
     display: grid;
+    flex: 1;
+    width: 100%;
     min-height: 100%;
     place-items: center;
     padding: 2rem 1.25rem;
