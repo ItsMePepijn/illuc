@@ -159,6 +159,10 @@
     pointer-events: all;
 }
 
+.service-tier-dropdown {
+    min-width: 260px;
+}
+
 .dropdown-section-label {
     font-size: var(--font-size-xs);
     letter-spacing: 0.07em;
@@ -198,6 +202,13 @@
 .model-option-name {
     font-size: var(--font-size-sm);
     color: var(--text-default);
+}
+
+.model-option-meta {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    margin-left: 0.35rem;
+    white-space: nowrap;
 }
 
 .model-option-desc {
@@ -280,5 +291,10 @@
 @media (max-width: 720px) {
     .context-status-row {
         justify-content: flex-start;
+    }
+
+    .input-right {
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 }

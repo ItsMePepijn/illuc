@@ -36,17 +36,21 @@ export class ComposerComponent implements OnChanges {
     @Input() modelOptions: CodexGuiModelOption[] = [];
     @Input() selectedEffort = "";
     @Input() effortOptions: CodexGuiModelOption[] = [];
+    @Input() selectedServiceTier = "";
+    @Input() serviceTierOptions: CodexGuiModelOption[] = [];
 
     @Output() promptChange = new EventEmitter<string>();
     @Output() sendRequested = new EventEmitter<void>();
     @Output() stopRequested = new EventEmitter<void>();
     @Output() modelChange = new EventEmitter<string>();
     @Output() effortChange = new EventEmitter<string>();
+    @Output() serviceTierChange = new EventEmitter<string>();
 
     @ViewChild("composerInput") composerInput?: ElementRef<HTMLTextAreaElement>;
 
     modelMenuOpen = false;
     effortMenuOpen = false;
+    serviceTierMenuOpen = false;
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes["prompt"]) {
@@ -84,6 +88,8 @@ export class ComposerComponent implements OnChanges {
         event.preventDefault();
         event.stopPropagation();
         this.modelMenuOpen = !this.modelMenuOpen;
+        this.effortMenuOpen = false;
+        this.serviceTierMenuOpen = false;
     }
 
     selectModelOption(model: string, event: MouseEvent): void {
@@ -97,6 +103,8 @@ export class ComposerComponent implements OnChanges {
         event.preventDefault();
         event.stopPropagation();
         this.effortMenuOpen = !this.effortMenuOpen;
+        this.modelMenuOpen = false;
+        this.serviceTierMenuOpen = false;
     }
 
     selectEffortOption(effort: string, event: MouseEvent): void {
@@ -104,6 +112,21 @@ export class ComposerComponent implements OnChanges {
         event.stopPropagation();
         this.effortChange.emit(effort);
         this.effortMenuOpen = false;
+    }
+
+    toggleServiceTierMenu(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.serviceTierMenuOpen = !this.serviceTierMenuOpen;
+        this.modelMenuOpen = false;
+        this.effortMenuOpen = false;
+    }
+
+    selectServiceTierOption(serviceTier: string, event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.serviceTierChange.emit(serviceTier);
+        this.serviceTierMenuOpen = false;
     }
 
     modelLabel(model: string): string {
@@ -136,10 +159,21 @@ export class ComposerComponent implements OnChanges {
         return `${this.effortLabel(effort)} reasoning`;
     }
 
+    serviceTierLabel(serviceTier: string): string {
+        if (!serviceTier) {
+            return "Flex";
+        }
+        const selected = this.serviceTierOptions.find(
+            (option) => option.value === serviceTier,
+        );
+        return selected?.label ?? serviceTier;
+    }
+
     @HostListener("document:click")
     closeModelMenu(): void {
         this.modelMenuOpen = false;
         this.effortMenuOpen = false;
+        this.serviceTierMenuOpen = false;
     }
 
     private resizeComposer(): void {

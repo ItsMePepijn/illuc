@@ -11,6 +11,7 @@ pub struct Request {
     pub content: String,
     pub model: Option<String>,
     pub effort: Option<String>,
+    pub service_tier: Option<String>,
 }
 
 pub type Response = ();
@@ -35,6 +36,10 @@ pub async fn task_codex_gui_send(
     record
         .agent
         .set_reasoning_effort(req.effort)
+        .map_err(|error| error.to_string())?;
+    record
+        .agent
+        .set_service_tier(req.service_tier)
         .map_err(|error| error.to_string())?;
 
     record

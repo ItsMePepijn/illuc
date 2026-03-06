@@ -3,6 +3,14 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use std::io::Write;
 
+fn service_tier_value(service_tier: Option<&str>) -> Option<Value> {
+    match service_tier.map(str::trim).filter(|value| !value.is_empty()) {
+        Some("fast") => Some(json!("fast")),
+        Some("flex") => Some(Value::Null),
+        _ => None,
+    }
+}
+
 pub(super) fn next_id(state: &mut CodexGuiAgentState) -> u64 {
     let id = state.next_id;
     state.next_id += 1;
@@ -28,6 +36,9 @@ pub(super) fn send_turn_request(state: &mut CodexGuiAgentState, content: String)
     params.insert("threadId".to_string(), json!(thread_id));
     if let Some(model) = state.model.clone() {
         params.insert("model".to_string(), json!(model));
+    }
+    if let Some(service_tier) = service_tier_value(state.service_tier.as_deref()) {
+        params.insert("serviceTier".to_string(), service_tier);
     }
     params.insert(
         "input".to_string(),
@@ -125,7 +136,7 @@ pub(super) fn send_model_list_request(state: &mut CodexGuiAgentState) -> Result<
 
 pub(super) fn send_thread_start_request(state: &mut CodexGuiAgentState) -> Result<()> {
     let request_id = next_id(state);
-    let payload = json!({
+    let mut payload = json!({
         "id": request_id,
         "method": "thread/start",
         "params": {
@@ -134,6 +145,9 @@ pub(super) fn send_thread_start_request(state: &mut CodexGuiAgentState) -> Resul
             "sandbox": "workspace-write"
         }
     });
+    if let Some(service_tier) = service_tier_value(state.service_tier.as_deref()) {
+        payload["params"]["serviceTier"] = service_tier;
+    }
     send_rpc(state, payload)
 }
 
@@ -154,7 +168,7 @@ pub(super) fn send_thread_resume_request(
 ) -> Result<()> {
     let request_id = next_id(state);
     state.thread_resume_request_id = Some(request_id);
-    let payload = json!({
+    let mut payload = json!({
         "id": request_id,
         "method": "thread/resume",
         "params": {
@@ -164,6 +178,9 @@ pub(super) fn send_thread_resume_request(
             "sandbox": "workspace-write"
         }
     });
+    if let Some(service_tier) = service_tier_value(state.service_tier.as_deref()) {
+        payload["params"]["serviceTier"] = service_tier;
+    }
     send_rpc(state, payload)
 }
 

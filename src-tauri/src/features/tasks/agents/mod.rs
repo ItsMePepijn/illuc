@@ -80,11 +80,19 @@ pub trait Agent: Send + Sync {
         None
     }
 
+    fn selected_service_tier(&self) -> Option<String> {
+        None
+    }
+
     fn interrupt(&mut self) -> anyhow::Result<()> {
         Err(anyhow!("agent does not support interrupt"))
     }
 
     fn set_reasoning_effort(&mut self, _effort: Option<String>) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn set_service_tier(&mut self, _service_tier: Option<String>) -> anyhow::Result<()> {
         Ok(())
     }
 

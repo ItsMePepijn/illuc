@@ -86,6 +86,7 @@ export class CodexGuiStore implements OnDestroy {
     >();
     private readonly codexGuiSelectedModel = new Map<string, string>();
     private readonly codexGuiSelectedEffort = new Map<string, string>();
+    private readonly codexGuiSelectedServiceTier = new Map<string, string>();
     private readonly codexGuiModelCapabilities = new Map<
         string,
         CodexGuiModelCapability[]
@@ -117,6 +118,7 @@ export class CodexGuiStore implements OnDestroy {
             request: Object.fromEntries(this.codexGuiRequest),
             selectedModel: Object.fromEntries(this.codexGuiSelectedModel),
             selectedEffort: Object.fromEntries(this.codexGuiSelectedEffort),
+            selectedServiceTier: Object.fromEntries(this.codexGuiSelectedServiceTier),
             modelCapabilities: Object.fromEntries(this.codexGuiModelCapabilities),
         };
     }
@@ -130,6 +132,10 @@ export class CodexGuiStore implements OnDestroy {
         this.restoreMap(this.codexGuiRequest, snapshot.request);
         this.restoreMap(this.codexGuiSelectedModel, snapshot.selectedModel);
         this.restoreMap(this.codexGuiSelectedEffort, snapshot.selectedEffort);
+        this.restoreMap(
+            this.codexGuiSelectedServiceTier,
+            snapshot.selectedServiceTier,
+        );
         this.restoreMap(
             this.codexGuiModelCapabilities,
             snapshot.modelCapabilities,
@@ -151,6 +157,7 @@ export class CodexGuiStore implements OnDestroy {
         this.codexGuiRequestStreams.clear();
         this.codexGuiSelectedModel.clear();
         this.codexGuiSelectedEffort.clear();
+        this.codexGuiSelectedServiceTier.clear();
         this.codexGuiModelCapabilities.clear();
     }
 
@@ -181,6 +188,7 @@ export class CodexGuiStore implements OnDestroy {
         this.codexGuiRequestStreams.delete(taskId);
         this.codexGuiSelectedModel.delete(taskId);
         this.codexGuiSelectedEffort.delete(taskId);
+        this.codexGuiSelectedServiceTier.delete(taskId);
         this.codexGuiModelCapabilities.delete(taskId);
     }
 
@@ -189,6 +197,7 @@ export class CodexGuiStore implements OnDestroy {
         content: string,
         model?: string | null,
         effort?: string | null,
+        serviceTier?: string | null,
     ): Promise<void> {
         const text = content.trim();
         if (!text) {
@@ -196,8 +205,16 @@ export class CodexGuiStore implements OnDestroy {
         }
         const resolvedModel = (model ?? this.getModel(taskId)).trim();
         const resolvedEffort = (effort ?? this.getEffort(taskId)).trim();
+        const resolvedServiceTier = (
+            serviceTier ?? this.getServiceTier(taskId)
+        ).trim();
         this.setTrimmedValue(this.codexGuiSelectedModel, taskId, resolvedModel);
         this.setTrimmedValue(this.codexGuiSelectedEffort, taskId, resolvedEffort);
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            resolvedServiceTier,
+        );
         this.pushCodexGuiMessage(taskId, {
             id: this.newMessageId(),
             role: "user",
@@ -220,6 +237,7 @@ export class CodexGuiStore implements OnDestroy {
                     content: text,
                     model: resolvedModel || undefined,
                     effort: resolvedEffort || undefined,
+                    serviceTier: resolvedServiceTier || undefined,
                 },
             });
         } catch (error) {
@@ -374,6 +392,11 @@ export class CodexGuiStore implements OnDestroy {
             taskId,
             response.selectedEffort ?? "",
         );
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            response.selectedServiceTier ?? "",
+        );
         return response.models ?? [];
     }
 
@@ -383,6 +406,18 @@ export class CodexGuiStore implements OnDestroy {
 
     setEffort(taskId: string, effort: string): void {
         this.setTrimmedValue(this.codexGuiSelectedEffort, taskId, effort);
+    }
+
+    getServiceTier(taskId: string): string {
+        return this.codexGuiSelectedServiceTier.get(taskId) ?? "flex";
+    }
+
+    setServiceTier(taskId: string, serviceTier: string): void {
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            serviceTier,
+        );
     }
 
     getModelEfforts(taskId: string, model: string): string[] {
@@ -903,6 +938,7 @@ export type CodexGuiStoreDevState = {
     request: Record<string, CodexGuiRequestState | null>;
     selectedModel: Record<string, string>;
     selectedEffort: Record<string, string>;
+    selectedServiceTier: Record<string, string>;
     modelCapabilities: Record<string, CodexGuiModelCapability[]>;
 };
 
@@ -911,6 +947,7 @@ type CodexGuiModelsResponse = {
     modelCapabilities: CodexGuiModelCapability[];
     selectedModel?: string | null;
     selectedEffort?: string | null;
+    selectedServiceTier?: string | null;
 };
 
 type CodexGuiUsageResponse = {

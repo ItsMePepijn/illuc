@@ -66,8 +66,13 @@ export class ChatComponent implements OnChanges, OnDestroy {
     sending = false;
     selectedModel = "";
     selectedEffort = "";
+    selectedServiceTier = "";
     modelOptions: CodexGuiModelOption[] = [];
     effortOptions: CodexGuiModelOption[] = [];
+    readonly serviceTierOptions: CodexGuiModelOption[] = [
+        { value: "fast", label: "Fast" },
+        { value: "flex", label: "Flex" },
+    ];
     requestAnswers: Record<string, string[]> = {};
 
     readonly fetchUsageForRail = async (
@@ -122,6 +127,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
                 text,
                 this.selectedModel,
                 this.selectedEffort,
+                this.selectedServiceTier,
             );
         } finally {
             this.sending = false;
@@ -145,6 +151,15 @@ export class ChatComponent implements OnChanges, OnDestroy {
         }
         this.selectedEffort = effort;
         this.codexGuiStore.setEffort(this.taskId, effort);
+        this.cdr.markForCheck();
+    }
+
+    onServiceTierChange(serviceTier: string): void {
+        if (!this.taskId) {
+            return;
+        }
+        this.selectedServiceTier = serviceTier;
+        this.codexGuiStore.setServiceTier(this.taskId, serviceTier);
         this.cdr.markForCheck();
     }
 
@@ -236,6 +251,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
             this.prompt = "";
             this.selectedModel = "";
             this.selectedEffort = "";
+            this.selectedServiceTier = "";
             this.modelOptions = [];
             this.effortOptions = [];
             this.cdr.markForCheck();
@@ -253,6 +269,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
         this.pendingRequest = this.codexGuiStore.getRequest(this.taskId);
         this.selectedModel = this.codexGuiStore.getModel(this.taskId);
         this.selectedEffort = this.codexGuiStore.getEffort(this.taskId);
+        this.selectedServiceTier = this.codexGuiStore.getServiceTier(this.taskId);
         this.messageSubscription = this.codexGuiStore
             .messages$(this.taskId)
             .subscribe((messages) => {
@@ -332,6 +349,7 @@ export class ChatComponent implements OnChanges, OnDestroy {
             }
             this.selectedModel = this.codexGuiStore.getModel(taskId);
             this.selectedEffort = this.codexGuiStore.getEffort(taskId);
+            this.selectedServiceTier = this.codexGuiStore.getServiceTier(taskId);
             this.modelOptions = models.map((model) => ({
                 value: model,
                 label: model.replaceAll("-", " "),

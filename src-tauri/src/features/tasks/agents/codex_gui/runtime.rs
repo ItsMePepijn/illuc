@@ -29,7 +29,10 @@ pub(super) fn start(
         command.arg("app-server").current_dir(worktree_path);
         command
     };
-    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
     let mut child = command
         .spawn()
@@ -70,6 +73,7 @@ pub(super) fn start(
         state.next_id = 1;
         state.model = None;
         state.reasoning_effort = None;
+        state.service_tier = None;
         state.available_models = Vec::new();
         state.available_model_capabilities = Vec::new();
         state.pending_server_requests.clear();

@@ -132,6 +132,17 @@ pub(super) fn handle_response(state: &Arc<Mutex<CodexGuiAgentState>>, value: &Va
         {
             state.reasoning_effort = Some(effort);
         }
+        if let Some(service_tier) = value.pointer("/result/serviceTier") {
+            match service_tier {
+                Value::String(value) if !value.trim().is_empty() => {
+                    state.service_tier = Some(value.trim().to_string());
+                }
+                Value::Null => {
+                    state.service_tier = None;
+                }
+                _ => {}
+            }
+        }
 
         if value.get("error").is_some() {
             let message = value
@@ -265,7 +276,10 @@ fn parse_newest_thread_id(value: &Value) -> Option<String> {
 fn log_resume_history_miss(value: &Value) {
     let result = value.get("result").unwrap_or(&Value::Null);
     let summary = summarize_resume_result(result);
-    log::warn!("codex gui resume returned no history events; shape: {}", summary);
+    log::warn!(
+        "codex gui resume returned no history events; shape: {}",
+        summary
+    );
     match serde_json::to_string_pretty(value) {
         Ok(serialized) => {
             log::warn!("codex gui thread/resume raw payload:\n{}", serialized);

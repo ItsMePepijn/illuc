@@ -1,14 +1,12 @@
-mod event_handlers;
 pub mod commands;
+mod event_handlers;
 mod message_parsing;
 mod rpc;
 mod runtime;
 pub mod types;
 
-use crate::features::tasks::agents::{
-    Agent, AgentCallbacks, AgentModelCapability, AgentRuntime,
-};
 use crate::features::tasks::agents::codex_gui::types::GuiMessageEvent;
+use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentModelCapability, AgentRuntime};
 use crate::utils::pty::{ProcessExitStatus, ProcessHandle, TerminalMaster, TerminalSize};
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -39,6 +37,7 @@ pub(super) struct CodexGuiAgentState {
     next_id: u64,
     model: Option<String>,
     reasoning_effort: Option<String>,
+    service_tier: Option<String>,
     available_models: Vec<String>,
     available_model_capabilities: Vec<AgentModelCapability>,
     latest_rate_limits: Option<Value>,
@@ -66,6 +65,7 @@ impl Default for CodexGuiAgent {
                 next_id: 1,
                 model: None,
                 reasoning_effort: None,
+                service_tier: None,
                 available_models: Vec::new(),
                 available_model_capabilities: Vec::new(),
                 latest_rate_limits: None,
@@ -132,6 +132,11 @@ impl Agent for CodexGuiAgent {
         state.reasoning_effort.clone()
     }
 
+    fn selected_service_tier(&self) -> Option<String> {
+        let state = self.state.lock();
+        state.service_tier.clone()
+    }
+
     fn interrupt(&mut self) -> anyhow::Result<()> {
         let mut state = self.state.lock();
         rpc::send_turn_interrupt_request(&mut state)
@@ -142,6 +147,18 @@ impl Agent for CodexGuiAgent {
         state.reasoning_effort = effort
             .map(|value| value.trim().to_string())
             .filter(|value| !value.is_empty());
+        Ok(())
+    }
+
+    fn set_service_tier(&mut self, service_tier: Option<String>) -> anyhow::Result<()> {
+        let mut state = self.state.lock();
+        state.service_tier = service_tier.and_then(|value| {
+            let normalized = value.trim().to_ascii_lowercase();
+            match normalized.as_str() {
+                "fast" | "flex" => Some(normalized),
+                _ => None,
+            }
+        });
         Ok(())
     }
 

@@ -18,6 +18,7 @@ pub struct Response {
     pub model_capabilities: Vec<AgentModelCapability>,
     pub selected_model: Option<String>,
     pub selected_effort: Option<String>,
+    pub selected_service_tier: Option<String>,
 }
 
 #[tauri::command]
@@ -36,6 +37,7 @@ pub async fn task_codex_gui_models(
             model_capabilities: Vec::new(),
             selected_model: None,
             selected_effort: None,
+            selected_service_tier: None,
         });
     }
 
@@ -44,5 +46,6 @@ pub async fn task_codex_gui_models(
         model_capabilities: record.agent.available_model_capabilities(),
         selected_model: record.agent.selected_model(),
         selected_effort: record.agent.selected_reasoning_effort(),
+        selected_service_tier: record.agent.selected_service_tier(),
     })
 }
