@@ -69,10 +69,6 @@ export class ChatComponent implements OnChanges, OnDestroy {
     selectedServiceTier = "";
     modelOptions: CodexGuiModelOption[] = [];
     effortOptions: CodexGuiModelOption[] = [];
-    readonly serviceTierOptions: CodexGuiModelOption[] = [
-        { value: "fast", label: "Fast" },
-        { value: "flex", label: "Flex" },
-    ];
     requestAnswers: Record<string, string[]> = {};
 
     readonly fetchUsageForRail = async (
@@ -154,12 +150,14 @@ export class ChatComponent implements OnChanges, OnDestroy {
         this.cdr.markForCheck();
     }
 
-    onServiceTierChange(serviceTier: string): void {
+    onServiceTierToggleRequested(): void {
         if (!this.taskId) {
             return;
         }
-        this.selectedServiceTier = serviceTier;
-        this.codexGuiStore.setServiceTier(this.taskId, serviceTier);
+        const nextServiceTier =
+            this.selectedServiceTier === "fast" ? "flex" : "fast";
+        this.selectedServiceTier = nextServiceTier;
+        this.codexGuiStore.setServiceTier(this.taskId, nextServiceTier);
         this.cdr.markForCheck();
     }
 

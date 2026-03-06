@@ -99,53 +99,21 @@
                         </div>
                     </div>
 
-                    <div
-                        *ngIf="serviceTierOptions.length > 0"
-                        class="model-selector"
-                        [class.open]="serviceTierMenuOpen"
+                    <button
+                        type="button"
+                        class="fast-mode-toggle"
+                        [class.active]="isFastModeEnabled()"
+                        [attr.aria-pressed]="isFastModeEnabled()"
+                        aria-label="Fast mode"
+                        [title]="fastModeTitle()"
+                        (click)="toggleFastMode($event)"
                     >
-                        <button
-                            type="button"
-                            class="model-pill"
-                            [class.open]="serviceTierMenuOpen"
-                            (click)="toggleServiceTierMenu($event)"
-                        >
-                            <span class="model-pill-dot"></span>
-                            <span class="model-pill-label">
-                                {{ serviceTierLabel(selectedServiceTier) }}
-                            </span>
-                            <svg class="model-chevron" viewBox="0 0 24 24" stroke-width="1.8">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </button>
-
-                        <div
-                            class="model-dropdown service-tier-dropdown"
-                            [class.open]="serviceTierMenuOpen"
-                        >
-                            <div class="dropdown-section-label">Service tier</div>
-                            <button
-                                type="button"
-                                class="model-option"
-                                *ngFor="let option of serviceTierOptions"
-                                [class.selected]="option.value === selectedServiceTier"
-                                (click)="selectServiceTierOption(option.value, $event)"
-                            >
-                                <span class="model-option-info">
-                                    <span class="model-option-name">
-                                        {{ option.label }}
-                                        <span
-                                            *ngIf="option.value === 'fast'"
-                                            class="model-option-meta"
-                                        >
-                                            (1.5x faster for 2x usage)
-                                        </span>
-                                    </span>
-                                </span>
-                                <span class="model-option-check">✓</span>
-                            </button>
-                        </div>
-                    </div>
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path
+                                d="M13 2 6 13h4l-1 9 9-13h-4l1-7Z"
+                            />
+                        </svg>
+                    </button>
 
                     <button
                         class="send-btn"
