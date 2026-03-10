@@ -24,7 +24,7 @@ pub async fn task_discard(
 ) -> CommandResult<Response> {
     let task_id = req.task_id;
     manager.remove_diff_watch(task_id);
-    let (worktree_path, branch_name, base_repo_path, runtime_exists, shell_exists) = {
+    let (worktree_path, branch_name, base_repo_path, agent_running, shell_exists) = {
         let tasks = manager.inner.tasks.read();
         let record = tasks
             .get(&task_id)
@@ -33,25 +33,21 @@ pub async fn task_discard(
             PathBuf::from(&record.summary.worktree_path),
             record.summary.branch_name.clone(),
             PathBuf::from(&record.summary.base_repo_path),
-            record.runtime.is_some(),
+            record.agent.is_running(),
             record.shell.is_some(),
         )
     };
 
-    if runtime_exists {
-        let child = {
-            let tasks = manager.inner.tasks.read();
-            let record = tasks
-                .get(&task_id)
-                .ok_or_else(|| TaskError::NotFound.to_string())?;
-            record.runtime.as_ref().map(|runtime| runtime.child.clone())
-        };
-        if let Some(child) = child {
-            if let Some(mut child_guard) = child.try_lock() {
-                if let Err(err) = child_guard.kill() {
-                    warn!("failed to kill task process for {}: {}", task_id, err);
+    if agent_running {
+        {
+            let mut tasks = manager.inner.tasks.write();
+            if let Some(record) = tasks.get_mut(&task_id) {
+                if let Err(err) = record.agent.stop() {
+                    warn!("failed to stop task process for {}: {}", task_id, err);
                 }
             }
+        }
+        {
             let mut tasks = manager.inner.tasks.write();
             if let Some(record) = tasks.get_mut(&task_id) {
                 record.summary.status = TaskStatus::Stopped;
@@ -102,7 +98,6 @@ pub async fn task_discard(
         let mut tasks = manager.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
             record.summary.status = TaskStatus::Discarded;
-            record.runtime = None;
             emit_status(&app_handle, &record.summary);
         }
     }

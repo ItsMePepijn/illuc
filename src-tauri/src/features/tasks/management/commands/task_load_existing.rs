@@ -108,7 +108,6 @@ pub async fn task_load_existing(
                 agent: build_agent(AgentKind::Codex),
                 agent_kind: AgentKind::Codex,
                 summary: summary.clone(),
-                runtime: None,
                 shell: None,
             },
         );

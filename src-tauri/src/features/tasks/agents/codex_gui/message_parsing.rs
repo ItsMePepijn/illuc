@@ -116,10 +116,8 @@ fn is_reasoning_summary_item(item: Option<&Value>) -> bool {
     let Some(item) = item else {
         return false;
     };
-    matches!(
-        item.get("type").and_then(Value::as_str),
-        Some("reasoning")
-    ) && item.get("summary").is_some()
+    matches!(item.get("type").and_then(Value::as_str), Some("reasoning"))
+        && item.get("summary").is_some()
 }
 
 fn extract_command_execution_content(params: &Value, item: Option<&Value>) -> Option<String> {

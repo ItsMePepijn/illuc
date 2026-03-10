@@ -36,7 +36,6 @@ pub(crate) struct TaskRecord {
     pub(crate) agent: Box<dyn Agent>,
     pub(crate) agent_kind: AgentKind,
     pub(crate) summary: TaskSummary,
-    pub(crate) runtime: Option<TaskRuntime>,
     pub(crate) shell: Option<TaskRuntime>,
 }
 
@@ -62,7 +61,7 @@ impl TaskManager {
     pub fn handle_agent_status(&self, task_id: Uuid, status: TaskStatus, app: &AppHandle) {
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
-            if record.runtime.is_none() {
+            if !record.agent.is_running() {
                 return;
             }
             if matches!(
@@ -115,12 +114,11 @@ impl TaskManager {
     pub(crate) fn finish_task(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) -> Result<()> {
         let mut tasks = self.inner.tasks.write();
         let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
-        if record.runtime.is_none() {
-            warn!("finish_task task_id={} without runtime", task_id);
+        if !record.agent.is_running() {
+            warn!("finish_task task_id={} without running agent", task_id);
         }
         record.summary.exit_code = Some(exit_code);
         record.summary.ended_at = Some(Utc::now());
-        record.runtime = None;
         let target_status = match record.summary.status {
             TaskStatus::Stopped => TaskStatus::Stopped,
             TaskStatus::Discarded => TaskStatus::Discarded,

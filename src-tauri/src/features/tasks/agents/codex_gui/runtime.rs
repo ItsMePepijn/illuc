@@ -1,8 +1,6 @@
-use super::{
-    app_server_handlers, rpc, CodexGuiAgent, CodexGuiAgentState, NullMaster, NullWriter, StdChild,
-};
-use crate::features::tasks::agents::{AgentCallbacks, AgentRuntime};
-use crate::utils::pty::{ChildHandle, MasterHandle, WriteHandle};
+use super::{app_server_handlers, rpc, CodexGuiAgent, CodexGuiAgentState, StdChild};
+use crate::features::tasks::agents::AgentCallbacks;
+use crate::utils::pty::ChildHandle;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::{build_wsl_process_command, to_wsl_path};
 use anyhow::{Context, Result};
@@ -18,7 +16,7 @@ pub(super) fn start(
     agent: &mut CodexGuiAgent,
     worktree_path: &Path,
     callbacks: AgentCallbacks,
-) -> Result<AgentRuntime> {
+) -> Result<()> {
     #[cfg(target_os = "windows")]
     let mut command = build_wsl_process_command(worktree_path, "codex", &["app-server"]);
     #[cfg(not(target_os = "windows"))]
@@ -27,7 +25,10 @@ pub(super) fn start(
         command.arg("app-server").current_dir(worktree_path);
         command
     };
-    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
     let mut child = command
         .spawn()
@@ -75,6 +76,7 @@ pub(super) fn start(
         state.rollback_history_events.clear();
         state.activity_label = None;
         state.activity_started_at = None;
+        state.child = None;
 
         let initialize_id = rpc::next_id(&mut state);
         let initialize_payload = serde_json::json!({
@@ -112,16 +114,14 @@ pub(super) fn start(
     let child_handle: Arc<Mutex<ChildHandle>> = Arc::new(Mutex::new(Box::new(StdChild {
         child: Mutex::new(child),
     })));
-    let writer_handle: WriteHandle = Arc::new(Mutex::new(Box::new(NullWriter)));
-    let master_handle: MasterHandle = Arc::new(Mutex::new(Box::new(NullMaster)));
+    {
+        let mut state = agent.state.lock();
+        state.child = Some(child_handle.clone());
+    }
 
-    spawn_exit_watcher(child_handle.clone(), callbacks);
+    spawn_exit_watcher(Arc::clone(&agent.state), child_handle, callbacks);
 
-    Ok(AgentRuntime {
-        child: child_handle,
-        writer: writer_handle,
-        master: master_handle,
-    })
+    Ok(())
 }
 
 fn spawn_reader_loop(
@@ -171,7 +171,11 @@ fn spawn_reader_loop(
     });
 }
 
-fn spawn_exit_watcher(child: Arc<Mutex<ChildHandle>>, callbacks: AgentCallbacks) {
+fn spawn_exit_watcher(
+    state: Arc<Mutex<CodexGuiAgentState>>,
+    child: Arc<Mutex<ChildHandle>>,
+    callbacks: AgentCallbacks,
+) {
     std::thread::spawn(move || {
         let exit_code = loop {
             {
@@ -193,6 +197,9 @@ fn spawn_exit_watcher(child: Arc<Mutex<ChildHandle>>, callbacks: AgentCallbacks)
             }
             std::thread::sleep(Duration::from_millis(200));
         };
+        let mut state = state.lock();
+        state.stdin = None;
+        state.child = None;
         (callbacks.on_exit)(exit_code);
     });
 }

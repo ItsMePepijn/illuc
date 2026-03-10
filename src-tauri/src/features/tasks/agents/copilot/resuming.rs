@@ -134,11 +134,7 @@ fn parse_session_dir(path: &Path, desired_cwd: &str) -> Option<SessionCandidate>
     let data = match fs::read_to_string(&yaml_path) {
         Ok(data) => data,
         Err(error) => {
-            warn!(
-                "failed to read {}: {}",
-                yaml_path.display(),
-                error
-            );
+            warn!("failed to read {}: {}", yaml_path.display(), error);
             return None;
         }
     };
@@ -146,11 +142,7 @@ fn parse_session_dir(path: &Path, desired_cwd: &str) -> Option<SessionCandidate>
     let workspace: serde_json::Value = match serde_yaml::from_str(&data) {
         Ok(value) => value,
         Err(error) => {
-            warn!(
-                "failed to parse {}: {}",
-                yaml_path.display(),
-                error
-            );
+            warn!("failed to parse {}: {}", yaml_path.display(), error);
             return None;
         }
     };

@@ -40,6 +40,10 @@ notify = "8.2.0"
 git2 = "0.20.3"
 whoami = "1"
 raw-window-handle = "0.6"
+agent-client-protocol = "0.9.5"
+async-trait = "0.1"
+tokio = { version = "1", features = ["io-util", "process", "rt", "sync", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Graphics_Dwm"] }

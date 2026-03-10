@@ -21,21 +21,16 @@ pub async fn task_stop(
     req: Request,
 ) -> CommandResult<Response> {
     let task_id = req.task_id;
-    let child = {
-        let tasks = manager.inner.tasks.read();
+    {
+        let mut tasks = manager.inner.tasks.write();
         let record = tasks
-            .get(&task_id)
+            .get_mut(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
-        if let Some(runtime) = &record.runtime {
-            runtime.child.clone()
-        } else {
+        if !record.agent.is_running() {
             return Ok(record.summary.clone());
         }
-    };
-
-    if let Some(mut child_guard) = child.try_lock() {
-        if let Err(err) = child_guard.kill() {
-            warn!("failed to kill task process for {}: {}", task_id, err);
+        if let Err(err) = record.agent.stop() {
+            warn!("failed to stop task process for {}: {}", task_id, err);
         }
     }
 

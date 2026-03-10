@@ -310,7 +310,8 @@ pub(super) fn handle_notification(state: &Arc<Mutex<CodexGuiAgentState>>, value:
     }
 
     if method.starts_with("item/reasoning/") {
-        if let Some(callbacks) = update_activity_from_notification(state, value, "Thinking", false) {
+        if let Some(callbacks) = update_activity_from_notification(state, value, "Thinking", false)
+        {
             emit_activity_from_state(state, &callbacks);
         }
     }

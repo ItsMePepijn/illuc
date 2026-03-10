@@ -1,6 +1,8 @@
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentRuntime};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, TerminalAgent};
 use crate::features::tasks::TaskStatus;
-use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
+use crate::utils::pty::{
+    wrap_portable_child, wrap_portable_master, ChildHandle, MasterHandle, WriteHandle,
+};
 use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_command;
@@ -30,6 +32,9 @@ struct CopilotAgentState {
     screen: Screen,
     last_output: Option<Instant>,
     last_status: Option<TaskStatus>,
+    child: Option<Arc<Mutex<ChildHandle>>>,
+    writer: Option<WriteHandle>,
+    master: Option<MasterHandle>,
 }
 
 impl Default for CopilotAgent {
@@ -39,6 +44,9 @@ impl Default for CopilotAgent {
                 screen: Screen::new(DEFAULT_ROWS as usize, DEFAULT_COLS as usize),
                 last_output: None,
                 last_status: None,
+                child: None,
+                writer: None,
+                master: None,
             })),
         }
     }
@@ -75,13 +83,33 @@ impl CopilotAgent {
 }
 
 impl Agent for CopilotAgent {
-    fn start(
+    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+        Some(self)
+    }
+
+    fn is_running(&self) -> bool {
+        self.state.lock().child.is_some()
+    }
+
+    fn stop(&mut self) -> anyhow::Result<()> {
+        let child = {
+            let state = self.state.lock();
+            state.child.clone()
+        }
+        .context("copilot is not running")?;
+        let mut child = child.lock();
+        child.kill()
+    }
+}
+
+impl TerminalAgent for CopilotAgent {
+    fn start_terminal(
         &mut self,
         worktree_path: &Path,
         callbacks: AgentCallbacks,
         rows: u16,
         cols: u16,
-    ) -> anyhow::Result<AgentRuntime> {
+    ) -> anyhow::Result<()> {
         let pty_system = native_pty_system();
         let rows = rows.max(1);
         let cols = cols.max(1);
@@ -172,6 +200,7 @@ impl Agent for CopilotAgent {
 
         let exit_callbacks = callbacks.clone();
         let exit_child = child.clone();
+        let exit_state = Arc::clone(&self.state);
         let exit_running = Arc::clone(&running);
         std::thread::spawn(move || {
             let exit_code = loop {
@@ -192,14 +221,18 @@ impl Agent for CopilotAgent {
                 std::thread::sleep(Duration::from_millis(200));
             };
             exit_running.store(false, Ordering::Relaxed);
+            let mut state = exit_state.lock();
+            state.child = None;
+            state.writer = None;
+            state.master = None;
             (exit_callbacks.on_exit)(exit_code);
         });
 
-        Ok(AgentRuntime {
-            child,
-            writer,
-            master,
-        })
+        let mut state = self.state.lock();
+        state.child = Some(child);
+        state.writer = Some(writer);
+        state.master = Some(master);
+        Ok(())
     }
 
     fn reset(&mut self, rows: usize, cols: usize) {
@@ -210,6 +243,26 @@ impl Agent for CopilotAgent {
     }
 
     fn resize(&mut self, rows: usize, cols: usize) {
-        self.state.lock().screen.resize(rows, cols);
+        let mut state = self.state.lock();
+        state.screen.resize(rows, cols);
+        if let Some(master) = &state.master {
+            let _ = master.lock().resize(crate::utils::pty::TerminalSize {
+                cols: cols as u16,
+                rows: rows as u16,
+            });
+        }
+    }
+
+    fn write(&mut self, data: &[u8]) -> anyhow::Result<()> {
+        let writer = {
+            let state = self.state.lock();
+            state.writer.clone()
+        }
+        .context("copilot terminal is not running")?;
+        let mut writer = writer.lock();
+        use std::io::Write;
+        writer.write_all(data)?;
+        writer.flush()?;
+        Ok(())
     }
 }

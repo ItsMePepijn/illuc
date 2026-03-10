@@ -1,22 +1,15 @@
 use crate::features::tasks::TaskStatus;
-use crate::utils::pty::{ChildHandle, MasterHandle, WriteHandle};
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use parking_lot::Mutex;
 use serde::Serialize;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::Arc;
 
+pub mod acp;
 pub mod codex;
 pub mod codex_gui;
 pub mod copilot;
-
-pub struct AgentRuntime {
-    pub child: Arc<Mutex<ChildHandle>>,
-    pub writer: WriteHandle,
-    pub master: MasterHandle,
-}
 
 #[derive(Clone)]
 pub struct AgentCallbacks {
@@ -152,17 +145,21 @@ pub struct AgentModelCapability {
 }
 
 pub trait Agent: Send + Sync {
-    fn start(
-        &mut self,
-        worktree_path: &Path,
-        callbacks: AgentCallbacks,
-        rows: u16,
-        cols: u16,
-    ) -> anyhow::Result<AgentRuntime>;
+    fn start(&mut self, _worktree_path: &Path, _callbacks: AgentCallbacks) -> anyhow::Result<()> {
+        Err(anyhow!("agent does not support process startup"))
+    }
 
-    fn reset(&mut self, rows: usize, cols: usize);
+    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+        None
+    }
 
-    fn resize(&mut self, rows: usize, cols: usize);
+    fn is_running(&self) -> bool {
+        false
+    }
+
+    fn stop(&mut self) -> anyhow::Result<()> {
+        Err(anyhow!("agent does not support stop"))
+    }
 
     fn send_message(&mut self, _content: String) -> anyhow::Result<()> {
         Err(anyhow!("agent does not support GUI messaging"))
@@ -216,3 +213,23 @@ pub trait Agent: Send + Sync {
         Err(anyhow!("agent does not support starting a new thread"))
     }
 }
+
+pub trait TerminalAgent: Agent {
+    fn start_terminal(
+        &mut self,
+        worktree_path: &Path,
+        callbacks: AgentCallbacks,
+        rows: u16,
+        cols: u16,
+    ) -> anyhow::Result<()>;
+
+    fn reset(&mut self, rows: usize, cols: usize);
+
+    fn resize(&mut self, rows: usize, cols: usize);
+
+    fn write(&mut self, _data: &[u8]) -> anyhow::Result<()> {
+        Err(anyhow!("agent terminal does not support writing"))
+    }
+}
+
+pub trait AcpAgent: Agent {}

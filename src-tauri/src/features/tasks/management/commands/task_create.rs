@@ -115,7 +115,6 @@ pub async fn task_create(
             agent: build_agent(AgentKind::Codex),
             agent_kind: AgentKind::Codex,
             summary: summary.clone(),
-            runtime: None,
             shell: None,
         },
     );

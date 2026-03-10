@@ -24,31 +24,15 @@ pub async fn task_terminal_resize(
 ) -> CommandResult<Response> {
     match req.kind {
         TerminalKind::Agent => {
-            let task_id = req.task_id;
-            let master = {
-                let tasks = manager.inner.tasks.read();
-                let record = tasks
-                    .get(&task_id)
-                    .ok_or_else(|| TaskError::NotFound.to_string())?;
-                match &record.runtime {
-                    Some(runtime) => runtime.master.clone(),
-                    None => return Err(TaskError::NotRunning.to_string()),
-                }
-            };
-            master
-                .lock()
-                .resize(TerminalSize {
-                    cols: req.cols,
-                    rows: req.rows,
-                })
-                .with_context(|| "failed to resize terminal")
-                .map_err(|err| err.to_string())?;
-            {
-                let mut tasks = manager.inner.tasks.write();
-                if let Some(record) = tasks.get_mut(&task_id) {
-                    record.agent.resize(req.rows as usize, req.cols as usize);
-                }
-            }
+            let mut tasks = manager.inner.tasks.write();
+            let record = tasks
+                .get_mut(&req.task_id)
+                .ok_or_else(|| TaskError::NotFound.to_string())?;
+            let terminal_agent = record
+                .agent
+                .as_terminal_agent_mut()
+                .ok_or_else(|| TaskError::NotRunning.to_string())?;
+            terminal_agent.resize(req.rows as usize, req.cols as usize);
             Ok(())
         }
         TerminalKind::Worktree => {

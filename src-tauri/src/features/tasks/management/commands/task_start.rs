@@ -1,6 +1,6 @@
 use crate::commands::CommandResult;
 use crate::error::TaskError;
-use crate::features::tasks::agents::{AgentCallbacks, AgentRuntime};
+use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::events::{
     emit_codex_gui_activity, emit_codex_gui_hydrated, emit_codex_gui_message, emit_codex_gui_plan,
@@ -9,8 +9,8 @@ use crate::features::tasks::events::{
     CodexGuiTokenUsagePayload,
 };
 use crate::features::tasks::{
-    agent_label, build_agent, AgentKind, TaskManager, TaskRuntime, TaskStatus, TaskSummary,
-    DEFAULT_PTY_COLS, DEFAULT_PTY_ROWS, DEFAULT_SCREEN_COLS, DEFAULT_SCREEN_ROWS,
+    agent_label, build_agent, AgentKind, TaskManager, TaskStatus, TaskSummary, DEFAULT_PTY_COLS,
+    DEFAULT_PTY_ROWS, DEFAULT_SCREEN_COLS, DEFAULT_SCREEN_ROWS,
 };
 use anyhow::Context;
 use serde::Deserialize;
@@ -56,7 +56,7 @@ pub async fn task_start(
         let record = tasks
             .get(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
-        if record.runtime.is_some() {
+        if record.agent.is_running() {
             return Err(TaskError::AlreadyRunning.to_string());
         }
     }
@@ -276,7 +276,7 @@ pub async fn task_start(
         }),
     };
 
-    let agent_runtime = {
+    {
         let mut tasks = manager.inner.tasks.write();
         let record = tasks
             .get_mut(&task_id)
@@ -287,19 +287,15 @@ pub async fn task_start(
         }
         record.summary.agent_kind = record.agent_kind;
         let label = agent_label(record.agent_kind);
-        record.agent.reset(screen_rows, screen_cols);
-        record
-            .agent
-            .start(&worktree_path, callbacks, pty_rows, pty_cols)
-            .with_context(|| format!("failed to start {} for task {}", label, title))
-            .map_err(|err| format!("{err:#}"))?
+        if let Some(terminal_agent) = record.agent.as_terminal_agent_mut() {
+            terminal_agent.reset(screen_rows, screen_cols);
+            terminal_agent.start_terminal(&worktree_path, callbacks, pty_rows, pty_cols)
+        } else {
+            record.agent.start(&worktree_path, callbacks)
+        }
+        .with_context(|| format!("failed to start {} for task {}", label, title))
+        .map_err(|err| format!("{err:#}"))?
     };
-
-    let AgentRuntime {
-        child,
-        writer,
-        master,
-    } = agent_runtime;
 
     {
         let mut tasks = manager.inner.tasks.write();
@@ -309,11 +305,6 @@ pub async fn task_start(
         record.summary.status = TaskStatus::Idle;
         record.summary.started_at = Some(chrono::Utc::now());
         record.summary.exit_code = None;
-        record.runtime = Some(TaskRuntime {
-            child: child.clone(),
-            writer: writer.clone(),
-            master: master.clone(),
-        });
         emit_status(&app_handle, &record.summary);
     }
 

@@ -45,12 +45,13 @@ fn normalize_decision(response: Value) -> Value {
     };
 
     let normalized = match decision.to_ascii_lowercase().as_str() {
-        "approve" | "approved" | "allow" | "allowed" | "accept" | "accepted" | "yes" => {
-            "approved"
-        }
+        "approve" | "approved" | "allow" | "allowed" | "accept" | "accepted" | "yes" => "approved",
         "deny" | "denied" | "decline" | "declined" | "reject" | "rejected" | "no" => "denied",
         _ => decision,
     };
-    object.insert("decision".to_string(), Value::String(normalized.to_string()));
+    object.insert(
+        "decision".to_string(),
+        Value::String(normalized.to_string()),
+    );
     Value::Object(object)
 }

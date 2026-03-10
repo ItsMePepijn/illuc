@@ -5,15 +5,15 @@ mod rpc;
 mod runtime;
 
 use crate::features::tasks::agents::{
-    Agent, AgentCallbacks, AgentModelCapability, AgentRuntime, GuiMessageEvent,
+    Agent, AgentCallbacks, AgentModelCapability, GuiMessageEvent,
 };
-use crate::utils::pty::{ProcessExitStatus, ProcessHandle, TerminalMaster, TerminalSize};
+use crate::utils::pty::{ChildHandle, ProcessExitStatus, ProcessHandle};
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use parking_lot::Mutex;
 use serde_json::Value;
 use std::collections::{HashMap, VecDeque};
-use std::io::{BufWriter, Write};
+use std::io::BufWriter;
 use std::process::{Child, ChildStdin};
 use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
@@ -46,6 +46,7 @@ pub(super) struct CodexGuiAgentState {
     activity_label: Option<String>,
     activity_started_at: Option<DateTime<Utc>>,
     callbacks: Option<AgentCallbacks>,
+    child: Option<Arc<Mutex<ChildHandle>>>,
 }
 
 impl Default for CodexGuiAgent {
@@ -73,6 +74,7 @@ impl Default for CodexGuiAgent {
                 activity_label: None,
                 activity_started_at: None,
                 callbacks: None,
+                child: None,
             })),
         }
     }
@@ -83,15 +85,23 @@ impl Agent for CodexGuiAgent {
         &mut self,
         worktree_path: &std::path::Path,
         callbacks: AgentCallbacks,
-        _rows: u16,
-        _cols: u16,
-    ) -> anyhow::Result<AgentRuntime> {
+    ) -> anyhow::Result<()> {
         runtime::start(self, worktree_path, callbacks)
     }
 
-    fn reset(&mut self, _rows: usize, _cols: usize) {}
+    fn is_running(&self) -> bool {
+        self.state.lock().child.is_some()
+    }
 
-    fn resize(&mut self, _rows: usize, _cols: usize) {}
+    fn stop(&mut self) -> anyhow::Result<()> {
+        let child = {
+            let state = self.state.lock();
+            state.child.clone()
+        }
+        .context("codex gui is not running")?;
+        let mut child = child.lock();
+        child.kill()
+    }
 
     fn send_message(&mut self, content: String) -> anyhow::Result<()> {
         let text = content.trim().to_string();
@@ -217,26 +227,6 @@ impl Agent for CodexGuiAgent {
         state.activity_started_at = None;
         state.pending_messages.clear();
         rpc::send_thread_start_request(&mut state)
-    }
-}
-
-pub(super) struct NullMaster;
-
-impl TerminalMaster for NullMaster {
-    fn resize(&self, _size: TerminalSize) -> anyhow::Result<()> {
-        Ok(())
-    }
-}
-
-pub(super) struct NullWriter;
-
-impl Write for NullWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
     }
 }
 
