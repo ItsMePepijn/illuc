@@ -6,12 +6,14 @@ use std::path::Path;
 use std::sync::Arc;
 
 pub mod acp;
+pub mod agent_gui;
+pub mod agent_tui;
 pub mod codex;
 pub mod codex_gui;
 pub mod copilot;
 pub mod open_code;
 
-use self::codex_gui::types::{
+use self::agent_gui::types::{
     GuiActivityEvent, GuiMessageEvent, GuiPlanEvent, GuiRequestEvent, GuiTokenUsageEvent,
 };
 
@@ -41,7 +43,15 @@ pub trait Agent: Send + Sync {
         Err(anyhow!("agent does not support process startup"))
     }
 
-    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+    fn as_gui_agent(&self) -> Option<&dyn GuiAgent> {
+        None
+    }
+
+    fn as_gui_agent_mut(&mut self) -> Option<&mut dyn GuiAgent> {
+        None
+    }
+
+    fn as_tui_agent_mut(&mut self) -> Option<&mut dyn TuiAgent> {
         None
     }
 
@@ -52,9 +62,57 @@ pub trait Agent: Send + Sync {
     fn stop(&mut self) -> anyhow::Result<()> {
         Err(anyhow!("agent does not support stop"))
     }
+}
+
+pub trait TuiAgent: Agent {
+    fn start_tui(
+        &mut self,
+        worktree_path: &Path,
+        callbacks: AgentCallbacks,
+        rows: u16,
+        cols: u16,
+    ) -> anyhow::Result<()>;
+
+    fn reset(&mut self, rows: usize, cols: usize);
+
+    fn resize(&mut self, rows: usize, cols: usize);
+
+    fn write(&mut self, _data: &[u8]) -> anyhow::Result<()> {
+        Err(anyhow!("tui agent does not support writing"))
+    }
+}
+
+pub trait GuiAgent: Agent {
+    fn as_gui_session_agent(&self) -> Option<&dyn GuiSessionAgent> {
+        None
+    }
+
+    fn as_gui_session_agent_mut(&mut self) -> Option<&mut dyn GuiSessionAgent> {
+        None
+    }
+
+    fn as_gui_thread_agent(&self) -> Option<&dyn GuiThreadAgent> {
+        None
+    }
+
+    fn as_gui_thread_agent_mut(&mut self) -> Option<&mut dyn GuiThreadAgent> {
+        None
+    }
+
+    fn as_gui_usage_agent(&self) -> Option<&dyn GuiUsageAgent> {
+        None
+    }
+
+    fn as_gui_usage_agent_mut(&mut self) -> Option<&mut dyn GuiUsageAgent> {
+        None
+    }
+
+    fn supports_service_tier_toggle(&self) -> bool {
+        false
+    }
 
     fn send_message(&mut self, _content: String) -> anyhow::Result<()> {
-        Err(anyhow!("agent does not support GUI messaging"))
+        Err(anyhow!("gui agent does not support messaging"))
     }
 
     fn set_model(&mut self, _model: Option<String>) -> anyhow::Result<()> {
@@ -82,7 +140,7 @@ pub trait Agent: Send + Sync {
     }
 
     fn interrupt(&mut self) -> anyhow::Result<()> {
-        Err(anyhow!("agent does not support interrupt"))
+        Err(anyhow!("gui agent does not support interrupt"))
     }
 
     fn set_reasoning_effort(&mut self, _effort: Option<String>) -> anyhow::Result<()> {
@@ -93,42 +151,30 @@ pub trait Agent: Send + Sync {
         Ok(())
     }
 
-    fn refresh_rate_limits(&mut self) -> anyhow::Result<Option<Value>> {
-        Ok(None)
-    }
-
     fn respond_ui_request(&mut self, _request_id: String, _response: Value) -> anyhow::Result<()> {
-        Err(anyhow!("agent does not support ui requests"))
-    }
-
-    fn compact_thread(&mut self) -> anyhow::Result<()> {
-        Err(anyhow!("agent does not support thread compaction"))
-    }
-
-    fn rollback_thread(&mut self, _num_turns: usize) -> anyhow::Result<Vec<GuiMessageEvent>> {
-        Err(anyhow!("agent does not support thread rollback"))
-    }
-
-    fn start_new_thread(&mut self) -> anyhow::Result<()> {
-        Err(anyhow!("agent does not support starting a new thread"))
+        Err(anyhow!("gui agent does not support ui requests"))
     }
 }
 
-pub trait TerminalAgent: Agent {
-    fn start_terminal(
-        &mut self,
-        worktree_path: &Path,
-        callbacks: AgentCallbacks,
-        rows: u16,
-        cols: u16,
-    ) -> anyhow::Result<()>;
+pub trait GuiSessionAgent: GuiAgent {
+    fn start_new_thread(&mut self) -> anyhow::Result<()> {
+        Err(anyhow!("gui agent does not support starting a new thread"))
+    }
+}
 
-    fn reset(&mut self, rows: usize, cols: usize);
+pub trait GuiThreadAgent: GuiAgent {
+    fn compact_thread(&mut self) -> anyhow::Result<()> {
+        Err(anyhow!("gui agent does not support thread compaction"))
+    }
 
-    fn resize(&mut self, rows: usize, cols: usize);
+    fn rollback_thread(&mut self, _num_turns: usize) -> anyhow::Result<Vec<GuiMessageEvent>> {
+        Err(anyhow!("gui agent does not support thread rollback"))
+    }
+}
 
-    fn write(&mut self, _data: &[u8]) -> anyhow::Result<()> {
-        Err(anyhow!("agent terminal does not support writing"))
+pub trait GuiUsageAgent: GuiAgent {
+    fn refresh_rate_limits(&mut self) -> anyhow::Result<Option<Value>> {
+        Ok(None)
     }
 }
 

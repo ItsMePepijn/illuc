@@ -1,4 +1,4 @@
-use crate::features::tasks::agents::{Agent, AgentCallbacks, TerminalAgent};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 use crate::utils::pty::{
     wrap_portable_child, wrap_portable_master, ChildHandle, MasterHandle, WriteHandle,
@@ -19,6 +19,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 mod resuming;
+pub(crate) use resuming::{find_latest_session_id, resolve_session_cwd};
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
@@ -83,7 +84,7 @@ impl CopilotAgent {
 }
 
 impl Agent for CopilotAgent {
-    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+    fn as_tui_agent_mut(&mut self) -> Option<&mut dyn TuiAgent> {
         Some(self)
     }
 
@@ -102,8 +103,8 @@ impl Agent for CopilotAgent {
     }
 }
 
-impl TerminalAgent for CopilotAgent {
-    fn start_terminal(
+impl TuiAgent for CopilotAgent {
+    fn start_tui(
         &mut self,
         worktree_path: &Path,
         callbacks: AgentCallbacks,

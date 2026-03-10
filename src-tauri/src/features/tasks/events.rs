@@ -1,4 +1,4 @@
-use crate::features::tasks::agents::codex_gui::types::{GuiMessageEvent, GuiMessagePresentation};
+use crate::features::tasks::agents::agent_gui::types::{GuiMessageEvent, GuiMessagePresentation};
 use crate::features::tasks::{TaskSummary, TerminalKind};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
@@ -46,7 +46,7 @@ pub fn emit_review_changed(app: &AppHandle, task_id: Uuid) {
     }
 }
 
-pub fn emit_codex_gui_message(
+pub fn emit_agent_gui_message(
     app: &AppHandle,
     task_id: Uuid,
     message_id: String,
@@ -56,7 +56,7 @@ pub fn emit_codex_gui_message(
     is_delta: bool,
     is_final: bool,
 ) {
-    let payload = CodexGuiMessagePayload {
+    let payload = GuiAgentMessagePayload {
         task_id,
         message_id,
         role,
@@ -65,21 +65,17 @@ pub fn emit_codex_gui_message(
         is_delta,
         is_final,
     };
-    if let Err(error) = app.emit("task_codex_gui_message", payload) {
-        log::warn!("failed to emit task_codex_gui_message event: {error}");
+    if let Err(error) = app.emit("task_agent_gui_message", payload) {
+        log::warn!("failed to emit task_agent_gui_message event: {error}");
     }
 }
 
-pub fn emit_codex_gui_history(
-    app: &AppHandle,
-    task_id: Uuid,
-    events: Vec<GuiMessageEvent>,
-) {
-    let payload = CodexGuiHistoryPayload {
+pub fn emit_agent_gui_history(app: &AppHandle, task_id: Uuid, events: Vec<GuiMessageEvent>) {
+    let payload = GuiAgentHistoryPayload {
         task_id,
         events: events
             .into_iter()
-            .map(|event| CodexGuiHistoryMessagePayload {
+            .map(|event| GuiAgentHistoryMessagePayload {
                 message_id: event.message_id,
                 role: event.role.as_str(),
                 content: event.content,
@@ -89,64 +85,64 @@ pub fn emit_codex_gui_history(
             })
             .collect(),
     };
-    if let Err(error) = app.emit("task_codex_gui_history", payload) {
-        log::warn!("failed to emit task_codex_gui_history event: {error}");
+    if let Err(error) = app.emit("task_agent_gui_history", payload) {
+        log::warn!("failed to emit task_agent_gui_history event: {error}");
     }
 }
 
-pub fn emit_codex_gui_hydrated(app: &AppHandle, task_id: Uuid) {
-    let payload = CodexGuiHydratedPayload { task_id };
-    if let Err(error) = app.emit("task_codex_gui_hydrated", payload) {
-        log::warn!("failed to emit task_codex_gui_hydrated event: {error}");
+pub fn emit_agent_gui_hydrated(app: &AppHandle, task_id: Uuid) {
+    let payload = GuiAgentHydratedPayload { task_id };
+    if let Err(error) = app.emit("task_agent_gui_hydrated", payload) {
+        log::warn!("failed to emit task_agent_gui_hydrated event: {error}");
     }
 }
 
-pub fn emit_codex_gui_activity(
+pub fn emit_agent_gui_activity(
     app: &AppHandle,
     task_id: Uuid,
     label: Option<String>,
     started_at: Option<chrono::DateTime<chrono::Utc>>,
 ) {
-    let payload = CodexGuiActivityPayload {
+    let payload = GuiAgentActivityPayload {
         task_id,
         label,
         started_at,
     };
-    if let Err(error) = app.emit("task_codex_gui_activity", payload) {
-        log::warn!("failed to emit task_codex_gui_activity event: {error}");
+    if let Err(error) = app.emit("task_agent_gui_activity", payload) {
+        log::warn!("failed to emit task_agent_gui_activity event: {error}");
     }
 }
 
-pub fn emit_codex_gui_plan(
+pub fn emit_agent_gui_plan(
     app: &AppHandle,
     task_id: Uuid,
     explanation: Option<String>,
-    plan: Vec<CodexGuiPlanStepPayload>,
+    plan: Vec<GuiAgentPlanStepPayload>,
 ) {
-    let payload = CodexGuiPlanPayload {
+    let payload = GuiAgentPlanPayload {
         task_id,
         explanation,
         plan,
     };
-    if let Err(error) = app.emit("task_codex_gui_plan", payload) {
-        log::warn!("failed to emit task_codex_gui_plan event: {error}");
+    if let Err(error) = app.emit("task_agent_gui_plan", payload) {
+        log::warn!("failed to emit task_agent_gui_plan event: {error}");
     }
 }
 
-pub fn emit_codex_gui_token_usage(
+pub fn emit_agent_gui_token_usage(
     app: &AppHandle,
     task_id: Uuid,
-    usage: CodexGuiTokenUsagePayload,
+    usage: GuiAgentTokenUsagePayload,
 ) {
-    let payload = CodexGuiTokenUsageEventPayload { task_id, usage };
-    if let Err(error) = app.emit("task_codex_gui_token_usage", payload) {
-        log::warn!("failed to emit task_codex_gui_token_usage event: {error}");
+    let payload = GuiAgentTokenUsageEventPayload { task_id, usage };
+    if let Err(error) = app.emit("task_agent_gui_token_usage", payload) {
+        log::warn!("failed to emit task_agent_gui_token_usage event: {error}");
     }
 }
 
-pub fn emit_codex_gui_request(app: &AppHandle, payload: CodexGuiRequestPayload) {
-    if let Err(error) = app.emit("task_codex_gui_request", payload) {
-        log::warn!("failed to emit task_codex_gui_request event: {error}");
+pub fn emit_agent_gui_request(app: &AppHandle, payload: GuiAgentRequestPayload) {
+    if let Err(error) = app.emit("task_agent_gui_request", payload) {
+        log::warn!("failed to emit task_agent_gui_request event: {error}");
     }
 }
 
@@ -180,7 +176,7 @@ struct ReviewChangedPayload {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiMessagePayload {
+struct GuiAgentMessagePayload {
     task_id: Uuid,
     message_id: String,
     role: &'static str,
@@ -192,14 +188,14 @@ struct CodexGuiMessagePayload {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiHistoryPayload {
+struct GuiAgentHistoryPayload {
     task_id: Uuid,
-    events: Vec<CodexGuiHistoryMessagePayload>,
+    events: Vec<GuiAgentHistoryMessagePayload>,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiHistoryMessagePayload {
+struct GuiAgentHistoryMessagePayload {
     message_id: String,
     role: &'static str,
     content: String,
@@ -210,13 +206,13 @@ struct CodexGuiHistoryMessagePayload {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiHydratedPayload {
+struct GuiAgentHydratedPayload {
     task_id: Uuid,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiActivityPayload {
+struct GuiAgentActivityPayload {
     task_id: Uuid,
     label: Option<String>,
     started_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -224,22 +220,22 @@ struct CodexGuiActivityPayload {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CodexGuiPlanStepPayload {
+pub struct GuiAgentPlanStepPayload {
     pub step: String,
     pub status: String,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiPlanPayload {
+struct GuiAgentPlanPayload {
     task_id: Uuid,
     explanation: Option<String>,
-    plan: Vec<CodexGuiPlanStepPayload>,
+    plan: Vec<GuiAgentPlanStepPayload>,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CodexGuiTokenUsagePayload {
+pub struct GuiAgentTokenUsagePayload {
     pub total_tokens: u64,
     pub input_tokens: u64,
     pub cached_input_tokens: u64,
@@ -255,32 +251,32 @@ pub struct CodexGuiTokenUsagePayload {
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct CodexGuiTokenUsageEventPayload {
+struct GuiAgentTokenUsageEventPayload {
     task_id: Uuid,
-    usage: CodexGuiTokenUsagePayload,
+    usage: GuiAgentTokenUsagePayload,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CodexGuiQuestionOptionPayload {
+pub struct GuiAgentQuestionOptionPayload {
     pub label: String,
     pub description: String,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CodexGuiQuestionPayload {
+pub struct GuiAgentQuestionPayload {
     pub id: String,
     pub header: String,
     pub question: String,
     pub is_other: bool,
     pub is_secret: bool,
-    pub options: Vec<CodexGuiQuestionOptionPayload>,
+    pub options: Vec<GuiAgentQuestionOptionPayload>,
 }
 
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct CodexGuiRequestPayload {
+pub struct GuiAgentRequestPayload {
     pub task_id: Uuid,
     pub request_id: Option<String>,
     pub kind: String,
@@ -298,5 +294,5 @@ pub struct CodexGuiRequestPayload {
     pub proposed_exec_policy: Vec<String>,
     pub proposed_network_policy: Vec<String>,
     pub grant_root: Option<String>,
-    pub questions: Vec<CodexGuiQuestionPayload>,
+    pub questions: Vec<GuiAgentQuestionPayload>,
 }

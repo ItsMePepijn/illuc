@@ -1,12 +1,13 @@
-pub mod commands;
 mod event_handlers;
 mod message_parsing;
 mod rpc;
 mod runtime;
-pub mod types;
 
-use crate::features::tasks::agents::codex_gui::types::GuiMessageEvent;
-use crate::features::tasks::agents::{Agent, AgentCallbacks, AgentModelCapability};
+use crate::features::tasks::agents::agent_gui::types::GuiMessageEvent;
+use crate::features::tasks::agents::{
+    Agent, AgentCallbacks, AgentModelCapability, GuiAgent, GuiSessionAgent, GuiThreadAgent,
+    GuiUsageAgent,
+};
 use crate::utils::pty::{ChildHandle, ProcessExitStatus, ProcessHandle};
 use anyhow::Context;
 use chrono::{DateTime, Utc};
@@ -83,6 +84,14 @@ impl Default for CodexGuiAgent {
 }
 
 impl Agent for CodexGuiAgent {
+    fn as_gui_agent(&self) -> Option<&dyn GuiAgent> {
+        Some(self)
+    }
+
+    fn as_gui_agent_mut(&mut self) -> Option<&mut dyn GuiAgent> {
+        Some(self)
+    }
+
     fn start(
         &mut self,
         worktree_path: &std::path::Path,
@@ -103,6 +112,36 @@ impl Agent for CodexGuiAgent {
         .context("codex gui is not running")?;
         let mut child = child.lock();
         child.kill()
+    }
+}
+
+impl GuiAgent for CodexGuiAgent {
+    fn as_gui_session_agent(&self) -> Option<&dyn GuiSessionAgent> {
+        Some(self)
+    }
+
+    fn as_gui_session_agent_mut(&mut self) -> Option<&mut dyn GuiSessionAgent> {
+        Some(self)
+    }
+
+    fn as_gui_thread_agent(&self) -> Option<&dyn GuiThreadAgent> {
+        Some(self)
+    }
+
+    fn as_gui_thread_agent_mut(&mut self) -> Option<&mut dyn GuiThreadAgent> {
+        Some(self)
+    }
+
+    fn as_gui_usage_agent(&self) -> Option<&dyn GuiUsageAgent> {
+        Some(self)
+    }
+
+    fn as_gui_usage_agent_mut(&mut self) -> Option<&mut dyn GuiUsageAgent> {
+        Some(self)
+    }
+
+    fn supports_service_tier_toggle(&self) -> bool {
+        true
     }
 
     fn send_message(&mut self, content: String) -> anyhow::Result<()> {
@@ -172,6 +211,19 @@ impl Agent for CodexGuiAgent {
         Ok(())
     }
 
+    fn respond_ui_request(&mut self, request_id: String, response: Value) -> anyhow::Result<()> {
+        let sender = {
+            let mut state = self.state.lock();
+            state.pending_server_requests.remove(&request_id)
+        }
+        .context("codex gui request is no longer pending")?;
+        sender
+            .send(response)
+            .map_err(|_| anyhow::anyhow!("failed to deliver codex gui request response"))
+    }
+}
+
+impl GuiUsageAgent for CodexGuiAgent {
     fn refresh_rate_limits(&mut self) -> anyhow::Result<Option<Value>> {
         let request_id = {
             let mut state = self.state.lock();
@@ -193,18 +245,9 @@ impl Agent for CodexGuiAgent {
             std::thread::sleep(Duration::from_millis(30));
         }
     }
+}
 
-    fn respond_ui_request(&mut self, request_id: String, response: Value) -> anyhow::Result<()> {
-        let sender = {
-            let mut state = self.state.lock();
-            state.pending_server_requests.remove(&request_id)
-        }
-        .context("codex gui request is no longer pending")?;
-        sender
-            .send(response)
-            .map_err(|_| anyhow::anyhow!("failed to deliver codex gui request response"))
-    }
-
+impl GuiThreadAgent for CodexGuiAgent {
     fn compact_thread(&mut self) -> anyhow::Result<()> {
         let mut state = self.state.lock();
         rpc::send_thread_compact_request(&mut state)
@@ -233,7 +276,9 @@ impl Agent for CodexGuiAgent {
             std::thread::sleep(Duration::from_millis(30));
         }
     }
+}
 
+impl GuiSessionAgent for CodexGuiAgent {
     fn start_new_thread(&mut self) -> anyhow::Result<()> {
         let mut state = self.state.lock();
         state.thread_id = None;

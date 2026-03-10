@@ -2,7 +2,7 @@ use super::super::message_parsing::{
     build_presentation, extract_content, extract_message_id, extract_role, fallback_message_id,
 };
 use super::super::CodexGuiAgentState;
-use crate::features::tasks::agents::codex_gui::types::{
+use crate::features::tasks::agents::agent_gui::types::{
     GuiActivityEvent, GuiMessageEvent, GuiPlanEvent, GuiPlanStep, GuiTokenUsageEvent,
 };
 use crate::features::tasks::agents::AgentCallbacks;
@@ -90,7 +90,8 @@ pub(super) fn handle_notification(state: &Arc<Mutex<CodexGuiAgentState>>, value:
     }
 
     if method.starts_with("item/reasoning/") {
-        if let Some(callbacks) = update_activity_from_notification(state, value, "Thinking", false) {
+        if let Some(callbacks) = update_activity_from_notification(state, value, "Thinking", false)
+        {
             emit_activity_from_state(state, &callbacks);
         }
     }

@@ -1,5 +1,5 @@
 use super::super::{rpc, CodexGuiAgentState};
-use crate::features::tasks::agents::codex_gui::types::{
+use crate::features::tasks::agents::agent_gui::types::{
     GuiRequestEvent, GuiRequestQuestion, GuiRequestQuestionOption,
 };
 use anyhow::Result;

@@ -1,4 +1,4 @@
-use crate::features::tasks::agents::codex_gui::types::{
+use crate::features::tasks::agents::agent_gui::types::{
     GuiMessageEvent, GuiMessagePresentation, GuiMessagePresentationKind, GuiMessageRole,
     GuiMessageTextFormat, GuiToolRow, GuiToolRowKind,
 };
@@ -139,14 +139,16 @@ pub(super) fn build_presentation(
             Some(normalize_reasoning_text(content)),
             Some(GuiMessageTextFormat::Plain),
         ),
-        GuiMessageRole::System => build_system_presentation(params, item, method, content, is_final)
-            .unwrap_or_else(|| {
-                text_presentation(
-                    GuiMessagePresentationKind::Standard,
-                    Some(content.to_string()),
-                    Some(GuiMessageTextFormat::Markdown),
-                )
-            }),
+        GuiMessageRole::System => build_system_presentation(
+            params, item, method, content, is_final,
+        )
+        .unwrap_or_else(|| {
+            text_presentation(
+                GuiMessagePresentationKind::Standard,
+                Some(content.to_string()),
+                Some(GuiMessageTextFormat::Markdown),
+            )
+        }),
     }
 }
 
@@ -190,7 +192,11 @@ fn build_system_presentation(
     let item_type = item
         .and_then(|value| value.get("type"))
         .and_then(Value::as_str)
-        .or_else(|| method.strip_prefix("item/").and_then(|value| value.split('/').next()));
+        .or_else(|| {
+            method
+                .strip_prefix("item/")
+                .and_then(|value| value.split('/').next())
+        });
 
     let rows = match item_type {
         Some("commandExecution") | Some("command_execution") => {
@@ -324,8 +330,14 @@ fn build_file_read_tool_rows(params: &Value, item: Option<&Value>) -> Vec<GuiToo
     let path = item
         .and_then(|value| value.get("path"))
         .and_then(Value::as_str)
-        .or_else(|| item.and_then(|value| value.get("filePath")).and_then(Value::as_str))
-        .or_else(|| item.and_then(|value| value.pointer("/file/path")).and_then(Value::as_str))
+        .or_else(|| {
+            item.and_then(|value| value.get("filePath"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            item.and_then(|value| value.pointer("/file/path"))
+                .and_then(Value::as_str)
+        })
         .or_else(|| params.get("path").and_then(Value::as_str))
         .or_else(|| params.get("filePath").and_then(Value::as_str))
         .or_else(|| params.pointer("/file/path").and_then(Value::as_str))
@@ -356,14 +368,23 @@ fn build_named_tool_rows(
     let tool_name = item
         .and_then(|value| value.get("toolName"))
         .and_then(Value::as_str)
-        .or_else(|| item.and_then(|value| value.get("name")).and_then(Value::as_str))
-        .or_else(|| item.and_then(|value| value.get("tool")).and_then(Value::as_str))
+        .or_else(|| {
+            item.and_then(|value| value.get("name"))
+                .and_then(Value::as_str)
+        })
+        .or_else(|| {
+            item.and_then(|value| value.get("tool"))
+                .and_then(Value::as_str)
+        })
         .map(str::trim)
         .filter(|value| !value.is_empty());
     let path = item
         .and_then(|value| value.get("path"))
         .and_then(Value::as_str)
-        .or_else(|| item.and_then(|value| value.get("filePath")).and_then(Value::as_str))
+        .or_else(|| {
+            item.and_then(|value| value.get("filePath"))
+                .and_then(Value::as_str)
+        })
         .or_else(|| params.get("path").and_then(Value::as_str))
         .or_else(|| params.get("filePath").and_then(Value::as_str))
         .map(str::trim)
@@ -1017,10 +1038,7 @@ pub(super) fn collect_history_events(value: &Value) -> Vec<GuiMessageEvent> {
         .pointer("/result/thread/turns")
         .and_then(Value::as_array)
         .or_else(|| value.pointer("/result/turns").and_then(Value::as_array))
-        .or_else(|| {
-            value.get("result")
-                .and_then(find_turns_array)
-        });
+        .or_else(|| value.get("result").and_then(find_turns_array));
     let Some(turns) = turns else {
         return Vec::new();
     };
@@ -1092,8 +1110,14 @@ pub(super) fn collect_history_events(value: &Value) -> Vec<GuiMessageEvent> {
                 .and_then(Value::as_str)
                 .map(str::to_string)
                 .unwrap_or_else(fallback_message_id);
-            let presentation =
-                build_presentation(role, &Value::Null, Some(item), synthetic_method.as_str(), &content, true);
+            let presentation = build_presentation(
+                role,
+                &Value::Null,
+                Some(item),
+                synthetic_method.as_str(),
+                &content,
+                true,
+            );
 
             events.push(GuiMessageEvent {
                 message_id,

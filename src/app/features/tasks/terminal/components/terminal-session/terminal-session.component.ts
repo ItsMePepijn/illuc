@@ -1,0 +1,429 @@
+import {
+    AfterViewInit,
+    Component,
+    ElementRef,
+    Input,
+    OnChanges,
+    OnDestroy,
+    SimpleChanges,
+    ViewChild,
+} from "@angular/core";
+import { CommonModule } from "@angular/common";
+import { ITheme, Terminal } from "xterm";
+import { FitAddon } from "xterm-addon-fit";
+import { Subscription } from "rxjs";
+import { TaskStore } from "../../../task.store";
+import { TERMINAL_SCROLLBACK } from "../../terminal.constants";
+import { TerminalFitManager } from "../../terminal-fit.util";
+import { TerminalKind } from "../../models";
+
+@Component({
+    selector: "app-terminal-session",
+    standalone: true,
+    imports: [CommonModule],
+    templateUrl: "./terminal-session.component.html",
+    styleUrl: "./terminal-session.component.css",
+})
+export class TerminalSessionComponent
+    implements AfterViewInit, OnChanges, OnDestroy
+{
+    @Input() taskId: string | null = null;
+    @Input() kind: TerminalKind = "agent";
+    @Input() title = "Terminal";
+    @Input() showToolbar = true;
+    @Input() suspendBackendResize = false;
+    @Input() suspendFit = false;
+    @ViewChild("terminalHost", { static: true })
+    terminalHost?: ElementRef<HTMLDivElement>;
+
+    private terminal?: Terminal;
+    private fitAddon?: FitAddon;
+    private fitManager?: TerminalFitManager;
+    private dataSubscription?: Subscription;
+    private resizeObserver?: ResizeObserver;
+    private wheelHandler?: (event: WheelEvent) => void;
+    private resizeTimer?: number;
+    private pendingResize?: { cols: number; rows: number };
+    private suppressInput = false;
+    private readonly themeAppliedHandler = () => this.applyTerminalTheme();
+    private altScreenActive = false;
+    private altScreenCarry = "";
+    private readonly altScreenSequences = [
+        "\u001b[?1049h",
+        "\u001b[?1049l",
+        "\u001b[?1047h",
+        "\u001b[?1047l",
+        "\u001b[?47h",
+        "\u001b[?47l",
+    ];
+    private readonly altScreenMaxLen = 8;
+    private readonly isWindows = navigator.userAgent
+        .toLowerCase()
+        .includes("windows");
+    private readonly assumeAltScreenOnWindows = true;
+
+    constructor(private readonly taskStore: TaskStore) {}
+
+    ngAfterViewInit(): void {
+        this.initializeTerminal();
+        this.refreshTerminalSession();
+        this.setupResizeObserver();
+        this.fitManager?.scheduleFit();
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        if (
+            (changes["taskId"] && !changes["taskId"].firstChange) ||
+            (changes["kind"] && !changes["kind"].firstChange)
+        ) {
+            this.refreshTerminalSession();
+        }
+    }
+
+    ngOnDestroy(): void {
+        this.dataSubscription?.unsubscribe();
+        this.resizeObserver?.disconnect();
+        window.removeEventListener(
+            "illuc-theme-applied",
+            this.themeAppliedHandler,
+        );
+        if (this.wheelHandler && this.terminal?.element) {
+            this.terminal.element.removeEventListener(
+                "wheel",
+                this.wheelHandler,
+            );
+        }
+        if (this.resizeTimer) {
+            window.clearTimeout(this.resizeTimer);
+        }
+        this.terminal?.dispose();
+    }
+
+    runFitNow(): void {
+        this.fitTerminal();
+    }
+
+    forceBackendResizeNow(ignoreSuspend = false): void {
+        if (!ignoreSuspend && (this.suspendBackendResize || this.suspendFit)) {
+            return;
+        }
+        if (!this.terminal) {
+            return;
+        }
+        this.fitAddon?.fit();
+        const cols = this.terminal.cols;
+        const rows = this.terminal.rows;
+        this.recordTerminalSize(cols, rows);
+        this.sendBackendResize(cols, rows);
+    }
+
+    flushBackendResize(): void {
+        const payload = this.pendingResize;
+        this.pendingResize = undefined;
+        if (this.resizeTimer) {
+            window.clearTimeout(this.resizeTimer);
+            this.resizeTimer = undefined;
+        }
+        if (!payload || !this.taskId) {
+            return;
+        }
+        this.sendBackendResize(payload.cols, payload.rows);
+    }
+
+    private initializeTerminal(): void {
+        if (!this.terminalHost) {
+            return;
+        }
+
+        this.terminal = new Terminal({
+            convertEol: false,
+            fontFamily:
+                "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+            fontSize: 13,
+            cursorBlink: true,
+            scrollback: TERMINAL_SCROLLBACK,
+            theme: this.buildTerminalTheme(),
+        });
+
+        this.fitAddon = new FitAddon();
+        this.terminal.loadAddon(this.fitAddon);
+        this.terminal.open(this.terminalHost.nativeElement);
+        this.terminal.focus();
+        window.addEventListener("illuc-theme-applied", this.themeAppliedHandler);
+        this.applyTerminalTheme();
+        this.fitManager = new TerminalFitManager(
+            () => this.fitAddon?.proposeDimensions(),
+            () => this.fitTerminal(),
+            () => this.suspendFit,
+        );
+        this.fitManager.scheduleFit();
+        this.wheelHandler = (event: WheelEvent) =>
+            this.handleTerminalWheel(event);
+        if (this.terminal.element) {
+            this.terminal.element.addEventListener("wheel", this.wheelHandler, {
+                passive: false,
+            });
+        }
+        this.terminal.onData((data) => this.handleTerminalInput(data));
+        this.terminal.onResize((size) =>
+            this.handleResize(size.cols, size.rows),
+        );
+        this.fitManager.scheduleFit();
+    }
+
+    private refreshTerminalSession(): void {
+        if (!this.terminal) {
+            return;
+        }
+        this.dataSubscription?.unsubscribe();
+        this.altScreenActive = this.isWindows && this.assumeAltScreenOnWindows;
+        this.altScreenCarry = "";
+        this.terminal.reset();
+
+        if (!this.taskId) {
+            return;
+        }
+
+        if (this.kind === "worktree") {
+            void this.taskStore
+                .startTerminal(this.taskId, "worktree")
+                .then(() => this.forceBackendResizeNow())
+                .catch(() => undefined);
+        }
+
+        const buffer = this.taskStore.getTerminalBuffer(this.taskId, this.kind);
+        if (buffer) {
+            this.suppressInput = true;
+            this.terminal.write(buffer, () => {
+                this.suppressInput = false;
+            });
+        }
+
+        const output$ = this.taskStore.terminalOutput$(this.taskId, this.kind);
+        this.dataSubscription = output$.subscribe((chunk) => {
+            this.detectAltScreen(chunk);
+            this.terminal?.write(chunk);
+        });
+        this.fitManager?.scheduleFit();
+    }
+
+    private fitTerminal(): void {
+        this.fitAddon?.fit();
+        if (!this.terminal) {
+            return;
+        }
+        const cols = this.terminal.cols;
+        const rows = this.terminal.rows;
+        this.recordTerminalSize(cols, rows);
+        this.scheduleBackendResize(cols, rows);
+    }
+
+    private setupResizeObserver(): void {
+        if (!this.terminalHost || typeof ResizeObserver === "undefined") {
+            return;
+        }
+        this.resizeObserver = new ResizeObserver(() =>
+            this.fitManager?.scheduleFitOnResize(),
+        );
+        this.resizeObserver.observe(this.terminalHost.nativeElement);
+    }
+
+    private handleTerminalInput(data: string): void {
+        if (this.suppressInput || !this.taskId) {
+            return;
+        }
+        if (this.kind === "worktree") {
+            void this.taskStore.writeToTerminal(this.taskId, data, "worktree");
+            return;
+        }
+        void this.taskStore.writeToAgentTui(this.taskId, data);
+    }
+
+    private handleResize(cols: number, rows: number): void {
+        if (!this.taskId) {
+            return;
+        }
+        this.recordTerminalSize(cols, rows);
+        this.scheduleBackendResize(cols, rows);
+    }
+
+    private recordTerminalSize(cols: number, rows: number): void {
+        this.taskStore.recordTerminalSize(this.taskId ?? "", cols, rows, this.kind);
+    }
+
+    private sendBackendResize(cols: number, rows: number): void {
+        if (!this.taskId) {
+            return;
+        }
+        if (this.kind === "worktree") {
+            void this.taskStore.resizeTerminal(this.taskId, cols, rows, "worktree");
+            return;
+        }
+        void this.taskStore.resizeAgentTui(this.taskId, cols, rows);
+    }
+
+    private scheduleBackendResize(cols: number, rows: number): void {
+        if (!this.taskId) {
+            return;
+        }
+        this.pendingResize = { cols, rows };
+        if (this.suspendBackendResize) {
+            return;
+        }
+        if (this.resizeTimer) {
+            window.clearTimeout(this.resizeTimer);
+        }
+        this.resizeTimer = window.setTimeout(() => {
+            this.flushBackendResize();
+        }, 150);
+    }
+
+    private handleTerminalWheel(event: WheelEvent): boolean {
+        if (!this.shouldInterceptWheel() || !this.taskId) {
+            return true;
+        }
+        event.preventDefault();
+        const sequence = event.deltaY < 0 ? "\u001b[5~" : "\u001b[6~";
+        const repeats = Math.min(
+            3,
+            Math.max(1, Math.round(Math.abs(event.deltaY) / 100)),
+        );
+        if (this.kind === "worktree") {
+            void this.taskStore.writeToTerminal(
+                this.taskId,
+                sequence.repeat(repeats),
+                "worktree",
+            );
+            return false;
+        }
+        void this.taskStore.writeToAgentTui(this.taskId, sequence.repeat(repeats));
+        return false;
+    }
+
+    private shouldInterceptWheel(): boolean {
+        if (!this.isWindows) {
+            return false;
+        }
+        if (this.kind === "worktree") {
+            return this.assumeAltScreenOnWindows || this.altScreenActive;
+        }
+        if (!this.assumeAltScreenOnWindows && !this.altScreenActive) {
+            return false;
+        }
+        return true;
+    }
+
+    private buildTerminalTheme(): ITheme | undefined {
+        const background = this.readCssVar("--surfaces-surface");
+        const foreground = this.readCssVar("--text-default");
+        const accent = this.readCssVar("--brand-accent");
+        const selection = this.readCssVar("--interaction-selection_bg");
+
+        const subtle = this.readCssVar("--text-subtle");
+        const muted = this.readCssVar("--text-muted");
+        const danger = this.readCssVar("--status-danger");
+        const success = this.readCssVar("--status-success");
+        const warning = this.readCssVar("--status-warning");
+        const info = this.readCssVar("--status-info");
+
+        if (
+            !background &&
+            !foreground &&
+            !accent &&
+            !selection &&
+            !subtle &&
+            !muted &&
+            !danger &&
+            !success &&
+            !warning &&
+            !info
+        ) {
+            return undefined;
+        }
+
+        const bg = background ?? undefined;
+        const fg = foreground ?? undefined;
+        const dim = subtle ?? muted ?? undefined;
+
+        return {
+            background: bg,
+            foreground: fg,
+            cursor: accent ?? fg,
+            cursorAccent: bg,
+            selectionBackground: selection ?? undefined,
+            selectionInactiveBackground: selection ?? undefined,
+            black: bg,
+            brightBlack: dim,
+            red: danger ?? undefined,
+            brightRed: danger ?? undefined,
+            green: success ?? undefined,
+            brightGreen: success ?? undefined,
+            yellow: warning ?? accent ?? undefined,
+            brightYellow: warning ?? accent ?? undefined,
+            blue: info ?? undefined,
+            brightBlue: info ?? undefined,
+            magenta: accent ?? undefined,
+            brightMagenta: accent ?? undefined,
+            cyan: info ?? undefined,
+            brightCyan: info ?? undefined,
+            white: fg,
+            brightWhite: fg,
+        };
+    }
+
+    private applyTerminalTheme(): void {
+        if (!this.terminal) {
+            return;
+        }
+        this.terminal.options.theme = this.buildTerminalTheme();
+        if (this.terminal.rows > 0) {
+            this.terminal.refresh(0, this.terminal.rows - 1);
+        }
+    }
+
+    private readCssVar(name: string): string | null {
+        const value = getComputedStyle(document.documentElement)
+            .getPropertyValue(name)
+            .trim();
+        return value.length ? value : null;
+    }
+
+    private detectAltScreen(chunk: string): void {
+        if (!this.isWindows) {
+            return;
+        }
+        if (this.assumeAltScreenOnWindows) {
+            this.altScreenActive = true;
+            return;
+        }
+        const combined = this.altScreenCarry + chunk;
+        let lastMatchIndex = -1;
+        let lastMatchValue = "";
+        for (const sequence of this.altScreenSequences) {
+            const index = combined.lastIndexOf(sequence);
+            if (index > lastMatchIndex) {
+                lastMatchIndex = index;
+                lastMatchValue = sequence;
+            }
+        }
+        if (lastMatchIndex >= 0) {
+            this.altScreenActive = lastMatchValue.endsWith("h");
+        }
+        this.altScreenCarry = this.pendingAltScreenSuffix(combined);
+    }
+
+    private pendingAltScreenSuffix(value: string): string {
+        const maxLen = Math.min(this.altScreenMaxLen, value.length);
+        for (let len = maxLen; len > 0; len -= 1) {
+            const suffix = value.slice(value.length - len);
+            if (
+                this.altScreenSequences.some((sequence) =>
+                    sequence.startsWith(suffix),
+                )
+            ) {
+                return suffix;
+            }
+        }
+        return "";
+    }
+}

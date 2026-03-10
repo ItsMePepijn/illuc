@@ -1,8 +1,10 @@
 mod resuming;
 
-use crate::features::tasks::agents::{Agent, AgentCallbacks, TerminalAgent};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
-use crate::utils::pty::{wrap_portable_child, wrap_portable_master, ChildHandle, MasterHandle, WriteHandle};
+use crate::utils::pty::{
+    wrap_portable_child, wrap_portable_master, ChildHandle, MasterHandle, WriteHandle,
+};
 use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_command;
@@ -13,13 +15,13 @@ use parking_lot::Mutex;
 #[cfg(not(target_os = "windows"))]
 use portable_pty::CommandBuilder;
 use portable_pty::{native_pty_system, PtySize};
+use resuming::find_latest_session_id;
+use std::fs;
 use std::io::{Read, Write};
 use std::path::Path;
-use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use resuming::find_latest_session_id;
 
 const DEFAULT_ROWS: u16 = 40;
 const DEFAULT_COLS: u16 = 80;
@@ -127,7 +129,7 @@ impl OpenCodeAgent {
 }
 
 impl Agent for OpenCodeAgent {
-    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+    fn as_tui_agent_mut(&mut self) -> Option<&mut dyn TuiAgent> {
         Some(self)
     }
 
@@ -146,8 +148,8 @@ impl Agent for OpenCodeAgent {
     }
 }
 
-impl TerminalAgent for OpenCodeAgent {
-    fn start_terminal(
+impl TuiAgent for OpenCodeAgent {
+    fn start_tui(
         &mut self,
         worktree_path: &Path,
         callbacks: AgentCallbacks,
@@ -318,8 +320,7 @@ fn write_project_config(path: &Path) -> anyhow::Result<()> {
         Ok(contents) => contents != OPENCODE_TUI_CONFIG_CONTENT,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
         Err(error) => {
-            return Err(error)
-                .with_context(|| format!("failed reading {}", path.display()));
+            return Err(error).with_context(|| format!("failed reading {}", path.display()));
         }
     };
 
@@ -332,8 +333,12 @@ fn write_project_config(path: &Path) -> anyhow::Result<()> {
 }
 
 fn ensure_git_exclude_entry(worktree_path: &Path, entry: &str) -> anyhow::Result<()> {
-    let repo = Repository::discover(worktree_path)
-        .with_context(|| format!("failed to open git repository for {}", worktree_path.display()))?;
+    let repo = Repository::discover(worktree_path).with_context(|| {
+        format!(
+            "failed to open git repository for {}",
+            worktree_path.display()
+        )
+    })?;
     let exclude_path = repo.commondir().join("info").join("exclude");
     if let Some(parent) = exclude_path.parent() {
         fs::create_dir_all(parent)

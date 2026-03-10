@@ -1,18 +1,17 @@
 use crate::commands::CommandResult;
 use crate::error::TaskError;
-use crate::features::tasks::agents::AgentCallbacks;
-use crate::features::tasks::agents::codex_gui::types::GuiRequestEvent;
+use crate::features::tasks::agents::agent_gui::types::GuiRequestEvent;
+use crate::features::tasks::agents::{Agent, AgentCallbacks};
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::events::{
-    emit_codex_gui_activity, emit_codex_gui_history, emit_codex_gui_hydrated,
-    emit_codex_gui_message, emit_codex_gui_plan, emit_codex_gui_request,
-    emit_codex_gui_token_usage, CodexGuiPlanStepPayload,
-    CodexGuiQuestionOptionPayload, CodexGuiQuestionPayload, CodexGuiRequestPayload,
-    CodexGuiTokenUsagePayload,
+    emit_agent_gui_activity, emit_agent_gui_history, emit_agent_gui_hydrated,
+    emit_agent_gui_message, emit_agent_gui_plan, emit_agent_gui_request,
+    emit_agent_gui_token_usage, GuiAgentPlanStepPayload, GuiAgentQuestionOptionPayload,
+    GuiAgentQuestionPayload, GuiAgentRequestPayload, GuiAgentTokenUsagePayload,
 };
 use crate::features::tasks::{
-    agent_label, build_agent, AgentKind, TaskManager, TaskStatus, TaskSummary, DEFAULT_PTY_COLS,
-    DEFAULT_PTY_ROWS, DEFAULT_SCREEN_COLS, DEFAULT_SCREEN_ROWS,
+    agent_label, agent_uses_gui_chat, build_agent, AgentKind, TaskManager, TaskStatus, TaskSummary,
+    DEFAULT_PTY_COLS, DEFAULT_PTY_ROWS, DEFAULT_SCREEN_COLS, DEFAULT_SCREEN_ROWS,
 };
 use anyhow::Context;
 use serde::Deserialize;
@@ -30,6 +29,14 @@ pub struct Request {
 }
 
 pub type Response = TaskSummary;
+
+struct PendingStartAgent;
+
+impl Agent for PendingStartAgent {
+    fn is_running(&self) -> bool {
+        true
+    }
+}
 
 #[tauri::command]
 pub async fn task_start(
@@ -98,7 +105,7 @@ pub async fn task_start(
             exit_manager.handle_agent_exit(task_id, exit_code, &exit_app);
         }),
         on_gui_event: Arc::new(move |event| {
-            emit_codex_gui_message(
+            emit_agent_gui_message(
                 &gui_message_app,
                 task_id,
                 event.message_id,
@@ -110,20 +117,20 @@ pub async fn task_start(
             );
         }),
         on_gui_history: Arc::new(move |events| {
-            emit_codex_gui_history(&gui_history_app, task_id, events);
+            emit_agent_gui_history(&gui_history_app, task_id, events);
         }),
         on_gui_activity: Arc::new(move |event| {
-            emit_codex_gui_activity(&gui_activity_app, task_id, event.label, event.started_at);
+            emit_agent_gui_activity(&gui_activity_app, task_id, event.label, event.started_at);
         }),
         on_gui_plan: Arc::new(move |event| {
-            emit_codex_gui_plan(
+            emit_agent_gui_plan(
                 &gui_plan_app,
                 task_id,
                 event.explanation,
                 event
                     .plan
                     .into_iter()
-                    .map(|step| CodexGuiPlanStepPayload {
+                    .map(|step| GuiAgentPlanStepPayload {
                         step: step.step,
                         status: step.status,
                     })
@@ -131,10 +138,10 @@ pub async fn task_start(
             );
         }),
         on_gui_token_usage: Arc::new(move |event| {
-            emit_codex_gui_token_usage(
+            emit_agent_gui_token_usage(
                 &gui_token_usage_app,
                 task_id,
-                CodexGuiTokenUsagePayload {
+                GuiAgentTokenUsagePayload {
                     total_tokens: event.total_tokens,
                     input_tokens: event.input_tokens,
                     cached_input_tokens: event.cached_input_tokens,
@@ -151,28 +158,26 @@ pub async fn task_start(
         }),
         on_gui_request: Arc::new(move |event| {
             let payload = match event {
-                GuiRequestEvent::Cleared => {
-                    CodexGuiRequestPayload {
-                        task_id,
-                        request_id: None,
-                        kind: "none".to_string(),
-                        item_id: None,
-                        approval_id: None,
-                        command: None,
-                        cwd: None,
-                        reason: None,
-                        network_host: None,
-                        network_protocol: None,
-                        additional_read_roots: Vec::new(),
-                        additional_write_roots: Vec::new(),
-                        additional_network: false,
-                        available_decisions: Vec::new(),
-                        proposed_exec_policy: Vec::new(),
-                        proposed_network_policy: Vec::new(),
-                        grant_root: None,
-                        questions: Vec::new(),
-                    }
-                }
+                GuiRequestEvent::Cleared => GuiAgentRequestPayload {
+                    task_id,
+                    request_id: None,
+                    kind: "none".to_string(),
+                    item_id: None,
+                    approval_id: None,
+                    command: None,
+                    cwd: None,
+                    reason: None,
+                    network_host: None,
+                    network_protocol: None,
+                    additional_read_roots: Vec::new(),
+                    additional_write_roots: Vec::new(),
+                    additional_network: false,
+                    available_decisions: Vec::new(),
+                    proposed_exec_policy: Vec::new(),
+                    proposed_network_policy: Vec::new(),
+                    grant_root: None,
+                    questions: Vec::new(),
+                },
                 GuiRequestEvent::CommandApproval {
                     request_id,
                     item_id,
@@ -188,7 +193,7 @@ pub async fn task_start(
                     available_decisions,
                     proposed_exec_policy,
                     proposed_network_policy,
-                } => CodexGuiRequestPayload {
+                } => GuiAgentRequestPayload {
                     task_id,
                     request_id: Some(request_id),
                     kind: "commandApproval".to_string(),
@@ -214,7 +219,7 @@ pub async fn task_start(
                     reason,
                     grant_root,
                     available_decisions,
-                } => CodexGuiRequestPayload {
+                } => GuiAgentRequestPayload {
                     task_id,
                     request_id: Some(request_id),
                     kind: "fileChangeApproval".to_string(),
@@ -238,7 +243,7 @@ pub async fn task_start(
                     request_id,
                     item_id,
                     questions,
-                } => CodexGuiRequestPayload {
+                } => GuiAgentRequestPayload {
                     task_id,
                     request_id: Some(request_id),
                     kind: "userInput".to_string(),
@@ -258,7 +263,7 @@ pub async fn task_start(
                     grant_root: None,
                     questions: questions
                         .into_iter()
-                        .map(|question| CodexGuiQuestionPayload {
+                        .map(|question| GuiAgentQuestionPayload {
                             id: question.id,
                             header: question.header,
                             question: question.question,
@@ -267,7 +272,7 @@ pub async fn task_start(
                             options: question
                                 .options
                                 .into_iter()
-                                .map(|option| CodexGuiQuestionOptionPayload {
+                                .map(|option| GuiAgentQuestionOptionPayload {
                                     label: option.label,
                                     description: option.description,
                                 })
@@ -276,33 +281,59 @@ pub async fn task_start(
                         .collect(),
                 },
             };
-            emit_codex_gui_request(&gui_request_app, payload);
+            emit_agent_gui_request(&gui_request_app, payload);
         }),
         on_gui_hydrated: Arc::new(move || {
-            emit_codex_gui_hydrated(&gui_hydrated_app, task_id);
+            emit_agent_gui_hydrated(&gui_hydrated_app, task_id);
         }),
     };
 
-    {
+    // Start the agent outside the task map write lock because ACP startup can emit
+    // callbacks that re-enter task manager state.
+    let (mut agent_to_start, agent_kind, label) = {
         let mut tasks = manager.inner.tasks.write();
         let record = tasks
             .get_mut(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
         if let Some(requested_agent) = agent {
             record.agent_kind = requested_agent;
-            record.agent = build_agent(requested_agent);
         }
-        record.summary.agent_kind = record.agent_kind;
-        let label = agent_label(record.agent_kind);
-        if let Some(terminal_agent) = record.agent.as_terminal_agent_mut() {
-            terminal_agent.reset(screen_rows, screen_cols);
-            terminal_agent.start_terminal(&worktree_path, callbacks, pty_rows, pty_cols)
+        let agent_to_start = if let Some(requested_agent) = agent {
+            let _ = std::mem::replace(&mut record.agent, Box::new(PendingStartAgent));
+            build_agent(requested_agent)
         } else {
-            record.agent.start(&worktree_path, callbacks)
-        }
-        .with_context(|| format!("failed to start {} for task {}", label, title))
-        .map_err(|err| format!("{err:#}"))?
+            std::mem::replace(&mut record.agent, Box::new(PendingStartAgent))
+        };
+        record.summary.agent_kind = record.agent_kind;
+        record.summary.uses_agent_chat = agent_uses_gui_chat(record.agent_kind);
+        (
+            agent_to_start,
+            record.agent_kind,
+            agent_label(record.agent_kind).to_string(),
+        )
     };
+
+    let start_result = if let Some(tui_agent) = agent_to_start.as_tui_agent_mut() {
+        tui_agent.reset(screen_rows, screen_cols);
+        tui_agent.start_tui(&worktree_path, callbacks, pty_rows, pty_cols)
+    } else {
+        agent_to_start.start(&worktree_path, callbacks)
+    }
+    .with_context(|| format!("failed to start {} for task {}", label, title))
+    .map_err(|err| format!("{err:#}"));
+
+    {
+        let mut tasks = manager.inner.tasks.write();
+        let record = tasks
+            .get_mut(&task_id)
+            .ok_or_else(|| TaskError::NotFound.to_string())?;
+        record.agent_kind = agent_kind;
+        record.summary.agent_kind = agent_kind;
+        record.summary.uses_agent_chat = agent_uses_gui_chat(agent_kind);
+        record.agent = agent_to_start;
+    }
+
+    start_result?;
 
     {
         let mut tasks = manager.inner.tasks.write();

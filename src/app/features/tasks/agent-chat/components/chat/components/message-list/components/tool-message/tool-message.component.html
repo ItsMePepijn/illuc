@@ -1,0 +1,32 @@
+<div class="tool-stack" (click)="contentClick.emit($event)">
+    <div class="tool-block" *ngFor="let row of rows; let first = first">
+        <app-agent-chat-throbber
+            *ngIf="first && isRunning; else toolGlyph"
+            class="tool-throbber"
+        ></app-agent-chat-throbber>
+        <ng-template #toolGlyph>
+            <span class="tool-glyph" [class.placeholder]="!first">&gt;_</span>
+        </ng-template>
+        <span class="tool-cmd">
+            <span *ngIf="showLabel(row)" class="tool-label">{{ row.label }}</span>
+            <ng-container *ngIf="rowValue(row) as value">
+                <span *ngIf="showLabel(row) && value.length > 0">&nbsp;</span>
+                <a *ngIf="rowHref(row) as href; else plainValue" [href]="href">{{ value }}</a>
+                <ng-template #plainValue>{{ value }}</ng-template>
+            </ng-container>
+            <ng-container *ngIf="row.added !== null && row.added !== undefined">
+                <span class="tool-stat added">+{{ row.added }}</span>
+            </ng-container>
+            <ng-container *ngIf="row.removed !== null && row.removed !== undefined">
+                <span class="tool-stat removed">-{{ row.removed }}</span>
+            </ng-container>
+        </span>
+        <span
+            *ngIf="first && statusLabel"
+            class="tool-status"
+            [class.running]="isRunning"
+        >
+            {{ statusLabel }}
+        </span>
+    </div>
+</div>

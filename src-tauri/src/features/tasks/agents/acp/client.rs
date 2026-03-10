@@ -1,9 +1,11 @@
 use super::state::{PendingPermissionRequest, SharedAcpAgentState};
 use super::terminal::TerminalStore;
 use super::utils::{
-    anyhow_to_acp_error, emit_chunk, format_tool_status, io_to_acp_error, select_lines,
+    anyhow_to_acp_error, apply_tool_call_update, available_commands_summary, emit_chunk,
+    emit_session_note, io_to_acp_error, select_lines, update_config_options,
+    upsert_tool_call_message,
 };
-use crate::features::tasks::agents::codex_gui::types::{
+use crate::features::tasks::agents::agent_gui::types::{
     GuiMessageRole, GuiPlanEvent, GuiPlanStep, GuiRequestEvent, GuiRequestQuestion,
     GuiRequestQuestionOption,
 };
@@ -11,7 +13,7 @@ use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::TaskStatus;
 use agent_client_protocol::{
     Client as AcpClient, RequestPermissionOutcome, RequestPermissionResponse, SessionNotification,
-    SessionUpdate, ToolCallStatus,
+    SessionUpdate,
 };
 use anyhow::{Context, Result as AnyhowResult};
 use async_trait::async_trait;
@@ -72,6 +74,12 @@ impl AcpClient for AcpClientHandler {
             .title
             .clone()
             .unwrap_or_else(|| "Allow this ACP tool call?".to_string());
+        log::info!(
+            "ACP {} requested permission for tool call {}: {}",
+            self.title,
+            args.tool_call.tool_call_id.0,
+            summary
+        );
         (self.callbacks.on_status)(TaskStatus::AwaitingApproval);
         (self.callbacks.on_gui_request)(GuiRequestEvent::UserInput {
             request_id: request_id.clone(),
@@ -101,6 +109,11 @@ impl AcpClient for AcpClientHandler {
             .unwrap_or_else(|_| {
                 RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled)
             });
+        log::info!(
+            "ACP {} permission request {} resolved",
+            self.title,
+            request_id
+        );
         (self.callbacks.on_status)(TaskStatus::Working);
         Ok(response)
     }
@@ -109,6 +122,11 @@ impl AcpClient for AcpClientHandler {
         &self,
         args: SessionNotification,
     ) -> agent_client_protocol::Result<()> {
+        log::debug!(
+            "ACP {} session update: {}",
+            self.title,
+            summarize_session_update(&args.update)
+        );
         match args.update {
             SessionUpdate::UserMessageChunk(chunk) => {
                 emit_chunk(
@@ -154,46 +172,31 @@ impl AcpClient for AcpClientHandler {
                 });
             }
             SessionUpdate::ToolCall(tool_call) => {
-                (self.callbacks.on_output)(format!(
-                    "[ACP tool:{}] {}\n",
-                    format_tool_status(tool_call.status),
-                    tool_call.title
-                ));
+                upsert_tool_call_message(&self.state, &self.callbacks, tool_call);
             }
             SessionUpdate::ToolCallUpdate(update) => {
-                let title = update
-                    .fields
-                    .title
-                    .unwrap_or_else(|| update.tool_call_id.0.to_string());
-                let status = update.fields.status.unwrap_or(ToolCallStatus::Pending);
-                (self.callbacks.on_output)(format!(
-                    "[ACP tool:{}] {}\n",
-                    format_tool_status(status),
-                    title
-                ));
+                apply_tool_call_update(&self.state, &self.callbacks, update);
             }
             SessionUpdate::AvailableCommandsUpdate(update) => {
-                (self.callbacks.on_output)(format!(
-                    "[ACP] available commands: {}\n",
-                    update
-                        .available_commands
-                        .iter()
-                        .map(|command| command.name.clone())
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                ));
+                emit_session_note(
+                    &self.state,
+                    &self.callbacks,
+                    "available-commands",
+                    "ACP Commands",
+                    available_commands_summary(&update.available_commands),
+                );
             }
             SessionUpdate::CurrentModeUpdate(update) => {
-                (self.callbacks.on_output)(format!(
-                    "[ACP] current mode: {}\n",
-                    update.current_mode_id.0
-                ));
+                emit_session_note(
+                    &self.state,
+                    &self.callbacks,
+                    "current-mode",
+                    "ACP Mode",
+                    format!("Current mode: `{}`", update.current_mode_id.0),
+                );
             }
             SessionUpdate::ConfigOptionUpdate(update) => {
-                (self.callbacks.on_output)(format!(
-                    "[ACP] config options updated: {}\n",
-                    update.config_options.len()
-                ));
+                update_config_options(&self.state, update.config_options.clone());
             }
             _ => {}
         }
@@ -287,6 +290,34 @@ impl AcpClient for AcpClientHandler {
             .kill(&args.terminal_id)
             .map_err(anyhow_to_acp_error)?;
         Ok(agent_client_protocol::KillTerminalCommandResponse::new())
+    }
+}
+
+fn summarize_session_update(update: &SessionUpdate) -> String {
+    match update {
+        SessionUpdate::UserMessageChunk(_) => "user_message_chunk".to_string(),
+        SessionUpdate::AgentMessageChunk(_) => "agent_message_chunk".to_string(),
+        SessionUpdate::AgentThoughtChunk(_) => "agent_thought_chunk".to_string(),
+        SessionUpdate::Plan(plan) => format!("plan({} entries)", plan.entries.len()),
+        SessionUpdate::ToolCall(tool_call) => format!(
+            "tool_call(id={}, status={:?})",
+            tool_call.tool_call_id.0, tool_call.status
+        ),
+        SessionUpdate::ToolCallUpdate(update) => {
+            format!("tool_call_update(id={})", update.tool_call_id.0)
+        }
+        SessionUpdate::AvailableCommandsUpdate(update) => format!(
+            "available_commands_update({} commands)",
+            update.available_commands.len()
+        ),
+        SessionUpdate::CurrentModeUpdate(update) => {
+            format!("current_mode_update({})", update.current_mode_id.0)
+        }
+        SessionUpdate::ConfigOptionUpdate(update) => format!(
+            "config_option_update({} options)",
+            update.config_options.len()
+        ),
+        other => format!("{other:?}"),
     }
 }
 

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum AgentKind {
     Codex,
     CodexGui,
+    CopilotGui,
     Copilot,
     OpenCode,
 }

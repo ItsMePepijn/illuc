@@ -6,6 +6,7 @@ export interface TaskSummary {
     title: string;
     status: TaskStatus;
     agentKind: AgentKind;
+    usesAgentChat: boolean;
     createdAt: string;
     startedAt?: string | null;
     endedAt?: string | null;

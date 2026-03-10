@@ -10,6 +10,7 @@ pub struct TaskSummary {
     pub title: String,
     pub status: TaskStatus,
     pub agent_kind: AgentKind,
+    pub uses_agent_chat: bool,
     pub created_at: DateTime<Utc>,
     pub started_at: Option<DateTime<Utc>>,
     pub ended_at: Option<DateTime<Utc>>,

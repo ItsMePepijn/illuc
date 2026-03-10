@@ -196,8 +196,8 @@
         z-index 0.2s ease;
 }
 
-.terminal-column app-task-terminal,
-.terminal-column app-codex-gui-chat {
+.terminal-column app-agent-tui,
+.terminal-column app-agent-chat {
     flex: 1;
     display: flex;
     min-height: 0;
@@ -239,29 +239,29 @@
     gap: 0.35rem;
 }
 
-.codex-actions-menu {
+.agent-actions-menu {
     position: relative;
     display: inline-flex;
 }
 
-:host ::ng-deep .terminal-toolbar-actions .codex-actions-trigger.icon-btn {
+:host ::ng-deep .terminal-toolbar-actions .agent-actions-trigger.icon-btn {
     width: 26px;
     height: 26px;
     border-radius: 999px;
 }
 
-:host ::ng-deep .codex-actions-menu.is-open .codex-actions-trigger {
+:host ::ng-deep .agent-actions-menu.is-open .agent-actions-trigger {
     color: var(--text-default);
     border-color: var(--borders-strong);
     background: var(--surfaces-surface_strong);
 }
 
-.codex-actions-trigger-icon {
+.agent-actions-trigger-icon {
     width: 14px;
     height: 14px;
 }
 
-.codex-actions-popover {
+.agent-actions-popover {
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
@@ -276,7 +276,7 @@
     z-index: 3;
 }
 
-.codex-actions-item {
+.agent-actions-item {
     width: 100%;
     border: 0;
     border-radius: 8px;
@@ -291,16 +291,16 @@
     gap: 10px;
 }
 
-.codex-actions-item:hover:not(:disabled) {
+.agent-actions-item:hover:not(:disabled) {
     background: var(--surfaces-surface_alt);
 }
 
-.codex-actions-item:disabled {
+.agent-actions-item:disabled {
     opacity: 0.6;
     cursor: default;
 }
 
-.codex-actions-item-icon {
+.agent-actions-item-icon {
     width: 16px;
     height: 16px;
     display: inline-flex;
@@ -310,13 +310,13 @@
     color: var(--text-muted);
 }
 
-.codex-actions-item-icon svg {
+.agent-actions-item-icon svg {
     width: 16px;
     height: 16px;
     display: block;
 }
 
-.codex-actions-item-label {
+.agent-actions-item-label {
     min-width: 0;
 }
 
@@ -346,13 +346,15 @@
     display: flex;
 }
 
-:host ::ng-deep .terminal-session-body app-task-terminal .terminal-panel {
+:host ::ng-deep .terminal-session-body app-agent-tui .terminal-panel,
+:host ::ng-deep .terminal-session-body app-terminal-session .terminal-panel {
     border: 0;
     border-radius: 0;
 }
 
-:host ::ng-deep .terminal-session-body app-task-terminal,
-:host ::ng-deep .terminal-session-body app-codex-gui-chat {
+:host ::ng-deep .terminal-session-body app-agent-tui,
+:host ::ng-deep .terminal-session-body app-terminal-session,
+:host ::ng-deep .terminal-session-body app-agent-chat {
     flex: 1;
     width: 100%;
     margin: 0;
@@ -442,8 +444,8 @@
     display: block;
 }
 
-.terminal-column app-task-terminal,
-.terminal-column app-codex-gui-chat {
+.terminal-column app-agent-tui,
+.terminal-column app-agent-chat {
     flex: 1;
     min-height: 0;
     display: flex;
@@ -490,7 +492,7 @@
     min-height: 0;
 }
 
-.shell-terminal-frame app-task-terminal {
+.shell-terminal-frame app-terminal-session {
     flex: 1;
     min-height: 0;
 }
@@ -499,7 +501,7 @@
     min-height: 0;
 }
 
-.worktree-terminal-dock.is-collapsed .shell-terminal-frame app-task-terminal {
+.worktree-terminal-dock.is-collapsed .shell-terminal-frame app-terminal-session {
     display: none;
 }
 

@@ -1,0 +1,70 @@
+<section class="agent-chat">
+    <div class="chat-layout">
+        <app-usage-window-rail
+            *ngIf="showUsageRail"
+            [taskId]="taskId"
+            [fetchUsage]="fetchUsageForRail"
+            [windowHours]="7 * 24"
+        ></app-usage-window-rail>
+
+        <div class="chat-content">
+            <section class="plan-panel" *ngIf="plan as currentPlan">
+                <p class="plan-explanation" *ngIf="currentPlan.explanation">
+                    {{ currentPlan.explanation }}
+                </p>
+                <ol class="plan-steps">
+                    <li
+                        class="plan-step"
+                        *ngFor="let step of currentPlan.steps; trackBy: trackPlanStep"
+                        [attr.data-status]="step.status"
+                    >
+                        <span class="plan-step-status">{{ step.status }}</span>
+                        <span class="plan-step-text">{{ step.step }}</span>
+                    </li>
+                </ol>
+            </section>
+
+            <app-agent-chat-message-list
+                [messages]="messages"
+                [showInitialLoading]="!messagesHydrated"
+                [isWorking]="isWorking"
+                [activityLabel]="activity?.label ?? ''"
+                [activityStartedAt]="activity?.startedAt ?? null"
+                [stripPathPrefix]="stripPathPrefix"
+                [isActive]="isActive"
+                (diffFileRequested)="onDiffFileRequested($event)"
+            ></app-agent-chat-message-list>
+
+            <app-agent-chat-inline-request
+                *ngIf="pendingRequest"
+                [request]="pendingRequest"
+                [requestAnswers]="requestAnswers"
+                (decisionSelected)="approve($event)"
+                (answerChanged)="setRequestQuestionValue($event.questionId, $event.value)"
+                (submitAnswers)="submitUserInput()"
+            ></app-agent-chat-inline-request>
+
+            <app-agent-chat-composer
+                [prompt]="prompt"
+                [sending]="sending"
+                [isWorking]="isWorking"
+                [limitWindowDurationMins]="limitStatus?.windowDurationMins ?? null"
+                [limitUsedPercent]="limitStatus?.usedPercent ?? null"
+                [contextWindowUsed]="tokenUsage?.lastTotalTokens ?? null"
+                [contextWindowSize]="tokenUsage?.modelContextWindow ?? null"
+                [selectedModel]="selectedModel"
+                [modelOptions]="modelOptions"
+                [selectedEffort]="selectedEffort"
+                [effortOptions]="effortOptions"
+                [selectedServiceTier]="selectedServiceTier"
+                [showServiceTierToggle]="showServiceTierToggle"
+                (promptChange)="prompt = $event"
+                (sendRequested)="send()"
+                (stopRequested)="stop()"
+                (modelChange)="onModelChange($event)"
+                (effortChange)="onEffortChange($event)"
+                (serviceTierToggleRequested)="onServiceTierToggleRequested()"
+            ></app-agent-chat-composer>
+        </div>
+    </div>
+</section>

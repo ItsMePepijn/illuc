@@ -7,6 +7,11 @@ pub(crate) enum AcpCommand {
         content: String,
         reply: SyncSender<Result<()>>,
     },
+    SetConfigOption {
+        config_id: String,
+        value: String,
+        reply: SyncSender<Result<()>>,
+    },
     Cancel {
         reply: SyncSender<Result<()>>,
     },

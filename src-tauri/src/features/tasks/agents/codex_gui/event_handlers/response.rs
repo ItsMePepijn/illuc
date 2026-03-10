@@ -1,6 +1,6 @@
 use super::super::message_parsing::{collect_history_events, fallback_message_id};
 use super::super::{rpc, CodexGuiAgentState};
-use crate::features::tasks::agents::codex_gui::types::{
+use crate::features::tasks::agents::agent_gui::types::{
     GuiMessageEvent, GuiMessagePresentation, GuiMessagePresentationKind, GuiMessageRole,
     GuiMessageTextFormat, GuiPlanEvent,
 };

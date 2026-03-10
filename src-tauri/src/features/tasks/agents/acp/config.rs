@@ -1,7 +1,8 @@
 use agent_client_protocol::{
-    ClientCapabilities, ContentBlock, FileSystemCapability, InitializeRequest, NewSessionRequest,
-    PromptRequest, SessionId,
+    ClientCapabilities, ContentBlock, FileSystemCapability, InitializeRequest, LoadSessionRequest,
+    NewSessionRequest, PromptRequest, SessionId,
 };
+use anyhow::Result;
 use std::path::Path;
 use std::process::Command;
 
@@ -31,8 +32,12 @@ pub trait AcpAgentConfig: Send + Sync + 'static {
             )
     }
 
-    fn new_session_request(&self, worktree_path: &Path) -> NewSessionRequest {
-        NewSessionRequest::new(worktree_path)
+    fn new_session_request(&self, worktree_path: &Path) -> Result<NewSessionRequest> {
+        Ok(NewSessionRequest::new(worktree_path))
+    }
+
+    fn load_session_request(&self, _worktree_path: &Path) -> Result<Option<LoadSessionRequest>> {
+        Ok(None)
     }
 
     fn prompt_request(&self, session_id: SessionId, content: String) -> PromptRequest {

@@ -65,7 +65,7 @@
                 <section class="terminal-session-panel">
                     <header class="terminal-toolbar">
                         <div class="terminal-toolbar-title">
-                            <strong>Chat Terminal</strong>
+                            <strong>Agent Session</strong>
                             <app-task-action-button
                                 *ngIf="isRunning()"
                                 type="stop"
@@ -80,13 +80,13 @@
                         </div>
                         <div class="terminal-toolbar-actions">
                             <app-icon-loading-button
-                                *ngIf="isRunning() && current && isCodexGuiTask(current)"
+                                *ngIf="isRunning() && current && supportsThreadHistoryActions(current)"
                                 [loading]="rollingBack"
                                 [disabled]="!isRunning()"
                                 title="Rollback last turn"
                                 ariaLabel="Rollback last turn"
                                 buttonClass="action-btn icon-btn warn"
-                                (action)="rollbackCodexTurn()"
+                                (action)="rollbackAgentChatTurn()"
                             >
                                 <svg
                                     class="terminal-toolbar-icon"
@@ -103,19 +103,19 @@
                                 </svg>
                             </app-icon-loading-button>
                             <div
-                                class="codex-actions-menu"
-                                [class.is-open]="codexActionsMenuOpen"
-                                *ngIf="isRunning() && current && isCodexGuiTask(current)"
+                                class="agent-actions-menu"
+                                [class.is-open]="agentActionsMenuOpen"
+                                *ngIf="isRunning() && current && hasAgentChatActionsMenu(current)"
                             >
                                 <app-icon-loading-button
                                     title="More chat actions"
                                     ariaLabel="More chat actions"
-                                    buttonClass="action-btn codex-actions-trigger"
+                                    buttonClass="action-btn agent-actions-trigger"
                                     [stopPropagation]="true"
-                                    (action)="toggleCodexActionsMenu($event)"
+                                    (action)="toggleAgentActionsMenu($event)"
                                 >
                                     <svg
-                                        class="terminal-toolbar-icon codex-actions-trigger-icon"
+                                        class="terminal-toolbar-icon agent-actions-trigger-icon"
                                         viewBox="0 0 24 24"
                                         fill="currentColor"
                                         aria-hidden="true"
@@ -127,17 +127,18 @@
                                 </app-icon-loading-button>
 
                                 <div
-                                    class="codex-actions-popover"
-                                    *ngIf="codexActionsMenuOpen"
+                                    class="agent-actions-popover"
+                                    *ngIf="agentActionsMenuOpen"
                                     (click)="$event.stopPropagation()"
                                 >
                                     <button
+                                        *ngIf="supportsNewChatAction(current)"
                                         type="button"
-                                        class="codex-actions-item"
+                                        class="agent-actions-item"
                                         [disabled]="startingNewChat"
-                                        (click)="startNewCodexChat()"
+                                        (click)="startNewAgentChat()"
                                     >
-                                        <span class="codex-actions-item-icon" aria-hidden="true">
+                                        <span class="agent-actions-item-icon" aria-hidden="true">
                                             <svg
                                                 viewBox="0 0 24 24"
                                                 fill="none"
@@ -150,17 +151,18 @@
                                                 <path d="M5 12h14" />
                                             </svg>
                                         </span>
-                                        <span class="codex-actions-item-label">
+                                        <span class="agent-actions-item-label">
                                             {{ startingNewChat ? "Starting..." : "New chat" }}
                                         </span>
                                     </button>
                                     <button
+                                        *ngIf="supportsThreadHistoryActions(current)"
                                         type="button"
-                                        class="codex-actions-item"
+                                        class="agent-actions-item"
                                         [disabled]="compacting"
-                                        (click)="compactCodexThread()"
+                                        (click)="compactAgentChat()"
                                     >
-                                        <span class="codex-actions-item-icon" aria-hidden="true">
+                                        <span class="agent-actions-item-icon" aria-hidden="true">
                                             <svg
                                                 viewBox="0 0 24 24"
                                                 fill="none"
@@ -173,7 +175,7 @@
                                                 <path d="M20 4v6h-6" />
                                             </svg>
                                         </span>
-                                        <span class="codex-actions-item-label">
+                                        <span class="agent-actions-item-label">
                                             {{ compacting ? "Compacting..." : "Compact chat" }}
                                         </span>
                                     </button>
@@ -182,16 +184,14 @@
                         </div>
                     </header>
                     <div class="terminal-session-body">
-                        <app-task-terminal
-                            *ngIf="isRunning() && !isCodexGuiTask(current); else chatOrIdle"
+                        <app-agent-tui
+                            *ngIf="isRunning() && !isAgentChatTask(current); else chatOrIdle"
                             [taskId]="current.taskId"
-                            [mode]="'agent'"
-                            [agentKind]="current.agentKind"
                             [showToolbar]="false"
-                        ></app-task-terminal>
+                        ></app-agent-tui>
                         <ng-template #chatOrIdle>
-                            <app-codex-gui-chat
-                                *ngIf="isRunning() && isCodexGuiTask(current); else idleTerminal"
+                            <app-agent-chat
+                                *ngIf="isRunning() && isAgentChatTask(current); else idleTerminal"
                                 [taskId]="current.taskId"
                                 [stripPathPrefix]="current.worktreePath"
                                 [isActive]="!backgroundMode"
@@ -199,7 +199,7 @@
                                     current.status === 'WORKING' ||
                                     current.status === 'AWAITING_APPROVAL'
                                 "
-                            ></app-codex-gui-chat>
+                            ></app-agent-chat>
                         </ng-template>
                         <ng-template #idleTerminal>
                             <div class="terminal-idle-placeholder">
@@ -270,15 +270,15 @@
                         {{ isShellTerminalOpen ? "▾" : "▴" }}
                     </button>
                 </div>
-                <app-task-terminal
+                <app-terminal-session
                     *ngIf="isShellTerminalOpen"
                     #shellTerminal
                     [taskId]="current.taskId"
-                    [mode]="'worktree'"
+                    [kind]="'worktree'"
                     [showToolbar]="false"
                     [suspendBackendResize]="isShellResizing"
                     [suspendFit]="isShellResizing"
-                ></app-task-terminal>
+                ></app-terminal-session>
             </div>
         </div>
     </section>
@@ -354,16 +354,16 @@
     </div>
 </div>
 
-<div class="modal-backdrop" *ngIf="pendingCodexAction">
+<div class="modal-backdrop" *ngIf="pendingAgentChatAction">
     <div class="modal">
-        <h3>{{ codexConfirmTitle() }}</h3>
-        <p class="modal-subtitle">{{ codexConfirmMessage() }}</p>
+        <h3>{{ agentChatActionConfirmTitle() }}</h3>
+        <p class="modal-subtitle">{{ agentChatActionConfirmMessage() }}</p>
         <div class="modal-actions">
             <app-loading-button
                 buttonType="button"
                 buttonClass="ghost"
                 [disabled]="startingNewChat || rollingBack"
-                (action)="closeCodexConfirmModal()"
+                (action)="closeAgentChatActionConfirmModal()"
             >
                 Cancel
             </app-loading-button>
@@ -371,9 +371,9 @@
                 buttonType="button"
                 buttonClass="primary"
                 [loading]="startingNewChat || rollingBack"
-                (action)="confirmCodexAction()"
+                (action)="confirmAgentChatAction()"
             >
-                {{ codexConfirmButtonLabel() }}
+                {{ agentChatActionConfirmButtonLabel() }}
             </app-loading-button>
         </div>
     </div>

@@ -1,4 +1,4 @@
-use crate::features::tasks::agents::{Agent, AgentCallbacks, TerminalAgent};
+use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 #[cfg(not(target_os = "windows"))]
 use crate::utils::pty::{wrap_portable_child, wrap_portable_master};
@@ -89,7 +89,7 @@ impl CodexAgent {
 }
 
 impl Agent for CodexAgent {
-    fn as_terminal_agent_mut(&mut self) -> Option<&mut dyn TerminalAgent> {
+    fn as_tui_agent_mut(&mut self) -> Option<&mut dyn TuiAgent> {
         Some(self)
     }
 
@@ -108,8 +108,8 @@ impl Agent for CodexAgent {
     }
 }
 
-impl TerminalAgent for CodexAgent {
-    fn start_terminal(
+impl TuiAgent for CodexAgent {
+    fn start_tui(
         &mut self,
         worktree_path: &Path,
         callbacks: AgentCallbacks,

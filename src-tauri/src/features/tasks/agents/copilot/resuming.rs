@@ -15,7 +15,7 @@ struct SessionCandidate {
     timestamp: Option<DateTime<Utc>>,
 }
 
-fn resolve_session_cwd(worktree_path: &Path) -> anyhow::Result<String> {
+pub(crate) fn resolve_session_cwd(worktree_path: &Path) -> anyhow::Result<String> {
     let canonical = fs::canonicalize(worktree_path)
         .with_context(|| format!("failed to resolve cwd {}", worktree_path.display()))?;
     #[cfg(target_os = "windows")]
@@ -35,13 +35,9 @@ fn resolve_home_dir() -> anyhow::Result<std::path::PathBuf> {
 
 #[cfg(target_os = "windows")]
 fn resolve_wsl_home_dir(worktree_path: &Path) -> anyhow::Result<std::path::PathBuf> {
-    let output = build_wsl_process_command(
-        worktree_path,
-        "bash",
-        &["-lc", "wslpath -w \"$HOME\""],
-    )
-    .output()
-    .context("failed to query WSL home directory")?;
+    let output = build_wsl_process_command(worktree_path, "bash", &["-lc", "wslpath -w \"$HOME\""])
+        .output()
+        .context("failed to query WSL home directory")?;
     if !output.status.success() {
         return Err(anyhow::anyhow!("failed to query WSL home directory"));
     }

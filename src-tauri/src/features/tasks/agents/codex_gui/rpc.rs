@@ -4,7 +4,10 @@ use serde_json::{json, Value};
 use std::io::Write;
 
 fn service_tier_value(service_tier: Option<&str>) -> Option<Value> {
-    match service_tier.map(str::trim).filter(|value| !value.is_empty()) {
+    match service_tier
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         Some("fast") => Some(json!("fast")),
         Some("flex") => Some(Value::Null),
         _ => None,

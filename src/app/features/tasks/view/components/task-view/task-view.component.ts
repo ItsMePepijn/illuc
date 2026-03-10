@@ -13,7 +13,8 @@ import {
 import { FormsModule } from "@angular/forms";
 import { AgentKind, TaskSummary, BaseRepoInfo } from "../../../models";
 import { parseTitleParts, TitleParts } from "../../../title.utils";
-import { TaskTerminalComponent } from "../../../terminal/components/task-terminal/task-terminal.component";
+import { AgentTuiComponent } from "../../../agent-tui/components/tui/tui.component";
+import { TerminalSessionComponent } from "../../../terminal/components/terminal-session/terminal-session.component";
 import { TaskDiffComponent } from "../../../git/components/task-diff/task-diff.component";
 import { TaskActionButtonComponent } from "../../../actions/components/task-action-button/task-action-button.component";
 import { IconGitCommitComponent } from "../../../actions/components/icon-git-commit/icon-git-commit.component";
@@ -22,14 +23,14 @@ import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bi
 import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
 import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
-import { StartAgentDropdownComponent } from "../../../agents/components/start-agent-dropdown/start-agent-dropdown.component";
-import { ChatComponent } from "../../../agents/components/chat/chat.component";
+import { StartAgentDropdownComponent } from "../../../launcher/components/start-agent-dropdown/start-agent-dropdown.component";
+import { AgentChatComponent } from "../../../agent-chat/components/chat/chat.component";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 import { TaskHomeDashboardComponent } from "../../../home/components/task-home-dashboard/task-home-dashboard.component";
 import { TaskGettingStartedComponent } from "../../../home/components/task-getting-started/task-getting-started.component";
 import { TaskStore } from "../../../task.store";
-import { CodexGuiStore } from "../../../agents/codex-gui.store";
+import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
 
 @Component({
     selector: "app-task-view",
@@ -37,7 +38,8 @@ import { CodexGuiStore } from "../../../agents/codex-gui.store";
     imports: [
         CommonModule,
         FormsModule,
-        TaskTerminalComponent,
+        AgentTuiComponent,
+        TerminalSessionComponent,
         TaskDiffComponent,
         TaskActionButtonComponent,
         IconGitCommitComponent,
@@ -47,7 +49,7 @@ import { CodexGuiStore } from "../../../agents/codex-gui.store";
         OpenVsCodeButtonComponent,
         OpenTerminalButtonComponent,
         StartAgentDropdownComponent,
-        ChatComponent,
+        AgentChatComponent,
         IconLoadingButtonComponent,
         LoadingButtonComponent,
         TaskHomeDashboardComponent,
@@ -67,7 +69,7 @@ export class TaskViewComponent {
     @Input() selectRepoLoading = false;
     @Input() selectRepoError = "";
     activePane: "terminal" | "diff" = "terminal";
-    codexActionsMenuOpen = false;
+    agentActionsMenuOpen = false;
     startingNewChat = false;
     compacting = false;
     rollingBack = false;
@@ -75,7 +77,7 @@ export class TaskViewComponent {
     isShellResizing = false;
     shellTerminalHeight = 260;
     private readonly minShellHeight = 160;
-    @ViewChild("shellTerminal") shellTerminal?: TaskTerminalComponent;
+    @ViewChild("shellTerminal") shellTerminal?: TerminalSessionComponent;
     @ViewChild("shellDock") shellDock?: ElementRef<HTMLDivElement>;
     @ViewChild("taskDetail") taskDetail?: ElementRef<HTMLElement>;
     @Output() startTask = new EventEmitter<{
@@ -87,7 +89,7 @@ export class TaskViewComponent {
     @Output() selectBaseRepo = new EventEmitter<void>();
     showCommitModal = false;
     showPushModal = false;
-    pendingCodexAction: "new-chat" | "rollback" | null = null;
+    pendingAgentChatAction: "new-chat" | "rollback" | null = null;
     commitMessage = "";
     commitStageAll = true;
     commitError = "";
@@ -101,7 +103,7 @@ export class TaskViewComponent {
 
     constructor(
         private readonly taskStore: TaskStore,
-        private readonly codexGuiStore: CodexGuiStore,
+        private readonly agentChatStore: AgentChatStore,
         private readonly zone: NgZone,
         private readonly cdr: ChangeDetectorRef,
     ) {}
@@ -117,14 +119,15 @@ export class TaskViewComponent {
         if (!this.isRunning()) {
             this.activePane = "terminal";
         }
-        if (!this.task || !this.isCodexGuiTask(this.task) || !this.isRunning()) {
-            this.codexActionsMenuOpen = false;
+        this.loadGuiAgentCapabilities();
+        if (!this.task || !this.hasAgentChatActionsMenu(this.task) || !this.isRunning()) {
+            this.agentActionsMenuOpen = false;
         }
     }
 
     @HostListener("document:click")
-    closeCodexActionsMenu(): void {
-        this.codexActionsMenuOpen = false;
+    closeAgentActionsMenu(): void {
+        this.agentActionsMenuOpen = false;
     }
 
     statusLabel(): string {
@@ -166,97 +169,109 @@ export class TaskViewComponent {
         }
     }
 
-    async compactCodexThread(): Promise<void> {
-        if (!this.task || !this.isCodexGuiTask(this.task) || this.compacting) {
+    async compactAgentChat(): Promise<void> {
+        if (
+            !this.task ||
+            !this.supportsThreadHistoryActions(this.task) ||
+            this.compacting
+        ) {
             return;
         }
-        this.codexActionsMenuOpen = false;
+        this.agentActionsMenuOpen = false;
         this.compacting = true;
         try {
-            await this.codexGuiStore.compactThread(this.task.taskId);
+            await this.agentChatStore.compactThread(this.task.taskId);
         } finally {
             this.compacting = false;
             this.cdr.markForCheck();
         }
     }
 
-    async startNewCodexChat(): Promise<void> {
-        if (!this.task || !this.isCodexGuiTask(this.task) || this.startingNewChat) {
+    async startNewAgentChat(): Promise<void> {
+        if (!this.task || !this.supportsNewChatAction(this.task) || this.startingNewChat) {
             return;
         }
-        this.codexActionsMenuOpen = false;
-        this.pendingCodexAction = "new-chat";
+        this.agentActionsMenuOpen = false;
+        this.pendingAgentChatAction = "new-chat";
     }
 
-    async confirmStartNewCodexChat(): Promise<void> {
-        if (!this.task || !this.isCodexGuiTask(this.task) || this.startingNewChat) {
+    async confirmStartNewAgentChat(): Promise<void> {
+        if (!this.task || !this.supportsNewChatAction(this.task) || this.startingNewChat) {
             return;
         }
-        this.pendingCodexAction = null;
+        this.pendingAgentChatAction = null;
         this.startingNewChat = true;
         try {
-            await this.codexGuiStore.newChat(this.task.taskId);
+            await this.agentChatStore.newChat(this.task.taskId);
         } finally {
             this.startingNewChat = false;
             this.cdr.markForCheck();
         }
     }
 
-    async rollbackCodexTurn(): Promise<void> {
-        if (!this.task || !this.isCodexGuiTask(this.task) || this.rollingBack) {
+    async rollbackAgentChatTurn(): Promise<void> {
+        if (
+            !this.task ||
+            !this.supportsThreadHistoryActions(this.task) ||
+            this.rollingBack
+        ) {
             return;
         }
-        this.codexActionsMenuOpen = false;
-        this.pendingCodexAction = "rollback";
+        this.agentActionsMenuOpen = false;
+        this.pendingAgentChatAction = "rollback";
     }
 
-    async confirmRollbackCodexTurn(): Promise<void> {
-        if (!this.task || !this.isCodexGuiTask(this.task) || this.rollingBack) {
+    async confirmRollbackAgentChatTurn(): Promise<void> {
+        if (
+            !this.task ||
+            !this.supportsThreadHistoryActions(this.task) ||
+            this.rollingBack
+        ) {
             return;
         }
-        this.pendingCodexAction = null;
+        this.pendingAgentChatAction = null;
         this.rollingBack = true;
         try {
-            await this.codexGuiStore.rollbackThread(this.task.taskId, 1);
+            await this.agentChatStore.rollbackThread(this.task.taskId, 1);
         } finally {
             this.rollingBack = false;
             this.cdr.markForCheck();
         }
     }
 
-    closeCodexConfirmModal(): void {
+    closeAgentChatActionConfirmModal(): void {
         if (this.startingNewChat || this.rollingBack) {
             return;
         }
-        this.pendingCodexAction = null;
+        this.pendingAgentChatAction = null;
     }
 
-    codexConfirmTitle(): string {
-        return this.pendingCodexAction === "new-chat"
+    agentChatActionConfirmTitle(): string {
+        return this.pendingAgentChatAction === "new-chat"
             ? "Start new chat?"
             : "Rollback last turn?";
     }
 
-    codexConfirmMessage(): string {
-        return this.pendingCodexAction === "new-chat"
-            ? "This clears the current Codex chat history for this task, but does not revert file changes."
-            : "Rollback removes the latest turn from Codex thread history, but it does not revert file changes.";
+    agentChatActionConfirmMessage(): string {
+        return this.pendingAgentChatAction === "new-chat"
+            ? "This clears the current agent chat history for this task, but does not revert file changes."
+            : "Rollback removes the latest turn from the agent chat history, but it does not revert file changes.";
     }
 
-    codexConfirmButtonLabel(): string {
-        if (this.pendingCodexAction === "new-chat") {
+    agentChatActionConfirmButtonLabel(): string {
+        if (this.pendingAgentChatAction === "new-chat") {
             return this.startingNewChat ? "Starting..." : "Start new chat";
         }
         return this.rollingBack ? "Rolling back..." : "Rollback";
     }
 
-    async confirmCodexAction(): Promise<void> {
-        if (this.pendingCodexAction === "new-chat") {
-            await this.confirmStartNewCodexChat();
+    async confirmAgentChatAction(): Promise<void> {
+        if (this.pendingAgentChatAction === "new-chat") {
+            await this.confirmStartNewAgentChat();
             return;
         }
-        if (this.pendingCodexAction === "rollback") {
-            await this.confirmRollbackCodexTurn();
+        if (this.pendingAgentChatAction === "rollback") {
+            await this.confirmRollbackAgentChatTurn();
         }
     }
 
@@ -266,10 +281,10 @@ export class TaskViewComponent {
         }
     }
 
-    toggleCodexActionsMenu(event: MouseEvent): void {
+    toggleAgentActionsMenu(event: MouseEvent): void {
         event.preventDefault();
         event.stopPropagation();
-        this.codexActionsMenuOpen = !this.codexActionsMenuOpen;
+        this.agentActionsMenuOpen = !this.agentActionsMenuOpen;
     }
 
     openCommitModal(): void {
@@ -373,8 +388,24 @@ export class TaskViewComponent {
         this.activePane = pane;
     }
 
-    isCodexGuiTask(task: TaskSummary): boolean {
-        return task.agentKind === AgentKind.CodexGui;
+    isAgentChatTask(task: TaskSummary): boolean {
+        return task.usesAgentChat;
+    }
+
+    supportsNewChatAction(task: TaskSummary): boolean {
+        return this.agentChatStore.getCapabilities(task.taskId).supportsNewChat;
+    }
+
+    supportsThreadHistoryActions(task: TaskSummary): boolean {
+        return this.agentChatStore.getCapabilities(task.taskId)
+            .supportsThreadHistory;
+    }
+
+    hasAgentChatActionsMenu(task: TaskSummary): boolean {
+        return (
+            this.supportsNewChatAction(task) ||
+            this.supportsThreadHistoryActions(task)
+        );
     }
 
     toggleShellTerminal(): void {
@@ -464,6 +495,28 @@ export class TaskViewComponent {
             return String((error as { message: string }).message);
         }
         return fallback;
+    }
+
+    private loadGuiAgentCapabilities(): void {
+        const task = this.task;
+        if (!task || !this.isRunning() || !this.isAgentChatTask(task)) {
+            return;
+        }
+        const taskId = task.taskId;
+        void this.agentChatStore
+            .ensureCapabilities(taskId)
+            .then(() => {
+                if (this.task?.taskId !== taskId) {
+                    return;
+                }
+                if (!this.hasAgentChatActionsMenu(this.task)) {
+                    this.agentActionsMenuOpen = false;
+                }
+                this.cdr.markForCheck();
+            })
+            .catch(() => {
+                // Keep fallback UI state when capability metadata is unavailable.
+            });
     }
 
 }

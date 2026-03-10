@@ -1,5 +1,7 @@
 use super::command::AcpCommand;
-use agent_client_protocol::{PermissionOption, RequestPermissionResponse, SessionId};
+use agent_client_protocol::{
+    PermissionOption, RequestPermissionResponse, SessionConfigOption, SessionId, ToolCall,
+};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::mpsc::SyncSender;
@@ -11,9 +13,14 @@ pub(crate) struct AcpAgentState {
     pub(crate) control_tx: Option<UnboundedSender<AcpCommand>>,
     pub(crate) exit_code: Option<i32>,
     pub(crate) session_id: Option<SessionId>,
+    pub(crate) config_options: Vec<SessionConfigOption>,
     pub(crate) pending_permission_requests: HashMap<String, PendingPermissionRequest>,
     pub(crate) next_message_id: u64,
     pub(crate) active_message_ids: HashMap<String, String>,
+    pub(crate) session_message_ids: HashMap<String, String>,
+    pub(crate) tool_call_messages: HashMap<String, TrackedToolCall>,
+    pub(crate) selected_model: Option<String>,
+    pub(crate) selected_reasoning_effort: Option<String>,
 }
 
 pub(crate) type SharedAcpAgentState = Arc<Mutex<AcpAgentState>>;
@@ -21,4 +28,10 @@ pub(crate) type SharedAcpAgentState = Arc<Mutex<AcpAgentState>>;
 pub(crate) struct PendingPermissionRequest {
     pub(crate) options: Vec<PermissionOption>,
     pub(crate) reply: SyncSender<RequestPermissionResponse>,
+}
+
+#[derive(Clone)]
+pub(crate) struct TrackedToolCall {
+    pub(crate) message_id: String,
+    pub(crate) tool_call: ToolCall,
 }

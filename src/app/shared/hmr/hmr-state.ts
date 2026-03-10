@@ -1,9 +1,9 @@
-import type { CodexGuiStoreDevState } from "../../features/tasks/agents/codex-gui.store";
+import type { AgentChatStoreDevState } from "../../features/tasks/agent-chat/agent-chat.store";
 import type { TaskStoreDevState } from "../../features/tasks/task.store";
 
 export type IllucHmrState = {
     taskStore?: TaskStoreDevState | null;
-    codexGuiStore?: CodexGuiStoreDevState | null;
+    agentChatStore?: AgentChatStoreDevState | null;
 };
 
 declare global {

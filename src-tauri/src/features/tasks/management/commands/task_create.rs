@@ -7,7 +7,7 @@ use crate::features::tasks::git::{
 };
 use crate::features::tasks::worktree::managed_worktree_root;
 use crate::features::tasks::{
-    build_agent, AgentKind, TaskManager, TaskRecord, TaskStatus, TaskSummary,
+    agent_uses_gui_chat, build_agent, AgentKind, TaskManager, TaskRecord, TaskStatus, TaskSummary,
 };
 use crate::utils::fs::ensure_directory;
 use crate::utils::path::normalize_path_string;
@@ -97,6 +97,7 @@ pub async fn task_create(
         title,
         status: TaskStatus::Stopped,
         agent_kind: AgentKind::Codex,
+        uses_agent_chat: agent_uses_gui_chat(AgentKind::Codex),
         created_at: timestamp,
         started_at: None,
         ended_at: None,

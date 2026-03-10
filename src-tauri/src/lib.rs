@@ -15,14 +15,16 @@ use crate::features::settings::ensure_user_settings_file;
 use crate::features::settings::watcher::start_settings_theme_watcher;
 #[cfg(target_os = "windows")]
 use crate::features::shell::native_titlebar::apply_windows_caption_color;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_compact::task_codex_gui_compact;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_interrupt::task_codex_gui_interrupt;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_models::task_codex_gui_models;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_new_chat::task_codex_gui_new_chat;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_request_respond::task_codex_gui_request_respond;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_rollback::task_codex_gui_rollback;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_send::task_codex_gui_send;
-use crate::features::tasks::agents::codex_gui::commands::task_codex_gui_usage::task_codex_gui_usage;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_compact::task_agent_gui_compact;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_interrupt::task_agent_gui_interrupt;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_models::task_agent_gui_models;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_new_chat::task_agent_gui_new_chat;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_request_respond::task_agent_gui_request_respond;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_rollback::task_agent_gui_rollback;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_send::task_agent_gui_send;
+use crate::features::tasks::agents::agent_gui::commands::task_agent_gui_usage::task_agent_gui_usage;
+use crate::features::tasks::agents::agent_tui::commands::task_agent_tui_resize::task_agent_tui_resize;
+use crate::features::tasks::agents::agent_tui::commands::task_agent_tui_write::task_agent_tui_write;
 use crate::features::tasks::git::commands::task_git_commit::task_git_commit;
 use crate::features::tasks::git::commands::task_git_diff_get::task_git_diff_get;
 use crate::features::tasks::git::commands::task_git_diff_watch_start::task_git_diff_watch_start;
@@ -150,14 +152,16 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             select_base_repo,
             task_create,
-            task_codex_gui_compact,
-            task_codex_gui_interrupt,
-            task_codex_gui_models,
-            task_codex_gui_new_chat,
-            task_codex_gui_request_respond,
-            task_codex_gui_rollback,
-            task_codex_gui_send,
-            task_codex_gui_usage,
+            task_agent_gui_compact,
+            task_agent_gui_interrupt,
+            task_agent_gui_models,
+            task_agent_gui_new_chat,
+            task_agent_gui_request_respond,
+            task_agent_gui_rollback,
+            task_agent_gui_send,
+            task_agent_gui_usage,
+            task_agent_tui_resize,
+            task_agent_tui_write,
             task_start,
             task_stop,
             task_discard,

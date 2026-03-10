@@ -1,0 +1,103 @@
+<div
+    class="messages-shell"
+    #scrollHost
+    [class.is-hidden]="showInitialLoading || !isActive || (historyItems.length === 0 && tailItems.length === 0)"
+>
+    <article
+        class="message-row"
+        *uiScroll="let item of datasource"
+        [attr.data-track-key]="item.trackKey"
+        [class.user-row]="item.rowRole === 'user'"
+        [class.assistant-row]="item.rowRole !== 'user'"
+        [class.compact-with-next]="item.compactWithNext"
+        [attr.data-role]="item.dataRole"
+        [attr.data-status]="item.dataStatus"
+        [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
+    >
+        <div class="msg-body">
+            <ng-container
+                [ngTemplateOutlet]="messageRow"
+                [ngTemplateOutletContext]="{ $implicit: item }"
+            ></ng-container>
+        </div>
+    </article>
+
+    <div #tailContent>
+        <article
+            *ngFor="let item of tailItems; trackBy: trackByItem"
+            class="message-row tail-row"
+            [attr.data-track-key]="item.trackKey"
+            [class.user-row]="item.rowRole === 'user'"
+            [class.assistant-row]="item.rowRole !== 'user'"
+            [class.compact-with-next]="item.compactWithNext"
+            [attr.data-role]="item.dataRole"
+            [attr.data-status]="item.dataStatus"
+            [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
+        >
+            <div class="msg-body">
+                <ng-container
+                    [ngTemplateOutlet]="messageRow"
+                    [ngTemplateOutletContext]="{ $implicit: item }"
+                ></ng-container>
+            </div>
+        </article>
+    </div>
+</div>
+
+<div class="loading-state" *ngIf="isActive && showInitialLoading">
+    <app-loading-spinner></app-loading-spinner>
+</div>
+
+<div
+    class="empty-state"
+    *ngIf="isActive && !showInitialLoading && historyItems.length === 0 && tailItems.length === 0"
+>
+    Ask the agent to inspect the repo, explain diffs, or implement a task.
+</div>
+
+<ng-template #messageRow let-item>
+    <app-agent-chat-user-message
+        *ngIf="item.renderKind === 'user'"
+        [html]="item.html"
+        (contentClick)="onContentClick($event)"
+    ></app-agent-chat-user-message>
+
+    <app-agent-chat-tool-message
+        *ngIf="item.renderKind === 'tool'"
+        [rows]="item.toolRows"
+        [isRunning]="item.isToolRunning"
+        [statusLabel]="item.toolStatusLabel"
+        [stripPathPrefix]="stripPathPrefix"
+        (contentClick)="onContentClick($event)"
+    ></app-agent-chat-tool-message>
+
+    <app-agent-chat-standard-message
+        *ngIf="item.renderKind === 'standard'"
+        [role]="item.dataRole === 'system' ? 'system' : 'assistant'"
+        [streamingPlain]="item.streamingPlain"
+        [plainContent]="item.plainContent"
+        [html]="item.html"
+        (contentClick)="onContentClick($event)"
+    ></app-agent-chat-standard-message>
+
+    <app-agent-chat-reasoning-message
+        *ngIf="item.renderKind === 'reasoning'"
+        [streamingPlain]="item.streamingPlain"
+        [plainContent]="item.plainContent"
+        [html]="item.html"
+        (contentClick)="onContentClick($event)"
+    ></app-agent-chat-reasoning-message>
+
+    <app-agent-chat-typing-indicator
+        *ngIf="item.renderKind === 'typing'"
+        [label]="item.typingLabel"
+        [startedAt]="item.typingStartedAt"
+        [showLabel]="item.showTypingLabel"
+    ></app-agent-chat-typing-indicator>
+
+    <app-agent-chat-throbber
+        *ngIf="item.showStreamingIndicator"
+        class="streaming-indicator"
+        aria-hidden="true"
+    ></app-agent-chat-throbber>
+</ng-template>

@@ -18,6 +18,7 @@ pub use models::TerminalKind;
 pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
 pub use repo::handle_select_base_repo;
 
+use crate::features::tasks::agents::acp::{AcpAgent, CopilotAcpConfig};
 use crate::features::tasks::agents::codex::CodexAgent;
 use crate::features::tasks::agents::codex_gui::CodexGuiAgent;
 use crate::features::tasks::agents::copilot::CopilotAgent;
@@ -35,6 +36,7 @@ pub(crate) fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
     match agent_kind {
         AgentKind::Codex => Box::new(CodexAgent::default()),
         AgentKind::CodexGui => Box::new(CodexGuiAgent::default()),
+        AgentKind::CopilotGui => Box::new(AcpAgent::new(CopilotAcpConfig)),
         AgentKind::Copilot => Box::new(CopilotAgent::default()),
         AgentKind::OpenCode => Box::new(OpenCodeAgent::default()),
     }
@@ -44,9 +46,14 @@ pub(crate) fn agent_label(agent_kind: AgentKind) -> &'static str {
     match agent_kind {
         AgentKind::Codex => "Codex",
         AgentKind::CodexGui => "Codex GUI",
+        AgentKind::CopilotGui => "Copilot GUI",
         AgentKind::Copilot => "Copilot CLI",
         AgentKind::OpenCode => "OpenCode",
     }
+}
+
+pub(crate) fn agent_uses_gui_chat(agent_kind: AgentKind) -> bool {
+    matches!(agent_kind, AgentKind::CodexGui | AgentKind::CopilotGui)
 }
 
 pub(crate) fn build_worktree_shell_command(worktree_path: &Path) -> CommandBuilder {

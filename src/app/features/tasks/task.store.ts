@@ -11,7 +11,7 @@ import {
 import { TaskGitService } from "./git/task-git.service";
 import { TERMINAL_SCROLLBACK } from "./terminal/terminal.constants";
 import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
-import { CodexGuiStore } from "./agents/codex-gui.store";
+import { AgentChatStore } from "./agent-chat/agent-chat.store";
 import { readIllucHmrState } from "../../shared/hmr/hmr-state";
 
 @Injectable({
@@ -73,7 +73,7 @@ export class TaskStore implements OnDestroy {
     constructor(
         private readonly zone: NgZone,
         private readonly taskGit: TaskGitService,
-        private readonly codexGuiStore: CodexGuiStore,
+        private readonly agentChatStore: AgentChatStore,
     ) {
         const snapshot = readIllucHmrState()?.taskStore;
         if (snapshot) {
@@ -153,7 +153,7 @@ export class TaskStore implements OnDestroy {
         this.worktreeTerminalStreams.clear();
         this.worktreeTerminalLastResizeSent.clear();
         this.worktreeTerminalOpenState.clear();
-        this.codexGuiStore.clearAll();
+        this.agentChatStore.clearAll();
         await this.loadExistingTasks(normalized.path);
         await this.loadBranches(normalized.path);
         return normalized;
@@ -184,7 +184,7 @@ export class TaskStore implements OnDestroy {
 
     async startTask(taskId: string, agent?: AgentKind): Promise<TaskSummary> {
         if (taskId) {
-            this.codexGuiStore.resetTask(taskId);
+            this.agentChatStore.resetTask(taskId);
         }
         const size = this.terminalSizes.get(taskId) ?? this.lastTerminalSize;
         const summary = await tauriInvoke<TaskSummary>(this.zone, "task_start", {
@@ -207,21 +207,37 @@ export class TaskStore implements OnDestroy {
         return summary;
     }
 
+    getTask(taskId: string): TaskSummary | null {
+        if (!taskId) {
+            return null;
+        }
+        return this.tasksSignal().find((task) => task.taskId === taskId) ?? null;
+    }
+
     async discardTask(taskId: string): Promise<void> {
         await tauriInvoke<void>(this.zone, "task_discard", { req: { taskId } });
         this.removeTask(taskId);
     }
 
-    async writeToTask(taskId: string, data: string): Promise<void> {
-        await this.writeToTerminal(taskId, data, "agent");
+    async writeToAgentTui(taskId: string, data: string): Promise<void> {
+        await tauriInvoke<void>(this.zone, "task_agent_tui_write", {
+            req: { taskId, data },
+        });
     }
 
-    async resizeTaskTerminal(
+    async resizeAgentTui(
         taskId: string,
         cols: number,
         rows: number,
     ): Promise<void> {
-        await this.resizeTerminal(taskId, cols, rows, "agent");
+        const previous = this.terminalLastResizeSent.get(taskId);
+        if (previous && previous.cols === cols && previous.rows === rows) {
+            return;
+        }
+        await tauriInvoke<void>(this.zone, "task_agent_tui_resize", {
+            req: { taskId, cols, rows },
+        });
+        this.terminalLastResizeSent.set(taskId, { cols, rows });
     }
 
     async startTerminal(taskId: string, kind: TerminalKind): Promise<void> {
@@ -496,7 +512,7 @@ export class TaskStore implements OnDestroy {
         this.worktreeTerminalStreams.delete(taskId);
         this.worktreeTerminalLastResizeSent.delete(taskId);
         this.worktreeTerminalOpenState.delete(taskId);
-        this.codexGuiStore.removeTask(taskId);
+        this.agentChatStore.removeTask(taskId);
         this.diffJumpStreams.delete(taskId);
     }
 
