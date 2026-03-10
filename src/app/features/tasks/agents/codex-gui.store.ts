@@ -1,10 +1,12 @@
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, OnDestroy } from "@angular/core";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
 import {
     ActivityEvent,
+    HistoryEvent,
     HydratedEvent,
     LimitStatus,
+    MessagePresentation,
     Message,
     MessageEvent,
     PlanEvent,
@@ -12,8 +14,9 @@ import {
     TokenUsageEvent,
     UsageSnapshot,
     WorkingPeriod,
-} from "./models";
+} from "./codex-gui/models";
 import { tauriInvoke, tauriListen } from "../../../shared/tauri/tauri-zone";
+import { readIllucHmrState } from "../../../shared/hmr/hmr-state";
 
 export type CodexGuiActivityState = {
     label: string;
@@ -47,7 +50,7 @@ export type CodexGuiRequestState = RequestEvent;
 @Injectable({
     providedIn: "root",
 })
-export class CodexGuiStore {
+export class CodexGuiStore implements OnDestroy {
     private readonly codexGuiMessages = new Map<string, Message[]>();
     private readonly codexGuiMessageStreams = new Map<
         string,
@@ -83,15 +86,60 @@ export class CodexGuiStore {
     >();
     private readonly codexGuiSelectedModel = new Map<string, string>();
     private readonly codexGuiSelectedEffort = new Map<string, string>();
+    private readonly codexGuiSelectedServiceTier = new Map<string, string>();
     private readonly codexGuiModelCapabilities = new Map<
         string,
         CodexGuiModelCapability[]
     >();
     private readonly unlistenFns: UnlistenFn[] = [];
+    private readonly unloadHandler = () => this.teardown();
 
     constructor(private readonly zone: NgZone) {
+        const snapshot = readIllucHmrState()?.codexGuiStore;
+        if (snapshot) {
+            this.restoreDevState(snapshot);
+        }
         this.registerEventListeners();
-        window.addEventListener("unload", () => this.teardown());
+        window.addEventListener("unload", this.unloadHandler);
+    }
+
+    ngOnDestroy(): void {
+        window.removeEventListener("unload", this.unloadHandler);
+        this.teardown();
+    }
+
+    snapshotDevState(): CodexGuiStoreDevState {
+        return {
+            messages: Object.fromEntries(this.codexGuiMessages),
+            hydrated: Object.fromEntries(this.codexGuiHydrated),
+            activity: Object.fromEntries(this.codexGuiActivity),
+            plan: Object.fromEntries(this.codexGuiPlan),
+            tokenUsage: Object.fromEntries(this.codexGuiTokenUsage),
+            request: Object.fromEntries(this.codexGuiRequest),
+            selectedModel: Object.fromEntries(this.codexGuiSelectedModel),
+            selectedEffort: Object.fromEntries(this.codexGuiSelectedEffort),
+            selectedServiceTier: Object.fromEntries(this.codexGuiSelectedServiceTier),
+            modelCapabilities: Object.fromEntries(this.codexGuiModelCapabilities),
+        };
+    }
+
+    restoreDevState(snapshot: CodexGuiStoreDevState): void {
+        this.restoreMap(this.codexGuiMessages, snapshot.messages);
+        this.restoreMap(this.codexGuiHydrated, snapshot.hydrated);
+        this.restoreMap(this.codexGuiActivity, snapshot.activity);
+        this.restoreMap(this.codexGuiPlan, snapshot.plan);
+        this.restoreMap(this.codexGuiTokenUsage, snapshot.tokenUsage);
+        this.restoreMap(this.codexGuiRequest, snapshot.request);
+        this.restoreMap(this.codexGuiSelectedModel, snapshot.selectedModel);
+        this.restoreMap(this.codexGuiSelectedEffort, snapshot.selectedEffort);
+        this.restoreMap(
+            this.codexGuiSelectedServiceTier,
+            snapshot.selectedServiceTier,
+        );
+        this.restoreMap(
+            this.codexGuiModelCapabilities,
+            snapshot.modelCapabilities,
+        );
     }
 
     clearAll(): void {
@@ -109,6 +157,7 @@ export class CodexGuiStore {
         this.codexGuiRequestStreams.clear();
         this.codexGuiSelectedModel.clear();
         this.codexGuiSelectedEffort.clear();
+        this.codexGuiSelectedServiceTier.clear();
         this.codexGuiModelCapabilities.clear();
     }
 
@@ -116,9 +165,11 @@ export class CodexGuiStore {
         if (!taskId) {
             return;
         }
+        this.replaceCodexGuiMessages(taskId, []);
         this.setCodexGuiHydrated(taskId, false);
         this.setCodexGuiActivity(taskId, null);
         this.setCodexGuiPlan(taskId, null);
+        this.setCodexGuiTokenUsage(taskId, null);
         this.setCodexGuiRequest(taskId, null);
     }
 
@@ -137,6 +188,7 @@ export class CodexGuiStore {
         this.codexGuiRequestStreams.delete(taskId);
         this.codexGuiSelectedModel.delete(taskId);
         this.codexGuiSelectedEffort.delete(taskId);
+        this.codexGuiSelectedServiceTier.delete(taskId);
         this.codexGuiModelCapabilities.delete(taskId);
     }
 
@@ -145,6 +197,7 @@ export class CodexGuiStore {
         content: string,
         model?: string | null,
         effort?: string | null,
+        serviceTier?: string | null,
     ): Promise<void> {
         const text = content.trim();
         if (!text) {
@@ -152,12 +205,28 @@ export class CodexGuiStore {
         }
         const resolvedModel = (model ?? this.getModel(taskId)).trim();
         const resolvedEffort = (effort ?? this.getEffort(taskId)).trim();
+        const resolvedServiceTier = (
+            serviceTier ?? this.getServiceTier(taskId)
+        ).trim();
         this.setTrimmedValue(this.codexGuiSelectedModel, taskId, resolvedModel);
         this.setTrimmedValue(this.codexGuiSelectedEffort, taskId, resolvedEffort);
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            resolvedServiceTier,
+        );
         this.pushCodexGuiMessage(taskId, {
             id: this.newMessageId(),
             role: "user",
             content: text,
+            presentation: {
+                kind: "user",
+                text,
+                textFormat: "markdown",
+                toolRows: [],
+                toolStatusLabel: null,
+                isToolRunning: false,
+            },
             createdAt: new Date().toISOString(),
             status: "complete",
         });
@@ -168,6 +237,7 @@ export class CodexGuiStore {
                     content: text,
                     model: resolvedModel || undefined,
                     effort: resolvedEffort || undefined,
+                    serviceTier: resolvedServiceTier || undefined,
                 },
             });
         } catch (error) {
@@ -176,6 +246,14 @@ export class CodexGuiStore {
                 id: this.newMessageId(),
                 role: "system",
                 content: `Codex GUI send failed: ${detail}`,
+                presentation: {
+                    kind: "standard",
+                    text: `Codex GUI send failed: ${detail}`,
+                    textFormat: "markdown",
+                    toolRows: [],
+                    toolStatusLabel: null,
+                    isToolRunning: false,
+                },
                 createdAt: new Date().toISOString(),
                 status: "error",
             });
@@ -230,6 +308,7 @@ export class CodexGuiStore {
                 id: event.messageId,
                 role: event.role as Message["role"],
                 content: event.content,
+                presentation: event.presentation,
                 createdAt: new Date().toISOString(),
                 status: event.isFinal ? "complete" : "streaming",
             })),
@@ -313,6 +392,11 @@ export class CodexGuiStore {
             taskId,
             response.selectedEffort ?? "",
         );
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            response.selectedServiceTier ?? "",
+        );
         return response.models ?? [];
     }
 
@@ -322,6 +406,18 @@ export class CodexGuiStore {
 
     setEffort(taskId: string, effort: string): void {
         this.setTrimmedValue(this.codexGuiSelectedEffort, taskId, effort);
+    }
+
+    getServiceTier(taskId: string): string {
+        return this.codexGuiSelectedServiceTier.get(taskId) ?? "flex";
+    }
+
+    setServiceTier(taskId: string, serviceTier: string): void {
+        this.setTrimmedValue(
+            this.codexGuiSelectedServiceTier,
+            taskId,
+            serviceTier,
+        );
     }
 
     getModelEfforts(taskId: string, model: string): string[] {
@@ -360,6 +456,14 @@ export class CodexGuiStore {
             "task_codex_gui_message",
             (event) => {
                 this.applyCodexGuiEvent(event.payload);
+            },
+        ).then((unlisten) => this.unlistenFns.push(unlisten));
+
+        void tauriListen<HistoryEvent>(
+            this.zone,
+            "task_codex_gui_history",
+            (event) => {
+                this.applyCodexGuiHistory(event.payload);
             },
         ).then((unlisten) => this.unlistenFns.push(unlisten));
 
@@ -598,6 +702,23 @@ export class CodexGuiStore {
         this.ensureCodexGuiMessageStream(taskId).next(messages);
     }
 
+    private applyCodexGuiHistory(event: HistoryEvent): void {
+        if (!event.taskId) {
+            return;
+        }
+        this.replaceCodexGuiMessages(
+            event.taskId,
+            (event.events ?? []).map((item) => ({
+                id: item.messageId,
+                role: item.role,
+                content: item.content,
+                presentation: item.presentation,
+                createdAt: new Date().toISOString(),
+                status: item.isFinal ? "complete" : "streaming",
+            })),
+        );
+    }
+
     private applyCodexGuiEvent(event: MessageEvent): void {
         const current = this.codexGuiMessages.get(event.taskId) ?? [];
         const existingIndex = current.findIndex((message) => message.id === event.messageId);
@@ -612,6 +733,12 @@ export class CodexGuiStore {
                 ...existing,
                 content: mergedContent,
                 role: event.role,
+                presentation: this.mergeCodexGuiPresentation(
+                    existing.presentation,
+                    event.presentation,
+                    mergedContent,
+                    event.isDelta,
+                ),
                 status: event.isFinal ? "complete" : existing.status,
             };
             const updated = [...current];
@@ -629,9 +756,31 @@ export class CodexGuiStore {
             id: event.messageId,
             role: event.role,
             content: incomingContent,
+            presentation: event.presentation,
             createdAt: new Date().toISOString(),
             status: event.isFinal ? "complete" : "streaming",
         });
+    }
+
+    private mergeCodexGuiPresentation(
+        existing: MessagePresentation,
+        incoming: MessagePresentation,
+        mergedContent: string,
+        isDelta: boolean,
+    ): MessagePresentation {
+        if (!isDelta) {
+            return incoming;
+        }
+
+        if (incoming.kind === "tool") {
+            return incoming;
+        }
+
+        return {
+            ...existing,
+            ...incoming,
+            text: mergedContent,
+        };
     }
 
     private parseCodexGuiUsage(response: CodexGuiUsageResponse): UsageSnapshot | null {
@@ -768,13 +917,37 @@ export class CodexGuiStore {
         }
         map.set(taskId, normalized);
     }
+
+    private restoreMap<T>(
+        target: Map<string, T>,
+        source: Record<string, T> | undefined,
+    ): void {
+        target.clear();
+        for (const [key, value] of Object.entries(source ?? {})) {
+            target.set(key, value);
+        }
+    }
 }
+
+export type CodexGuiStoreDevState = {
+    messages: Record<string, Message[]>;
+    hydrated: Record<string, boolean>;
+    activity: Record<string, CodexGuiActivityState>;
+    plan: Record<string, CodexGuiPlanState | null>;
+    tokenUsage: Record<string, CodexGuiTokenUsageState | null>;
+    request: Record<string, CodexGuiRequestState | null>;
+    selectedModel: Record<string, string>;
+    selectedEffort: Record<string, string>;
+    selectedServiceTier: Record<string, string>;
+    modelCapabilities: Record<string, CodexGuiModelCapability[]>;
+};
 
 type CodexGuiModelsResponse = {
     models: string[];
     modelCapabilities: CodexGuiModelCapability[];
     selectedModel?: string | null;
     selectedEffort?: string | null;
+    selectedServiceTier?: string | null;
 };
 
 type CodexGuiUsageResponse = {
@@ -793,6 +966,7 @@ type CodexGuiRollbackResponse = {
         messageId: string;
         role: string;
         content: string;
+        presentation: MessagePresentation;
         isDelta: boolean;
         isFinal: boolean;
     }>;

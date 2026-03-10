@@ -1,37 +1,31 @@
-<div class="messages-shell" #scrollHost rxVirtualScrollElement>
-    <div class="loading-state" *ngIf="isActive && showInitialLoading">
-        <app-loading-spinner></app-loading-spinner>
-    </div>
-
-    <div
-        class="empty-state"
-        *ngIf="
-            isActive &&
-            !showInitialLoading &&
-            historyListItems.length === 0 &&
-            !tailItem
-        "
+<div
+    class="messages-shell"
+    #scrollHost
+    [class.is-hidden]="showInitialLoading || !isActive || (historyItems.length === 0 && tailItems.length === 0)"
+>
+    <article
+        class="message-row"
+        *uiScroll="let item of datasource"
+        [attr.data-track-key]="item.trackKey"
+        [class.user-row]="item.rowRole === 'user'"
+        [class.assistant-row]="item.rowRole !== 'user'"
+        [class.compact-with-next]="item.compactWithNext"
+        [attr.data-role]="item.dataRole"
+        [attr.data-status]="item.dataStatus"
+        [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
     >
-        Ask Codex to inspect the repo, explain diffs, or implement a task.
-    </div>
+        <div class="msg-body">
+            <ng-container
+                [ngTemplateOutlet]="messageRow"
+                [ngTemplateOutletContext]="{ $implicit: item }"
+            ></ng-container>
+        </div>
+    </article>
 
-    <rx-virtual-scroll-viewport
-        *ngIf="isActive && !showInitialLoading"
-        class="messages-viewport"
-        [dynamic]="estimateHistoryItemSize"
-        [initialScrollIndex]="initialScrollIndex"
-        [runwayItems]="runwayItems"
-        [runwayItemsOpposite]="runwayItemsOpposite"
-    >
+    <div #tailContent>
         <article
-            class="message-row"
-            *rxVirtualFor="
-                let item of historyListItems;
-                trackBy: trackByItem;
-                templateCacheSize: templateCacheSize;
-                renderCallback: historyRenderCallback
-            "
-            data-animate="false"
+            *ngFor="let item of tailItems; trackBy: trackByItem"
+            class="message-row tail-row"
             [attr.data-track-key]="item.trackKey"
             [class.user-row]="item.rowRole === 'user'"
             [class.assistant-row]="item.rowRole !== 'user'"
@@ -47,26 +41,18 @@
                 ></ng-container>
             </div>
         </article>
-    </rx-virtual-scroll-viewport>
+    </div>
+</div>
 
-    <article
-        *ngIf="isActive && !showInitialLoading && tailItem as item"
-        class="message-row tail-row"
-        data-animate="true"
-        [class.user-row]="item.rowRole === 'user'"
-        [class.assistant-row]="item.rowRole !== 'user'"
-        [class.compact-with-next]="item.compactWithNext"
-        [attr.data-role]="item.dataRole"
-        [attr.data-status]="item.dataStatus"
-        [attr.aria-live]="item.renderKind === 'typing' ? 'polite' : null"
-    >
-        <div class="msg-body">
-            <ng-container
-                [ngTemplateOutlet]="messageRow"
-                [ngTemplateOutletContext]="{ $implicit: item }"
-            ></ng-container>
-        </div>
-    </article>
+<div class="loading-state" *ngIf="isActive && showInitialLoading">
+    <app-loading-spinner></app-loading-spinner>
+</div>
+
+<div
+    class="empty-state"
+    *ngIf="isActive && !showInitialLoading && historyItems.length === 0 && tailItems.length === 0"
+>
+    Ask Codex to inspect the repo, explain diffs, or implement a task.
 </div>
 
 <ng-template #messageRow let-item>
@@ -78,9 +64,10 @@
 
     <app-codex-gui-tool-message
         *ngIf="item.renderKind === 'tool'"
-        [rowsHtml]="item.toolRowsHtml"
+        [rows]="item.toolRows"
         [isRunning]="item.isToolRunning"
         [statusLabel]="item.toolStatusLabel"
+        [stripPathPrefix]="stripPathPrefix"
         (contentClick)="onContentClick($event)"
     ></app-codex-gui-tool-message>
 

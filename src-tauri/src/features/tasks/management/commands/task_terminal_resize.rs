@@ -3,6 +3,7 @@ use crate::error::TaskError;
 use crate::features::tasks::{TaskManager, TerminalKind};
 use crate::utils::pty::TerminalSize;
 use anyhow::Context;
+use log::debug;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -37,6 +38,10 @@ pub async fn task_terminal_resize(
         }
         TerminalKind::Worktree => {
             let task_id = req.task_id;
+            debug!(
+                "resizing worktree terminal task_id={} rows={} cols={}",
+                task_id, req.rows, req.cols
+            );
             let master = {
                 let tasks = manager.inner.tasks.read();
                 let record = tasks

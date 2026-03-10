@@ -3,10 +3,11 @@ use super::terminal::TerminalStore;
 use super::utils::{
     anyhow_to_acp_error, emit_chunk, format_tool_status, io_to_acp_error, select_lines,
 };
-use crate::features::tasks::agents::{
-    AgentCallbacks, GuiMessageRole, GuiPlanEvent, GuiPlanStep, GuiRequestEvent, GuiRequestQuestion,
+use crate::features::tasks::agents::codex_gui::types::{
+    GuiMessageRole, GuiPlanEvent, GuiPlanStep, GuiRequestEvent, GuiRequestQuestion,
     GuiRequestQuestionOption,
 };
+use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::TaskStatus;
 use agent_client_protocol::{
     Client as AcpClient, RequestPermissionOutcome, RequestPermissionResponse, SessionNotification,

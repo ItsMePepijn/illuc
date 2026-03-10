@@ -1,5 +1,8 @@
 use super::state::SharedAcpAgentState;
-use crate::features::tasks::agents::{AgentCallbacks, GuiMessageEvent, GuiMessageRole};
+use crate::features::tasks::agents::codex_gui::types::{
+    GuiMessageEvent, GuiMessagePresentation, GuiMessagePresentationKind, GuiMessageRole,
+};
+use crate::features::tasks::agents::AgentCallbacks;
 use agent_client_protocol::{ContentBlock, TerminalExitStatus, ToolCallStatus};
 use anyhow::anyhow;
 use std::io::Read;
@@ -30,6 +33,7 @@ pub(crate) fn emit_chunk(
         message_id,
         role,
         content,
+        presentation: text_presentation_for(role),
         is_delta: true,
         is_final: false,
     });
@@ -53,9 +57,26 @@ pub(crate) fn finalize_active_messages(state: &SharedAcpAgentState, callbacks: &
             message_id,
             role,
             content: String::new(),
+            presentation: text_presentation_for(role),
             is_delta: true,
             is_final: true,
         });
+    }
+}
+
+fn text_presentation_for(role: GuiMessageRole) -> GuiMessagePresentation {
+    let kind = match role {
+        GuiMessageRole::User => GuiMessagePresentationKind::User,
+        GuiMessageRole::Assistant | GuiMessageRole::System => GuiMessagePresentationKind::Standard,
+        GuiMessageRole::Reasoning => GuiMessagePresentationKind::Reasoning,
+    };
+    GuiMessagePresentation {
+        kind,
+        text: None,
+        text_format: None,
+        tool_rows: Vec::new(),
+        tool_status_label: None,
+        is_tool_running: false,
     }
 }
 

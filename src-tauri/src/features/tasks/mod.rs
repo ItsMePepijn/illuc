@@ -21,6 +21,7 @@ pub use repo::handle_select_base_repo;
 use crate::features::tasks::agents::codex::CodexAgent;
 use crate::features::tasks::agents::codex_gui::CodexGuiAgent;
 use crate::features::tasks::agents::copilot::CopilotAgent;
+use crate::features::tasks::agents::open_code::OpenCodeAgent;
 use crate::features::tasks::agents::Agent;
 use portable_pty::CommandBuilder;
 use std::path::Path;
@@ -35,6 +36,7 @@ pub(crate) fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
         AgentKind::Codex => Box::new(CodexAgent::default()),
         AgentKind::CodexGui => Box::new(CodexGuiAgent::default()),
         AgentKind::Copilot => Box::new(CopilotAgent::default()),
+        AgentKind::OpenCode => Box::new(OpenCodeAgent::default()),
     }
 }
 
@@ -43,6 +45,7 @@ pub(crate) fn agent_label(agent_kind: AgentKind) -> &'static str {
         AgentKind::Codex => "Codex",
         AgentKind::CodexGui => "Codex GUI",
         AgentKind::Copilot => "Copilot CLI",
+        AgentKind::OpenCode => "OpenCode",
     }
 }
 

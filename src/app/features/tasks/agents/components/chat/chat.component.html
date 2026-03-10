@@ -55,11 +55,13 @@
                 [modelOptions]="modelOptions"
                 [selectedEffort]="selectedEffort"
                 [effortOptions]="effortOptions"
+                [selectedServiceTier]="selectedServiceTier"
                 (promptChange)="prompt = $event"
                 (sendRequested)="send()"
                 (stopRequested)="stop()"
                 (modelChange)="onModelChange($event)"
                 (effortChange)="onEffortChange($event)"
+                (serviceTierToggleRequested)="onServiceTierToggleRequested()"
             ></app-codex-gui-composer>
         </div>
     </div>

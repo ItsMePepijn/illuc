@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from "@angular/core";
+import { Injectable, NgZone, OnDestroy } from "@angular/core";
 import { type UnlistenFn } from "@tauri-apps/api/event";
 import { tauriInvoke, tauriListen } from "../../shared/tauri/tauri-zone";
 
@@ -11,15 +11,23 @@ type ThemeSettingsResponse = {
 @Injectable({
     providedIn: "root",
 })
-export class ThemeService {
+export class ThemeService implements OnDestroy {
     private static readonly settingsThemeChangedEvent =
         "settings_theme_changed";
     private settingsThemeChangedUnlisten?: UnlistenFn;
     private pendingReloadTimer: number | null = null;
     private reloadInFlight = false;
     private reloadQueued = false;
+    private readonly unloadHandler = () => {
+        void this.stopSettingsThemeWatch();
+    };
 
     constructor(private readonly zone: NgZone) {}
+
+    ngOnDestroy(): void {
+        window.removeEventListener("unload", this.unloadHandler);
+        void this.stopSettingsThemeWatch();
+    }
 
     async applyFromSettings(): Promise<void> {
         try {
@@ -54,9 +62,7 @@ export class ThemeService {
             return;
         }
 
-        window.addEventListener("unload", () => {
-            void this.stopSettingsThemeWatch();
-        });
+        window.addEventListener("unload", this.unloadHandler);
     }
 
     async stopSettingsThemeWatch(): Promise<void> {

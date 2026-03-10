@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common";
-import { Component, NgZone, effect, signal } from "@angular/core";
+import { Component, DestroyRef, NgZone, effect, inject, signal } from "@angular/core";
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormsModule } from "@angular/forms";
 import { NavigationEnd, Router } from "@angular/router";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -53,6 +54,7 @@ export class AppComponent {
     private readonly startingTaskIds = new Set<string>();
     private readonly stoppingTaskIds = new Set<string>();
     private readonly discardingTaskIds = new Set<string>();
+    private readonly destroyRef = inject(DestroyRef);
 
     constructor(
         public readonly taskStore: TaskStore,
@@ -102,7 +104,10 @@ export class AppComponent {
         });
         this.syncSelectionFromRoute(this.router.url);
         this.router.events
-            .pipe(filter((event) => event instanceof NavigationEnd))
+            .pipe(
+                filter((event) => event instanceof NavigationEnd),
+                takeUntilDestroyed(this.destroyRef),
+            )
             .subscribe((event) => {
                 this.syncSelectionFromRoute(
                     (event as NavigationEnd).urlAfterRedirects,

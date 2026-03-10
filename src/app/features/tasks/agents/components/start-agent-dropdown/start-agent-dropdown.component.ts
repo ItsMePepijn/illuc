@@ -28,6 +28,7 @@ export class StartAgentDropdownComponent implements OnChanges {
         { kind: AgentKind.Codex, label: "Codex" },
         { kind: AgentKind.CodexGui, label: "Codex GUI" },
         { kind: AgentKind.Copilot, label: "Copilot" },
+        { kind: AgentKind.OpenCode, label: "OpenCode" },
     ];
 
     toggleMenu(event: MouseEvent): void {

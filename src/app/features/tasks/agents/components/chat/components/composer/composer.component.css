@@ -214,6 +214,41 @@
     opacity: 1;
 }
 
+.fast-mode-toggle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid var(--borders-default);
+    background: var(--surfaces-surface_alt);
+    color: var(--text-muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        filter 0.18s ease,
+        color 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease;
+}
+
+.fast-mode-toggle:hover {
+    color: var(--text-default);
+    filter: brightness(1.05);
+    transform: scale(1.06);
+}
+
+.fast-mode-toggle.active {
+    color: var(--brand-accent);
+    border-color: color-mix(in srgb, var(--brand-accent) 45%, var(--borders-default));
+    background: var(--brand-accent_soft);
+}
+
+.fast-mode-toggle svg {
+    width: 14px;
+    height: 14px;
+}
+
 .send-btn {
     width: 30px;
     height: 30px;
@@ -280,5 +315,10 @@
 @media (max-width: 720px) {
     .context-status-row {
         justify-content: flex-start;
+    }
+
+    .input-right {
+        flex-wrap: wrap;
+        justify-content: flex-end;
     }
 }

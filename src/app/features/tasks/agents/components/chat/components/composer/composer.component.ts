@@ -36,12 +36,14 @@ export class ComposerComponent implements OnChanges {
     @Input() modelOptions: CodexGuiModelOption[] = [];
     @Input() selectedEffort = "";
     @Input() effortOptions: CodexGuiModelOption[] = [];
+    @Input() selectedServiceTier = "";
 
     @Output() promptChange = new EventEmitter<string>();
     @Output() sendRequested = new EventEmitter<void>();
     @Output() stopRequested = new EventEmitter<void>();
     @Output() modelChange = new EventEmitter<string>();
     @Output() effortChange = new EventEmitter<string>();
+    @Output() serviceTierToggleRequested = new EventEmitter<void>();
 
     @ViewChild("composerInput") composerInput?: ElementRef<HTMLTextAreaElement>;
 
@@ -84,6 +86,7 @@ export class ComposerComponent implements OnChanges {
         event.preventDefault();
         event.stopPropagation();
         this.modelMenuOpen = !this.modelMenuOpen;
+        this.effortMenuOpen = false;
     }
 
     selectModelOption(model: string, event: MouseEvent): void {
@@ -97,6 +100,7 @@ export class ComposerComponent implements OnChanges {
         event.preventDefault();
         event.stopPropagation();
         this.effortMenuOpen = !this.effortMenuOpen;
+        this.modelMenuOpen = false;
     }
 
     selectEffortOption(effort: string, event: MouseEvent): void {
@@ -134,6 +138,24 @@ export class ComposerComponent implements OnChanges {
             return "Reasoning";
         }
         return `${this.effortLabel(effort)} reasoning`;
+    }
+
+    isFastModeEnabled(): boolean {
+        return this.selectedServiceTier === "fast";
+    }
+
+    fastModeTitle(): string {
+        return this.isFastModeEnabled()
+            ? "Fast mode enabled: 1.5x faster for 2x usage"
+            : "Fast mode: 1.5x faster for 2x usage";
+    }
+
+    toggleFastMode(event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.modelMenuOpen = false;
+        this.effortMenuOpen = false;
+        this.serviceTierToggleRequested.emit();
     }
 
     @HostListener("document:click")
