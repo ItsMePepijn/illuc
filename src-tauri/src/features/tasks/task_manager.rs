@@ -37,6 +37,16 @@ pub(crate) struct TaskRecord {
     pub(crate) agent_kind: AgentKind,
     pub(crate) summary: TaskSummary,
     pub(crate) shell: Option<TaskRuntime>,
+    pub(crate) runtime_state: TaskRuntimeState,
+    pub(crate) startup_attempt_id: u64,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) enum TaskRuntimeState {
+    #[default]
+    Stopped,
+    Starting { attempt_id: u64 },
+    Running,
 }
 
 pub(crate) struct TaskRuntime {
@@ -61,7 +71,7 @@ impl TaskManager {
     pub fn handle_agent_status(&self, task_id: Uuid, status: TaskStatus, app: &AppHandle) {
         let mut tasks = self.inner.tasks.write();
         if let Some(record) = tasks.get_mut(&task_id) {
-            if !record.agent.is_running() {
+            if matches!(record.runtime_state, TaskRuntimeState::Stopped) {
                 return;
             }
             if matches!(
@@ -114,9 +124,10 @@ impl TaskManager {
     pub(crate) fn finish_task(&self, task_id: Uuid, exit_code: i32, app: &AppHandle) -> Result<()> {
         let mut tasks = self.inner.tasks.write();
         let record = tasks.get_mut(&task_id).ok_or(TaskError::NotFound)?;
-        if !record.agent.is_running() {
+        if matches!(record.runtime_state, TaskRuntimeState::Stopped) {
             warn!("finish_task task_id={} without running agent", task_id);
         }
+        record.runtime_state = TaskRuntimeState::Stopped;
         record.summary.exit_code = Some(exit_code);
         record.summary.ended_at = Some(Utc::now());
         let target_status = match record.summary.status {
@@ -128,5 +139,15 @@ impl TaskManager {
         record.summary.status = target_status;
         emit_status(app, &record.summary);
         Ok(())
+    }
+}
+
+impl TaskRecord {
+    pub(crate) fn is_busy(&self) -> bool {
+        !matches!(self.runtime_state, TaskRuntimeState::Stopped)
+    }
+
+    pub(crate) fn is_running(&self) -> bool {
+        matches!(self.runtime_state, TaskRuntimeState::Running)
     }
 }

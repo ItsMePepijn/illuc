@@ -33,7 +33,7 @@ pub async fn task_discard(
             PathBuf::from(&record.summary.worktree_path),
             record.summary.branch_name.clone(),
             PathBuf::from(&record.summary.base_repo_path),
-            record.agent.is_running(),
+            record.is_busy(),
             record.shell.is_some(),
         )
     };

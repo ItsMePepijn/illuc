@@ -12,7 +12,7 @@ pub(crate) fn require_running_tui_agent_mut<'a>(
     let record = tasks
         .get_mut(&task_id)
         .ok_or_else(|| TaskError::NotFound.to_string())?;
-    if !record.agent.is_running() {
+    if !record.is_running() {
         return Err(TaskError::NotRunning.to_string());
     }
     record

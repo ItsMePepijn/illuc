@@ -117,6 +117,8 @@ pub async fn task_create(
             agent_kind: AgentKind::Codex,
             summary: summary.clone(),
             shell: None,
+            runtime_state: crate::features::tasks::TaskRuntimeState::Stopped,
+            startup_attempt_id: 0,
         },
     );
     drop(tasks);

@@ -11,7 +11,7 @@ mod worktree;
 
 pub(crate) use diff_watcher::DiffWatcher;
 pub use task_manager::TaskManager;
-pub(crate) use task_manager::{TaskRecord, TaskRuntime};
+pub(crate) use task_manager::{TaskRecord, TaskRuntime, TaskRuntimeState};
 
 pub use models::diff_payload::{DiffLine, DiffLineType};
 pub use models::TerminalKind;

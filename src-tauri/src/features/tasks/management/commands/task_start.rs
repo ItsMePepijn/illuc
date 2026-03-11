@@ -1,7 +1,7 @@
 use crate::commands::CommandResult;
 use crate::error::TaskError;
 use crate::features::tasks::agents::agent_gui::types::GuiRequestEvent;
-use crate::features::tasks::agents::{Agent, AgentCallbacks};
+use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::events::{
     emit_agent_gui_activity, emit_agent_gui_history, emit_agent_gui_hydrated,
@@ -30,14 +30,6 @@ pub struct Request {
 
 pub type Response = TaskSummary;
 
-struct PendingStartAgent;
-
-impl Agent for PendingStartAgent {
-    fn is_running(&self) -> bool {
-        true
-    }
-}
-
 #[tauri::command]
 pub async fn task_start(
     manager: tauri::State<'_, TaskManager>,
@@ -65,7 +57,7 @@ pub async fn task_start(
         let record = tasks
             .get(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
-        if record.agent.is_running() {
+        if record.is_busy() {
             return Err(TaskError::AlreadyRunning.to_string());
         }
     }
@@ -290,7 +282,7 @@ pub async fn task_start(
 
     // Start the agent outside the task map write lock because ACP startup can emit
     // callbacks that re-enter task manager state.
-    let (mut agent_to_start, agent_kind, label) = {
+    let (mut agent_to_start, agent_kind, label, startup_attempt_id) = {
         let mut tasks = manager.inner.tasks.write();
         let record = tasks
             .get_mut(&task_id)
@@ -298,18 +290,18 @@ pub async fn task_start(
         if let Some(requested_agent) = agent {
             record.agent_kind = requested_agent;
         }
-        let agent_to_start = if let Some(requested_agent) = agent {
-            let _ = std::mem::replace(&mut record.agent, Box::new(PendingStartAgent));
-            build_agent(requested_agent)
-        } else {
-            std::mem::replace(&mut record.agent, Box::new(PendingStartAgent))
-        };
+        let agent_to_start = build_agent(record.agent_kind);
         record.summary.agent_kind = record.agent_kind;
         record.summary.uses_agent_chat = agent_uses_gui_chat(record.agent_kind);
+        record.startup_attempt_id = record.startup_attempt_id.saturating_add(1);
+        record.runtime_state = crate::features::tasks::TaskRuntimeState::Starting {
+            attempt_id: record.startup_attempt_id,
+        };
         (
             agent_to_start,
             record.agent_kind,
             agent_label(record.agent_kind).to_string(),
+            record.startup_attempt_id,
         )
     };
 
@@ -322,24 +314,71 @@ pub async fn task_start(
     .with_context(|| format!("failed to start {} for task {}", label, title))
     .map_err(|err| format!("{err:#}"));
 
+    let startup_cancelled = {
+        let mut tasks = manager.inner.tasks.write();
+        let record = tasks
+            .get_mut(&task_id)
+            .ok_or_else(|| TaskError::NotFound.to_string())?;
+        let startup_cancelled = !matches!(
+            record.runtime_state,
+            crate::features::tasks::TaskRuntimeState::Starting { attempt_id }
+                if attempt_id == startup_attempt_id
+        );
+        if !startup_cancelled {
+            record.agent_kind = agent_kind;
+            record.summary.agent_kind = agent_kind;
+            record.summary.uses_agent_chat = agent_uses_gui_chat(agent_kind);
+        }
+        startup_cancelled
+    };
+
+    if startup_cancelled {
+        if start_result.is_ok() {
+            if let Err(error) = agent_to_start.stop() {
+                log::warn!(
+                    "failed to stop agent after cancelled startup for task {}: {}",
+                    task_id,
+                    error
+                );
+            }
+        }
+        let tasks = manager.inner.tasks.read();
+        let record = tasks
+            .get(&task_id)
+            .ok_or_else(|| TaskError::NotFound.to_string())?;
+        return Ok(record.summary.clone());
+    }
+
     {
         let mut tasks = manager.inner.tasks.write();
         let record = tasks
             .get_mut(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
-        record.agent_kind = agent_kind;
-        record.summary.agent_kind = agent_kind;
-        record.summary.uses_agent_chat = agent_uses_gui_chat(agent_kind);
         record.agent = agent_to_start;
     }
 
-    start_result?;
+    if let Err(error) = start_result {
+        let mut tasks = manager.inner.tasks.write();
+        let record = tasks
+            .get_mut(&task_id)
+            .ok_or_else(|| TaskError::NotFound.to_string())?;
+        if matches!(
+            record.runtime_state,
+            crate::features::tasks::TaskRuntimeState::Starting { attempt_id }
+                if attempt_id == startup_attempt_id
+        ) {
+            record.runtime_state = crate::features::tasks::TaskRuntimeState::Stopped;
+            record.agent = build_agent(agent_kind);
+        }
+        return Err(error);
+    }
 
     {
         let mut tasks = manager.inner.tasks.write();
         let record = tasks
             .get_mut(&task_id)
             .ok_or_else(|| TaskError::NotFound.to_string())?;
+        record.runtime_state = crate::features::tasks::TaskRuntimeState::Running;
         record.summary.status = TaskStatus::Idle;
         record.summary.started_at = Some(chrono::Utc::now());
         record.summary.exit_code = None;
