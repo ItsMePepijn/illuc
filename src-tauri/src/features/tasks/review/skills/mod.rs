@@ -2,6 +2,9 @@ use anyhow::Context;
 use log::info;
 use std::path::{Path, PathBuf};
 
+#[cfg(target_os = "windows")]
+use crate::utils::windows::resolve_wsl_home_dir;
+
 struct SkillAsset {
     name: &'static str,
     body: &'static str, // Entire SKILL.md contents.
@@ -22,11 +25,24 @@ const SKILLS: &[SkillAsset] = &[
     },
 ];
 
+#[cfg(target_os = "windows")]
+fn resolve_home_dir() -> anyhow::Result<PathBuf> {
+    resolve_wsl_home_dir()
+}
+
+#[cfg(not(target_os = "windows"))]
 fn resolve_home_dir() -> anyhow::Result<PathBuf> {
     std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .context("failed to resolve home directory")
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_user_home_dir() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .or_else(|| std::env::var_os("HOME"))
+        .map(PathBuf::from)
 }
 
 fn write_skill(root: &Path, skill: &SkillAsset) -> anyhow::Result<()> {
@@ -63,6 +79,49 @@ fn install_to(root: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "windows")]
+fn same_home_dir(left: &Path, right: &Path) -> bool {
+    left.to_string_lossy().replace('/', "\\").to_lowercase()
+        == right.to_string_lossy().replace('/', "\\").to_lowercase()
+}
+
+#[cfg(target_os = "windows")]
+fn remove_installed_skills(root: &Path) -> anyhow::Result<()> {
+    for skill in SKILLS {
+        let dir = root.join(skill.name);
+        if !dir.exists() {
+            continue;
+        }
+        std::fs::remove_dir_all(&dir)
+            .with_context(|| format!("failed to remove old skills dir {}", dir.display()))?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn cleanup_faulty_windows_installs(wsl_home: &Path) -> anyhow::Result<()> {
+    let Some(windows_home) = resolve_windows_user_home_dir() else {
+        return Ok(());
+    };
+
+    if same_home_dir(&windows_home, wsl_home) {
+        return Ok(());
+    }
+
+    let agents_dir = windows_home.join(".agents").join("skills");
+    let copilot_dir = windows_home.join(".copilot").join("skills");
+
+    remove_installed_skills(&agents_dir)?;
+    remove_installed_skills(&copilot_dir)?;
+
+    info!(
+        "removed legacy Windows skill installs from {} and {}",
+        agents_dir.display(),
+        copilot_dir.display()
+    );
+    Ok(())
+}
+
 /// Install illuc's built-in skills into external tool locations.
 ///
 /// Target dirs:
@@ -78,6 +137,9 @@ pub fn install_predefined_skills_on_startup() -> anyhow::Result<()> {
         .with_context(|| format!("failed installing skills into {}", agents_dir.display()))?;
     install_to(&copilot_dir)
         .with_context(|| format!("failed installing skills into {}", copilot_dir.display()))?;
+
+    #[cfg(target_os = "windows")]
+    cleanup_faulty_windows_installs(&home)?;
 
     info!(
         "installed predefined skills into {} and {}",

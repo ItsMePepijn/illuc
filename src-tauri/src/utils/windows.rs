@@ -1,4 +1,6 @@
 #[cfg(target_os = "windows")]
+use anyhow::{anyhow, Context, Result};
+#[cfg(target_os = "windows")]
 use portable_pty::CommandBuilder;
 #[cfg(target_os = "windows")]
 use std::path::Path;
@@ -95,4 +97,23 @@ pub fn build_wsl_process_command(worktree_path: &Path, command: &str, args: &[&s
         command_line.as_str(),
     ]);
     command_builder
+}
+
+#[cfg(target_os = "windows")]
+pub fn resolve_wsl_home_dir() -> Result<std::path::PathBuf> {
+    let mut command = Command::new("wsl.exe");
+    suppress_console_window(&mut command);
+    command.args(["--", "bash", "-lc", "wslpath -w \"$HOME\""]);
+
+    let output = command.output().context("failed to query WSL home directory")?;
+    if !output.status.success() {
+        return Err(anyhow!("failed to query WSL home directory"));
+    }
+
+    let home = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if home.is_empty() {
+        return Err(anyhow!("WSL home directory is empty"));
+    }
+
+    Ok(std::path::PathBuf::from(home))
 }

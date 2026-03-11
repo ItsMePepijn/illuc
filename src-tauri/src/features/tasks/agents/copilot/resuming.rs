@@ -5,7 +5,7 @@ use std::fs;
 use std::path::Path;
 
 #[cfg(target_os = "windows")]
-use crate::utils::windows::{build_wsl_process_command, to_wsl_path};
+use crate::utils::windows::{resolve_wsl_home_dir, to_wsl_path};
 
 const COPILOT_SESSION_DIR: &str = ".copilot/session-state";
 const COPILOT_LEGACY_SESSION_DIR: &str = ".copilot/history-session-state";
@@ -31,21 +31,6 @@ fn resolve_home_dir() -> anyhow::Result<std::path::PathBuf> {
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(std::path::PathBuf::from)
         .context("failed to resolve home directory")
-}
-
-#[cfg(target_os = "windows")]
-fn resolve_wsl_home_dir(worktree_path: &Path) -> anyhow::Result<std::path::PathBuf> {
-    let output = build_wsl_process_command(worktree_path, "bash", &["-lc", "wslpath -w \"$HOME\""])
-        .output()
-        .context("failed to query WSL home directory")?;
-    if !output.status.success() {
-        return Err(anyhow::anyhow!("failed to query WSL home directory"));
-    }
-    let home = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if home.is_empty() {
-        return Err(anyhow::anyhow!("WSL home directory is empty"));
-    }
-    Ok(std::path::PathBuf::from(home))
 }
 
 fn parse_timestamp(value: &str) -> Option<DateTime<Utc>> {
@@ -227,7 +212,7 @@ fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
 pub fn find_latest_session_id(worktree_path: &Path) -> anyhow::Result<Option<String>> {
     let desired_cwd = resolve_session_cwd(worktree_path)?;
     #[cfg(target_os = "windows")]
-    let home_dir = resolve_wsl_home_dir(worktree_path)?;
+    let home_dir = resolve_wsl_home_dir()?;
     #[cfg(not(target_os = "windows"))]
     let home_dir = resolve_home_dir()?;
     let primary = home_dir.join(COPILOT_SESSION_DIR);
