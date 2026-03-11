@@ -1,0 +1,45 @@
+<div
+    class="launch-dropdown"
+    [class.open]="menuOpen"
+    [class.compact]="compact"
+    (click)="$event.stopPropagation()"
+>
+    <app-loading-button
+        [buttonClass]="resolvedButtonClass"
+        [loading]="isBusy"
+        [disabled]="isDisabled"
+        [ariaLabel]="ariaLabel"
+        [ariaExpanded]="menuOpen"
+        ariaHaspopup="menu"
+        [title]="title"
+        (action)="toggleMenu($event)"
+    >
+        <app-icon-code-brackets
+            class="trigger-icon"
+            aria-hidden="true"
+        ></app-icon-code-brackets>
+        <span *ngIf="!compact" class="trigger-label">Open</span>
+        <span class="caret" aria-hidden="true">▾</span>
+    </app-loading-button>
+
+    <div
+        class="launch-menu"
+        *ngIf="menuOpen"
+        role="menu"
+        [attr.aria-label]="ariaLabel"
+    >
+        <button
+            type="button"
+            class="launch-menu-item"
+            role="menuitem"
+            *ngFor="let editor of editors"
+            [disabled]="isBusy"
+            (click)="choose(editor, $event)"
+        >
+            <app-editor-app-icon
+                [iconDataUrl]="editor.iconDataUrl ?? null"
+            ></app-editor-app-icon>
+            <span class="editor-name">{{ editor.name }}</span>
+        </button>
+    </div>
+</div>

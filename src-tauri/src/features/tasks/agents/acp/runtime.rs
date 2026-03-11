@@ -9,14 +9,14 @@ use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::TaskStatus;
 use agent_client_protocol::{
     CancelNotification, ClientSideConnection, InitializeRequest, InitializeResponse,
-    LoadSessionRequest, NewSessionRequest, SessionConfigOption, SessionConfigValueId,
-    SessionId, SetSessionConfigOptionRequest,
+    LoadSessionRequest, NewSessionRequest, SessionConfigOption, SessionConfigValueId, SessionId,
+    SetSessionConfigOptionRequest,
 };
 use anyhow::{anyhow, Context, Result};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::process::Command as TokioCommand;
 use tokio::sync::mpsc as tokio_mpsc;
@@ -93,9 +93,12 @@ pub(crate) async fn run_acp_runtime(
                     session_id.0,
                     error
                 );
-                let session = agent_client_protocol::Agent::new_session(&conn, new_session_request.clone())
-                    .await
-                    .map_err(|new_error| anyhow!("ACP new_session failed after load fallback: {}", new_error))?;
+                let session =
+                    agent_client_protocol::Agent::new_session(&conn, new_session_request.clone())
+                        .await
+                        .map_err(|new_error| {
+                            anyhow!("ACP new_session failed after load fallback: {}", new_error)
+                        })?;
                 let session_id = session.session_id.clone();
                 apply_session_response(&state, session_id.clone(), session.config_options);
             }
@@ -238,8 +241,7 @@ fn should_fallback_to_new_session(error: &agent_client_protocol::Error) -> bool 
         error.code,
         agent_client_protocol::ErrorCode::MethodNotFound
             | agent_client_protocol::ErrorCode::ResourceNotFound
-    )
-        || error.message.contains("Method not found")
+    ) || error.message.contains("Method not found")
         || error.message.contains("Resource not found")
 }
 
@@ -355,8 +357,8 @@ async fn wait_for_session_replay_quiescence(state: &SharedAcpAgentState) {
         let last_update_at = { state.lock().last_session_update_at };
         let now = std::time::Instant::now();
         let quiet_for = last_update_at.map(|instant| now.saturating_duration_since(instant));
-        let timed_out = now.saturating_duration_since(started_at)
-            >= Duration::from_millis(MAX_WAIT_MS);
+        let timed_out =
+            now.saturating_duration_since(started_at) >= Duration::from_millis(MAX_WAIT_MS);
 
         if timed_out
             || quiet_for.is_some_and(|duration| duration >= Duration::from_millis(QUIET_WINDOW_MS))
@@ -565,10 +567,12 @@ fn merge_replay_presentation(
     merged_content: String,
     is_delta: bool,
 ) -> crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation {
-    if !is_delta || matches!(
-        incoming.kind,
-        crate::features::tasks::agents::agent_gui::types::GuiMessagePresentationKind::Tool
-    ) {
+    if !is_delta
+        || matches!(
+            incoming.kind,
+            crate::features::tasks::agents::agent_gui::types::GuiMessagePresentationKind::Tool
+        )
+    {
         return finalize_replay_presentation(incoming);
     }
 

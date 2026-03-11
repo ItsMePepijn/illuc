@@ -13,12 +13,12 @@ pub struct Request {
 pub type Response = ();
 
 #[tauri::command]
-pub async fn task_open_worktree_in_vscode(
+pub async fn task_open_worktree_in_editor(
     manager: tauri::State<'_, TaskManager>,
     req: Request,
 ) -> CommandResult<Response> {
     let path = manager
         .worktree_path(req.task_id)
         .map_err(|err| err.to_string())?;
-    launcher::open_path_in_vscode(path.as_path()).map_err(|err| err.to_string())
+    launcher::open_path_in_default_editor(path.as_path()).map_err(|err| err.to_string())
 }

@@ -5,11 +5,14 @@ mod error;
 mod features;
 mod utils;
 
-use crate::features::launcher::commands::open_file_in_vscode::open_file_in_vscode;
+use crate::features::launcher::commands::list_installed_editors::list_installed_editors;
+use crate::features::launcher::commands::open_file_in_default_editor::open_file_in_default_editor;
+use crate::features::launcher::commands::open_file_in_editor::open_file_in_editor;
+use crate::features::launcher::commands::open_path_in_default_editor::open_path_in_default_editor;
+use crate::features::launcher::commands::open_path_in_editor::open_path_in_editor;
 use crate::features::launcher::commands::open_path_in_explorer::open_path_in_explorer;
-use crate::features::launcher::commands::open_path_in_vscode::open_path_in_vscode;
 use crate::features::launcher::commands::open_path_terminal::open_path_terminal;
-use crate::features::settings::commands::settings_open_in_vscode::settings_open_in_vscode;
+use crate::features::settings::commands::settings_open_in_default_editor::settings_open_in_default_editor;
 use crate::features::settings::commands::settings_theme_get::settings_theme_get;
 use crate::features::settings::ensure_user_settings_file;
 use crate::features::settings::watcher::start_settings_theme_watcher;
@@ -37,7 +40,7 @@ use crate::features::tasks::management::commands::select_base_repo::select_base_
 use crate::features::tasks::management::commands::task_create::task_create;
 use crate::features::tasks::management::commands::task_discard::task_discard;
 use crate::features::tasks::management::commands::task_load_existing::task_load_existing;
-use crate::features::tasks::management::commands::task_open_worktree_in_vscode::task_open_worktree_in_vscode;
+use crate::features::tasks::management::commands::task_open_worktree_in_editor::task_open_worktree_in_editor;
 use crate::features::tasks::management::commands::task_open_worktree_terminal::task_open_worktree_terminal;
 use crate::features::tasks::management::commands::task_start::task_start;
 use crate::features::tasks::management::commands::task_stop::task_stop;
@@ -181,10 +184,13 @@ pub fn run() {
             task_git_merge,
             task_git_push,
             task_load_existing,
-            task_open_worktree_in_vscode,
+            task_open_worktree_in_editor,
             task_open_worktree_terminal,
-            open_path_in_vscode,
-            open_file_in_vscode,
+            list_installed_editors,
+            open_file_in_editor,
+            open_path_in_editor,
+            open_path_in_default_editor,
+            open_file_in_default_editor,
             open_path_terminal,
             open_path_in_explorer,
             task_git_list_branches,
@@ -196,7 +202,7 @@ pub fn run() {
             task_review_delete_comment,
             task_review_get_user_display_name,
             task_review_update_thread_status,
-            settings_open_in_vscode,
+            settings_open_in_default_editor,
             settings_theme_get
         ])
         .run(tauri::generate_context!())

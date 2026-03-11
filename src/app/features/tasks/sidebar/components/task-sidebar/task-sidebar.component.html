@@ -4,12 +4,13 @@
             <div class="repo-head">
                 <span class="repo-label">Workspace</span>
                 <div class="repo-actions" *ngIf="baseRepo">
-                    <app-open-vscode-button
+                    <app-launch-editor-dropdown
                         [path]="baseRepo.canonicalPath"
-                        title="Open repository in VS Code"
-                        ariaLabel="Open repository in VS Code"
+                        title="Launch repository in editor"
+                        ariaLabel="Launch repository in editor"
                         buttonClass="repo-action-btn"
-                    ></app-open-vscode-button>
+                        [compact]="true"
+                    ></app-launch-editor-dropdown>
                     <app-open-terminal-button
                         [path]="baseRepo.canonicalPath"
                         title="Open repository terminal"

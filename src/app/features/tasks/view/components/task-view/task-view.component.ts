@@ -22,7 +22,7 @@ import { IconGitMergeComponent } from "../../../actions/components/icon-git-merg
 import { IconGitPushComponent } from "../../../actions/components/icon-git-push/icon-git-push.component";
 import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
 import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
-import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
+import { LaunchEditorDropdownComponent } from "../../../workspace/components/launch-editor-dropdown/launch-editor-dropdown.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { StartAgentDropdownComponent } from "../../../launcher/components/start-agent-dropdown/start-agent-dropdown.component";
 import { AgentChatComponent } from "../../../agent-chat/components/chat/chat.component";
@@ -48,7 +48,7 @@ import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
         IconGitPushComponent,
         IconTrashBinComponent,
         IconStopSquareComponent,
-        OpenVsCodeButtonComponent,
+        LaunchEditorDropdownComponent,
         OpenTerminalButtonComponent,
         StartAgentDropdownComponent,
         AgentChatComponent,

@@ -751,7 +751,10 @@ pub fn git_merge_branch(repo_root: &Path, target_branch: &str, source_branch: &s
     }
 
     let mut checkout = CheckoutBuilder::new();
-    checkout.safe().allow_conflicts(true).conflict_style_merge(true);
+    checkout
+        .safe()
+        .allow_conflicts(true)
+        .conflict_style_merge(true);
     repo.merge(&[&source_annotated], None, Some(&mut checkout))
         .map_err(map_git_err)?;
 
@@ -785,7 +788,8 @@ pub fn git_merge_branch(repo_root: &Path, target_branch: &str, source_branch: &s
     .map_err(map_git_err)?;
     let mut checkout = CheckoutBuilder::new();
     checkout.safe();
-    repo.checkout_head(Some(&mut checkout)).map_err(map_git_err)?;
+    repo.checkout_head(Some(&mut checkout))
+        .map_err(map_git_err)?;
     repo.cleanup_state().map_err(map_git_err)?;
     Ok(())
 }
@@ -801,7 +805,8 @@ fn checkout_local_branch(repo: &Repository, branch: &str) -> Result<()> {
     checkout.safe();
     repo.checkout_tree(&object, Some(&mut checkout))
         .map_err(map_git_err)?;
-    repo.set_head(reference_name.as_str()).map_err(map_git_err)?;
+    repo.set_head(reference_name.as_str())
+        .map_err(map_git_err)?;
     Ok(())
 }
 
@@ -813,7 +818,8 @@ fn fast_forward_branch_to(repo: &Repository, branch: &str, oid: git2::Oid) -> Re
     reference
         .set_target(oid, "illuc: fast-forward merge")
         .map_err(map_git_err)?;
-    repo.set_head(reference_name.as_str()).map_err(map_git_err)?;
+    repo.set_head(reference_name.as_str())
+        .map_err(map_git_err)?;
     let object = repo
         .find_object(oid, Some(ObjectType::Commit))
         .map_err(map_git_err)?;
@@ -980,8 +986,8 @@ pub fn has_uncommitted_changes(repo: &Path) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::{get_head_commit, git_merge_branch, has_uncommitted_changes};
-    use git2::{Repository, Signature};
     use git2::build::CheckoutBuilder;
+    use git2::{Repository, Signature};
     use std::fs;
     use std::path::Path;
     use uuid::Uuid;
@@ -999,7 +1005,10 @@ mod tests {
         git_merge_branch(&repo_dir, "main", "feature").unwrap();
 
         assert_eq!(repo.head().unwrap().shorthand(), Some("main"));
-        assert_eq!(get_head_commit(&repo_dir).unwrap(), feature_commit.to_string());
+        assert_eq!(
+            get_head_commit(&repo_dir).unwrap(),
+            feature_commit.to_string()
+        );
         assert!(!has_uncommitted_changes(&repo_dir).unwrap());
 
         let _ = fs::remove_dir_all(&repo_dir);
@@ -1064,7 +1073,12 @@ mod tests {
         repo.set_head(reference.as_str()).unwrap();
     }
 
-    fn create_commit(repo: &Repository, relative_path: &str, content: &str, message: &str) -> git2::Oid {
+    fn create_commit(
+        repo: &Repository,
+        relative_path: &str,
+        content: &str,
+        message: &str,
+    ) -> git2::Oid {
         let path = repo.workdir().unwrap().join(relative_path);
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).unwrap();

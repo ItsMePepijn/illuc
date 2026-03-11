@@ -5,7 +5,7 @@ pub type Request = String;
 pub type Response = ();
 
 #[tauri::command]
-pub async fn open_path_in_vscode(path: Request) -> CommandResult<Response> {
+pub async fn open_path_in_default_editor(path: Request) -> CommandResult<Response> {
     let target = std::path::PathBuf::from(path);
-    launcher::open_path_in_vscode(target.as_path()).map_err(|err| err.to_string())
+    launcher::open_path_in_default_editor(target.as_path()).map_err(|err| err.to_string())
 }

@@ -7,7 +7,7 @@ import { IconStopSquareComponent } from "../../../actions/components/icon-stop-s
 import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
 import { IconClockCircleComponent } from "../icon-clock-circle/icon-clock-circle.component";
 import { IconPlusComponent } from "../icon-plus/icon-plus.component";
-import { OpenVsCodeButtonComponent } from "../../../workspace/components/open-vscode-button/open-vscode-button.component";
+import { LaunchEditorDropdownComponent } from "../../../workspace/components/launch-editor-dropdown/launch-editor-dropdown.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
 import { OpenSettingsButtonComponent } from "../../../workspace/components/open-settings-button/open-settings-button.component";
 import { LauncherService } from "../../../../launcher/launcher.service";
@@ -22,7 +22,7 @@ import { LauncherService } from "../../../../launcher/launcher.service";
         IconTrashBinComponent,
         IconClockCircleComponent,
         IconPlusComponent,
-        OpenVsCodeButtonComponent,
+        LaunchEditorDropdownComponent,
         OpenTerminalButtonComponent,
         OpenSettingsButtonComponent,
     ],
