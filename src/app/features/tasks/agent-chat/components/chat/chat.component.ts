@@ -13,6 +13,7 @@ import { Subscription } from "rxjs";
 import { LimitStatus, Message } from "../../models";
 import {
     AgentChatActivityState,
+    AgentChatSlashCommand,
     AgentChatStore,
     AgentChatPlanState,
     AgentChatRequestState,
@@ -69,6 +70,7 @@ export class AgentChatComponent implements OnChanges, OnDestroy {
     selectedServiceTier = "";
     modelOptions: AgentChatModelOption[] = [];
     effortOptions: AgentChatModelOption[] = [];
+    slashCommands: AgentChatSlashCommand[] = [];
     showServiceTierToggle = false;
     showUsageRail = false;
     requestAnswers: Record<string, string[]> = {};
@@ -258,6 +260,7 @@ export class AgentChatComponent implements OnChanges, OnDestroy {
             this.selectedServiceTier = "";
             this.modelOptions = [];
             this.effortOptions = [];
+            this.slashCommands = [];
             this.showServiceTierToggle = false;
             this.showUsageRail = false;
             this.cdr.markForCheck();
@@ -276,6 +279,7 @@ export class AgentChatComponent implements OnChanges, OnDestroy {
         this.selectedModel = this.agentChatStore.getModel(this.taskId);
         this.selectedEffort = this.agentChatStore.getEffort(this.taskId);
         this.selectedServiceTier = this.agentChatStore.getServiceTier(this.taskId);
+        this.slashCommands = this.agentChatStore.getSlashCommands(this.taskId);
         this.applyCapabilities(this.taskId);
         this.messageSubscription = this.agentChatStore
             .messages$(this.taskId)
@@ -377,6 +381,7 @@ export class AgentChatComponent implements OnChanges, OnDestroy {
             this.selectedModel = this.agentChatStore.getModel(taskId);
             this.selectedEffort = this.agentChatStore.getEffort(taskId);
             this.selectedServiceTier = this.agentChatStore.getServiceTier(taskId);
+            this.slashCommands = this.agentChatStore.getSlashCommands(taskId);
             this.applyCapabilities(taskId);
             this.modelOptions = models.map((model) => ({
                 value: model,

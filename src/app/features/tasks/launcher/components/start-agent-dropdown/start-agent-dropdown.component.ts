@@ -27,10 +27,22 @@ export class StartAgentDropdownComponent implements OnChanges {
     readonly options = [
         { kind: AgentKind.CodexGui, label: "Codex" },
         { kind: AgentKind.CopilotGui, label: "Copilot" },
-        { kind: AgentKind.Codex, label: "Codex CLI" },
-        { kind: AgentKind.Copilot, label: "Copilot CLI" },
-        { kind: AgentKind.OpenCode, label: "OpenCode CLI" },
+        { kind: AgentKind.Codex, label: "Codex" },
+        { kind: AgentKind.Copilot, label: "Copilot" },
+        { kind: AgentKind.OpenCode, label: "OpenCode" },
     ];
+
+    isGuiAgent(kind: AgentKind): boolean {
+        return kind === AgentKind.CodexGui || kind === AgentKind.CopilotGui;
+    }
+
+    isCodexAgent(kind: AgentKind): boolean {
+        return kind === AgentKind.CodexGui || kind === AgentKind.Codex;
+    }
+
+    isCopilotAgent(kind: AgentKind): boolean {
+        return kind === AgentKind.CopilotGui || kind === AgentKind.Copilot;
+    }
 
     toggleMenu(event: MouseEvent): void {
         event.stopPropagation();

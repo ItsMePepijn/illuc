@@ -24,6 +24,7 @@
     border-radius: 14px;
     display: flex;
     flex-direction: column;
+    position: relative;
     transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -48,6 +49,23 @@
 
 .input-box textarea::placeholder {
     color: var(--text-subtle);
+}
+
+.slash-empty-state {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(100% + 10px);
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--borders-default);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surfaces-surface_strong) 92%, var(--surfaces-surface_alt));
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    z-index: 110;
 }
 
 .input-toolbar {

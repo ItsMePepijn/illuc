@@ -1,9 +1,9 @@
 use super::state::{AcpAgentState, SharedAcpAgentState, TrackedToolCall};
 use crate::features::tasks::agents::agent_gui::types::{
     GuiMessageEvent, GuiMessagePresentation, GuiMessagePresentationKind, GuiMessageRole,
-    GuiMessageTextFormat, GuiToolRow, GuiToolRowKind,
+    GuiMessageTextFormat, GuiTokenUsageEvent, GuiToolRow, GuiToolRowKind,
 };
-use crate::features::tasks::agents::AgentCallbacks;
+use crate::features::tasks::agents::{AgentCallbacks, AgentSlashCommand};
 use agent_client_protocol::{
     AvailableCommand, AvailableCommandInput, ContentBlock, SessionConfigKind, SessionConfigOption,
     SessionConfigSelectOptions, StreamMessageContent, StreamMessageDirection, StreamReceiver,
@@ -11,6 +11,7 @@ use agent_client_protocol::{
     ToolCallUpdate, ToolKind,
 };
 use anyhow::anyhow;
+use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::process::Child;
@@ -128,6 +129,73 @@ pub(crate) fn update_config_options(
 ) {
     let mut state = state.lock();
     state.config_options = config_options;
+}
+
+pub(crate) fn update_available_commands(
+    state: &SharedAcpAgentState,
+    available_commands: Vec<AvailableCommand>,
+) {
+    let mut state = state.lock();
+    state.available_commands = available_commands;
+}
+
+pub(crate) fn map_available_commands(commands: &[AvailableCommand]) -> Vec<AgentSlashCommand> {
+    commands
+        .iter()
+        .map(|command| AgentSlashCommand {
+            name: command.name.clone(),
+            description: command.description.trim().to_string(),
+            input_hint: match &command.input {
+                Some(AvailableCommandInput::Unstructured(input)) => {
+                    Some(input.hint.trim().to_string()).filter(|value| !value.is_empty())
+                }
+                Some(_) | None => None,
+            },
+        })
+        .collect()
+}
+
+pub(crate) fn update_latest_rate_limits(state: &SharedAcpAgentState, rate_limits: Option<Value>) {
+    if rate_limits.is_none() {
+        return;
+    }
+    let mut state = state.lock();
+    state.latest_rate_limits = rate_limits;
+}
+
+pub(crate) fn extract_rate_limits_from_meta(meta: Option<&Map<String, Value>>) -> Option<Value> {
+    let meta = meta?;
+    if meta.contains_key("rateLimits") || meta.contains_key("rate_limits") {
+        return Some(Value::Object(meta.clone()));
+    }
+    if meta.contains_key("primary") || meta.contains_key("secondary") {
+        return Some(Value::Object(meta.clone()));
+    }
+    None
+}
+
+pub(crate) fn rate_limits_log_value(rate_limits: Option<&Value>) -> String {
+    rate_limits
+        .map(|value| serde_json::to_string(value).unwrap_or_else(|_| "<serialize-error>".to_string()))
+        .unwrap_or_else(|| "null".to_string())
+}
+
+pub(crate) fn map_usage_update_to_gui_event(
+    usage: &agent_client_protocol::UsageUpdate,
+) -> GuiTokenUsageEvent {
+    GuiTokenUsageEvent {
+        total_tokens: usage.used,
+        input_tokens: 0,
+        cached_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0,
+        last_total_tokens: usage.used,
+        last_input_tokens: 0,
+        last_cached_input_tokens: 0,
+        last_output_tokens: 0,
+        last_reasoning_output_tokens: 0,
+        model_context_window: Some(usage.size),
+    }
 }
 
 pub(crate) fn upsert_tool_call_message(

@@ -1,0 +1,78 @@
+:host {
+    display: block;
+}
+
+.slash-menu {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(100% + 10px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid var(--borders-default);
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--brand-accent_soft) 40%, var(--surfaces-surface_strong)) 0%,
+            var(--surfaces-surface_strong) 42%
+        );
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.38), 0 4px 14px rgba(0, 0, 0, 0.24);
+    z-index: 110;
+}
+
+.slash-menu-header {
+    padding: 6px 9px 5px;
+    font-size: var(--font-size-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-subtle);
+}
+
+.slash-command-option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    width: 100%;
+    border: 0;
+    border-radius: 9px;
+    padding: 9px 10px;
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.slash-command-option:hover,
+.slash-command-option.selected {
+    background: color-mix(in srgb, var(--brand-accent_soft) 70%, transparent);
+}
+
+.slash-command-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.slash-command-name {
+    color: var(--text-default);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.slash-command-hint {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.slash-command-description {
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+}

@@ -12,6 +12,8 @@ import {
     ViewChild,
 } from "@angular/core";
 import { FormsModule } from "@angular/forms";
+import { AgentChatSlashCommand } from "../../../../agent-chat.store";
+import { SlashMenuComponent } from "./components/slash-menu/slash-menu.component";
 import { ContextStatusComponent } from "../context-status/context-status.component";
 
 export type AgentChatModelOption = { value: string; label: string };
@@ -19,7 +21,7 @@ export type AgentChatModelOption = { value: string; label: string };
 @Component({
     selector: "app-agent-chat-composer",
     standalone: true,
-    imports: [CommonModule, FormsModule, ContextStatusComponent],
+    imports: [CommonModule, FormsModule, ContextStatusComponent, SlashMenuComponent],
     templateUrl: "./composer.component.html",
     styleUrl: "./composer.component.css",
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -36,6 +38,7 @@ export class ComposerComponent implements OnChanges {
     @Input() modelOptions: AgentChatModelOption[] = [];
     @Input() selectedEffort = "";
     @Input() effortOptions: AgentChatModelOption[] = [];
+    @Input() slashCommands: AgentChatSlashCommand[] = [];
     @Input() selectedServiceTier = "";
     @Input() showServiceTierToggle = false;
 
@@ -50,6 +53,8 @@ export class ComposerComponent implements OnChanges {
 
     modelMenuOpen = false;
     effortMenuOpen = false;
+    slashMenuIndex = 0;
+    private dismissedSlashPrompt = "";
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes["prompt"]) {
@@ -58,11 +63,38 @@ export class ComposerComponent implements OnChanges {
     }
 
     onPromptInput(value: string): void {
+        this.prompt = value;
+        if (value !== this.dismissedSlashPrompt) {
+            this.dismissedSlashPrompt = "";
+        }
         this.promptChange.emit(value);
+        this.resetSlashMenuSelection();
         this.resizeComposer();
     }
 
     onKeyDown(event: KeyboardEvent): void {
+        if (this.isSlashMenuOpen()) {
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                this.moveSlashMenu(1);
+                return;
+            }
+            if (event.key === "ArrowUp") {
+                event.preventDefault();
+                this.moveSlashMenu(-1);
+                return;
+            }
+            if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
+                event.preventDefault();
+                this.applySelectedSlashCommand();
+                return;
+            }
+            if (event.key === "Escape") {
+                event.preventDefault();
+                this.dismissedSlashPrompt = this.prompt;
+                return;
+            }
+        }
         if (event.key === "Escape" && this.isWorking) {
             event.preventDefault();
             this.stopRequested.emit();
@@ -73,6 +105,37 @@ export class ComposerComponent implements OnChanges {
         }
         event.preventDefault();
         this.sendRequested.emit();
+    }
+
+    filteredSlashCommands(): AgentChatSlashCommand[] {
+        const query = this.slashQuery();
+        if (query === null) {
+            return [];
+        }
+        const normalized = query.trim().toLowerCase();
+        if (!normalized) {
+            return this.slashCommands;
+        }
+        return this.slashCommands.filter((command) => {
+            const haystack = `${command.name} ${command.description}`.toLowerCase();
+            return haystack.includes(normalized);
+        });
+    }
+
+    showSlashEmptyState(): boolean {
+        return this.slashQuery() !== null && this.filteredSlashCommands().length === 0;
+    }
+
+    isSlashMenuOpen(): boolean {
+        return (
+            this.prompt !== this.dismissedSlashPrompt &&
+            this.slashQuery() !== null &&
+            this.filteredSlashCommands().length > 0
+        );
+    }
+
+    selectSlashCommand(command: AgentChatSlashCommand): void {
+        this.applySlashCommand(command);
     }
 
     onSend(): void {
@@ -166,6 +229,62 @@ export class ComposerComponent implements OnChanges {
     closeModelMenu(): void {
         this.modelMenuOpen = false;
         this.effortMenuOpen = false;
+    }
+
+    private slashQuery(): string | null {
+        const match = this.prompt.match(/^\s*\/([^\s\n]*)$/);
+        return match ? match[1] ?? "" : null;
+    }
+
+    private moveSlashMenu(delta: number): void {
+        const commands = this.filteredSlashCommands();
+        if (commands.length === 0) {
+            this.slashMenuIndex = 0;
+            return;
+        }
+        this.slashMenuIndex =
+            (this.slashMenuIndex + delta + commands.length) % commands.length;
+    }
+
+    private applySelectedSlashCommand(): void {
+        const command = this.filteredSlashCommands()[this.slashMenuIndex];
+        if (!command) {
+            return;
+        }
+        this.applySlashCommand(command);
+    }
+
+    private applySlashCommand(command: AgentChatSlashCommand): void {
+        const match = this.prompt.match(/^(\s*)\/([^\s\n]*)/);
+        const replacement = `${match?.[1] ?? ""}/${command.name}${
+            command.inputHint ? " " : ""
+        }`;
+        const nextPrompt = match
+            ? replacement + this.prompt.slice(match[0].length)
+            : replacement;
+        this.prompt = nextPrompt;
+        this.dismissedSlashPrompt = "";
+        this.slashMenuIndex = 0;
+        this.promptChange.emit(nextPrompt);
+        requestAnimationFrame(() => {
+            const textarea = this.composerInput?.nativeElement;
+            if (!textarea) {
+                return;
+            }
+            const cursor = replacement.length;
+            textarea.focus();
+            textarea.setSelectionRange(cursor, cursor);
+            this.resizeComposer();
+        });
+    }
+
+    private resetSlashMenuSelection(): void {
+        const commands = this.filteredSlashCommands();
+        if (commands.length === 0) {
+            this.slashMenuIndex = 0;
+            return;
+        }
+        this.slashMenuIndex = Math.min(this.slashMenuIndex, commands.length - 1);
     }
 
     private resizeComposer(): void {

@@ -38,6 +38,14 @@ pub struct AgentModelCapability {
     pub reasoning_efforts: Vec<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentSlashCommand {
+    pub name: String,
+    pub description: String,
+    pub input_hint: Option<String>,
+}
+
 pub trait Agent: Send + Sync {
     fn start(&mut self, _worktree_path: &Path, _callbacks: AgentCallbacks) -> anyhow::Result<()> {
         Err(anyhow!("agent does not support process startup"))
@@ -124,6 +132,10 @@ pub trait GuiAgent: Agent {
     }
 
     fn available_model_capabilities(&self) -> Vec<AgentModelCapability> {
+        Vec::new()
+    }
+
+    fn available_slash_commands(&self) -> Vec<AgentSlashCommand> {
         Vec::new()
     }
 

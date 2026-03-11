@@ -371,7 +371,7 @@
 }
 
 .terminal-idle-content {
-    max-width: 440px;
+    max-width: 640px;
     text-align: center;
     padding: 1rem;
 }
@@ -394,33 +394,11 @@
     margin: 0.6rem 0 1.15rem;
     color: var(--text-subtle);
     line-height: 1.5;
+    white-space: nowrap;
 }
 
 :host ::ng-deep .terminal-idle-placeholder .start-dropdown {
     justify-content: center;
-}
-
-:host ::ng-deep .terminal-idle-placeholder .start-trigger {
-    height: 42px;
-    padding: 0 1.15rem;
-    font-size: var(--font-size-md);
-    border-color: var(--brand-accent);
-    /* Use theme tokens here; hardcoding RGBA breaks when the accent changes (dark/dracula/etc). */
-    background: linear-gradient(
-        180deg,
-        var(--surfaces-surface_strong) 0%,
-        var(--surfaces-surface_alt) 100%
-    );
-    box-shadow: 0 10px 24px var(--effects-shadow_soft);
-}
-
-:host ::ng-deep .terminal-idle-placeholder .start-trigger:hover:not(:disabled) {
-    background: linear-gradient(
-        180deg,
-        var(--surfaces-surface_alt) 0%,
-        var(--surfaces-surface_strong) 100%
-    );
-    border-color: var(--brand-accent_strong);
 }
 
 .diff-column {

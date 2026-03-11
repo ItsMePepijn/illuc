@@ -40,7 +40,7 @@ notify = "8.2.0"
 git2 = "0.20.3"
 whoami = "1"
 raw-window-handle = "0.6"
-agent-client-protocol = "0.9.5"
+agent-client-protocol = { version = "0.9.5", features = ["unstable_session_info_update", "unstable_session_usage"] }
 async-trait = "0.1"
 tokio = { version = "1", features = ["io-util", "process", "rt", "sync", "time"] }
 tokio-util = { version = "0.7", features = ["compat"] }

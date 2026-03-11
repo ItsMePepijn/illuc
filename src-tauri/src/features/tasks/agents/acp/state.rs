@@ -1,8 +1,10 @@
 use super::command::AcpCommand;
 use agent_client_protocol::{
-    PermissionOption, RequestPermissionResponse, SessionConfigOption, SessionId, ToolCall,
+    AvailableCommand, PermissionOption, RequestPermissionResponse, SessionConfigOption, SessionId,
+    ToolCall,
 };
 use parking_lot::Mutex;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
@@ -15,6 +17,8 @@ pub(crate) struct AcpAgentState {
     pub(crate) exit_code: Option<i32>,
     pub(crate) session_id: Option<SessionId>,
     pub(crate) config_options: Vec<SessionConfigOption>,
+    pub(crate) available_commands: Vec<AvailableCommand>,
+    pub(crate) latest_rate_limits: Option<Value>,
     pub(crate) pending_permission_requests: HashMap<String, PendingPermissionRequest>,
     pub(crate) next_message_id: u64,
     pub(crate) active_message_ids: HashMap<String, String>,

@@ -2,8 +2,9 @@ use super::state::{PendingPermissionRequest, SharedAcpAgentState};
 use super::terminal::TerminalStore;
 use super::utils::{
     anyhow_to_acp_error, apply_tool_call_update, available_commands_summary, emit_chunk,
-    emit_session_note, io_to_acp_error, select_lines, update_config_options,
-    upsert_tool_call_message,
+    emit_session_note, extract_rate_limits_from_meta, io_to_acp_error,
+    map_usage_update_to_gui_event, select_lines, update_available_commands, update_config_options,
+    update_latest_rate_limits, upsert_tool_call_message,
 };
 use crate::features::tasks::agents::agent_gui::types::{
     GuiMessageRole, GuiPlanEvent, GuiPlanStep, GuiRequestEvent, GuiRequestQuestion,
@@ -172,6 +173,7 @@ impl AcpClient for AcpClientHandler {
                 apply_tool_call_update(&self.state, &self.callbacks, update);
             }
             SessionUpdate::AvailableCommandsUpdate(update) => {
+                update_available_commands(&self.state, update.available_commands.clone());
                 emit_session_note(
                     &self.state,
                     &self.callbacks,
@@ -191,6 +193,15 @@ impl AcpClient for AcpClientHandler {
             }
             SessionUpdate::ConfigOptionUpdate(update) => {
                 update_config_options(&self.state, update.config_options.clone());
+            }
+            SessionUpdate::SessionInfoUpdate(update) => {
+                let extracted_rate_limits = extract_rate_limits_from_meta(update.meta.as_ref());
+                update_latest_rate_limits(&self.state, extracted_rate_limits);
+            }
+            SessionUpdate::UsageUpdate(update) => {
+                let extracted_rate_limits = extract_rate_limits_from_meta(update.meta.as_ref());
+                update_latest_rate_limits(&self.state, extracted_rate_limits);
+                (self.callbacks.on_gui_token_usage)(map_usage_update_to_gui_event(&update));
             }
             _ => {}
         }

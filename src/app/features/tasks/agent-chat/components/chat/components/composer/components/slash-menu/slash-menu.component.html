@@ -1,0 +1,18 @@
+<div class="slash-menu">
+    <div class="slash-menu-header">ACP commands</div>
+    <button
+        type="button"
+        class="slash-command-option"
+        *ngFor="let command of commands; let i = index"
+        [class.selected]="i === selectedIndex"
+        (click)="onSelect(command, $event)"
+    >
+        <span class="slash-command-main">
+            <span class="slash-command-name">{{ slashCommandLabel(command) }}</span>
+            <span class="slash-command-hint" *ngIf="command.inputHint">
+                {{ command.inputHint }}
+            </span>
+        </span>
+        <span class="slash-command-description">{{ command.description }}</span>
+    </button>
+</div>

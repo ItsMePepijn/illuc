@@ -3,9 +3,10 @@ use super::command::AcpCommand;
 use super::config::AcpAgentConfig;
 use super::runtime::{run_acp_runtime, set_exit_code};
 use super::state::{AcpAgentState, SharedAcpAgentState};
+use super::utils::map_available_commands;
 use crate::features::tasks::agents::{
-    AcpAgent as AcpAgentTrait, Agent, AgentCallbacks, AgentModelCapability, GuiAgent,
-    GuiSessionAgent,
+    AcpAgent as AcpAgentTrait, Agent, AgentCallbacks, AgentModelCapability, AgentSlashCommand,
+    GuiAgent, GuiSessionAgent, GuiUsageAgent,
 };
 use agent_client_protocol::{
     SessionConfigKind, SessionConfigOption, SessionConfigOptionCategory, SessionConfigSelectOptions,
@@ -90,6 +91,7 @@ impl<C: AcpAgentConfig> Agent for AcpAgent<C> {
             state.exit_code = None;
             state.session_id = None;
             state.config_options.clear();
+            state.available_commands.clear();
             state.pending_permission_requests.clear();
             state.next_message_id = 0;
             state.active_message_ids.clear();
@@ -172,6 +174,14 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
         Some(self)
     }
 
+    fn as_gui_usage_agent(&self) -> Option<&dyn GuiUsageAgent> {
+        Some(self)
+    }
+
+    fn as_gui_usage_agent_mut(&mut self) -> Option<&mut dyn GuiUsageAgent> {
+        Some(self)
+    }
+
     fn send_message(&mut self, content: String) -> Result<()> {
         let trimmed = content.trim().to_string();
         if trimmed.is_empty() {
@@ -220,6 +230,11 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
             .collect()
     }
 
+    fn available_slash_commands(&self) -> Vec<AgentSlashCommand> {
+        let state = self.state.lock();
+        map_available_commands(&state.available_commands)
+    }
+
     fn selected_model(&self) -> Option<String> {
         let state = self.state.lock();
         state
@@ -256,6 +271,12 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
 impl<C: AcpAgentConfig> GuiSessionAgent for AcpAgent<C> {
     fn start_new_thread(&mut self) -> Result<()> {
         self.send_command(|reply| AcpCommand::NewSession { reply })
+    }
+}
+
+impl<C: AcpAgentConfig> GuiUsageAgent for AcpAgent<C> {
+    fn refresh_rate_limits(&mut self) -> anyhow::Result<Option<Value>> {
+        Ok(self.state.lock().latest_rate_limits.clone())
     }
 }
 

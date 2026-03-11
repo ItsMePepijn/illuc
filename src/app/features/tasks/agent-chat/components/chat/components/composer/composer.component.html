@@ -21,6 +21,17 @@
                 (keydown)="onKeyDown($event)"
             ></textarea>
 
+            <app-agent-chat-slash-menu
+                *ngIf="isSlashMenuOpen()"
+                [commands]="filteredSlashCommands()"
+                [selectedIndex]="slashMenuIndex"
+                (commandSelected)="selectSlashCommand($event)"
+            ></app-agent-chat-slash-menu>
+
+            <p class="slash-empty-state" *ngIf="showSlashEmptyState()">
+                No ACP slash commands exposed by this agent
+            </p>
+
             <div class="input-toolbar">
                 <!-- TODO(attachments): re-enable attach button once upload flow is implemented.
                 <button class="plus-btn" type="button" aria-label="Attach">

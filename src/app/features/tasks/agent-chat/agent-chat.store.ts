@@ -52,6 +52,7 @@ export type AgentChatCapabilitiesState = {
     supportsThreadHistory: boolean;
     supportsUsage: boolean;
     supportsServiceTierToggle: boolean;
+    supportsSlashCommands: boolean;
 };
 
 @Injectable({
@@ -94,6 +95,7 @@ export class AgentChatStore implements OnDestroy {
     private readonly agentChatSelectedModel = new Map<string, string>();
     private readonly agentChatSelectedEffort = new Map<string, string>();
     private readonly agentChatSelectedServiceTier = new Map<string, string>();
+    private readonly agentChatSlashCommands = new Map<string, AgentChatSlashCommand[]>();
     private readonly agentChatModelCapabilities = new Map<
         string,
         AgentChatModelCapability[]
@@ -134,6 +136,7 @@ export class AgentChatStore implements OnDestroy {
             selectedModel: Object.fromEntries(this.agentChatSelectedModel),
             selectedEffort: Object.fromEntries(this.agentChatSelectedEffort),
             selectedServiceTier: Object.fromEntries(this.agentChatSelectedServiceTier),
+            slashCommands: Object.fromEntries(this.agentChatSlashCommands),
             modelCapabilities: Object.fromEntries(this.agentChatModelCapabilities),
             capabilities: Object.fromEntries(this.agentChatCapabilities),
         };
@@ -152,6 +155,7 @@ export class AgentChatStore implements OnDestroy {
             this.agentChatSelectedServiceTier,
             snapshot.selectedServiceTier,
         );
+        this.restoreMap(this.agentChatSlashCommands, snapshot.slashCommands);
         this.restoreMap(
             this.agentChatModelCapabilities,
             snapshot.modelCapabilities,
@@ -175,6 +179,7 @@ export class AgentChatStore implements OnDestroy {
         this.agentChatSelectedModel.clear();
         this.agentChatSelectedEffort.clear();
         this.agentChatSelectedServiceTier.clear();
+        this.agentChatSlashCommands.clear();
         this.agentChatModelCapabilities.clear();
         this.agentChatCapabilities.clear();
         this.agentChatMetadataRequests.clear();
@@ -190,6 +195,7 @@ export class AgentChatStore implements OnDestroy {
         this.setAgentChatPlan(taskId, null);
         this.setAgentChatTokenUsage(taskId, null);
         this.setAgentChatRequest(taskId, null);
+        this.agentChatSlashCommands.delete(taskId);
         this.agentChatCapabilities.delete(taskId);
         this.agentChatMetadataRequests.delete(taskId);
     }
@@ -210,6 +216,7 @@ export class AgentChatStore implements OnDestroy {
         this.agentChatSelectedModel.delete(taskId);
         this.agentChatSelectedEffort.delete(taskId);
         this.agentChatSelectedServiceTier.delete(taskId);
+        this.agentChatSlashCommands.delete(taskId);
         this.agentChatModelCapabilities.delete(taskId);
         this.agentChatCapabilities.delete(taskId);
         this.agentChatMetadataRequests.delete(taskId);
@@ -421,6 +428,10 @@ export class AgentChatStore implements OnDestroy {
         );
     }
 
+    getSlashCommands(taskId: string): AgentChatSlashCommand[] {
+        return this.agentChatSlashCommands.get(taskId) ?? [];
+    }
+
     setServiceTier(taskId: string, serviceTier: string): void {
         this.setTrimmedValue(
             this.agentChatSelectedServiceTier,
@@ -484,6 +495,7 @@ export class AgentChatStore implements OnDestroy {
                     taskId,
                     response.modelCapabilities ?? [],
                 );
+                this.agentChatSlashCommands.set(taskId, response.slashCommands ?? []);
                 this.setTrimmedValue(
                     this.agentChatSelectedModel,
                     taskId,
@@ -1001,6 +1013,7 @@ export type AgentChatStoreDevState = {
     selectedModel: Record<string, string>;
     selectedEffort: Record<string, string>;
     selectedServiceTier: Record<string, string>;
+    slashCommands: Record<string, AgentChatSlashCommand[]>;
     modelCapabilities: Record<string, AgentChatModelCapability[]>;
     capabilities: Record<string, AgentChatCapabilitiesState>;
 };
@@ -1008,6 +1021,7 @@ export type AgentChatStoreDevState = {
 type AgentChatModelsResponse = {
     models: string[];
     modelCapabilities: AgentChatModelCapability[];
+    slashCommands?: AgentChatSlashCommand[];
     selectedModel?: string | null;
     selectedEffort?: string | null;
     selectedServiceTier?: string | null;
@@ -1023,6 +1037,12 @@ type AgentChatUsageResponse = {
 type AgentChatModelCapability = {
     model: string;
     reasoningEfforts: string[];
+};
+
+export type AgentChatSlashCommand = {
+    name: string;
+    description: string;
+    inputHint?: string | null;
 };
 
 type AgentChatRollbackResponse = {
@@ -1042,6 +1062,7 @@ function defaultAgentChatCapabilities(): AgentChatCapabilitiesState {
         supportsThreadHistory: false,
         supportsUsage: false,
         supportsServiceTierToggle: false,
+        supportsSlashCommands: false,
     };
 }
 
@@ -1053,5 +1074,6 @@ function normalizeAgentChatCapabilities(
         supportsThreadHistory: value?.supportsThreadHistory === true,
         supportsUsage: value?.supportsUsage === true,
         supportsServiceTierToggle: value?.supportsServiceTierToggle === true,
+        supportsSlashCommands: value?.supportsSlashCommands === true,
     };
 }

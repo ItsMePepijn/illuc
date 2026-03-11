@@ -341,6 +341,8 @@ fn apply_session_response(
         state.active_message_ids.clear();
         state.session_message_ids.clear();
         state.tool_call_messages.clear();
+        state.available_commands.clear();
+        state.latest_rate_limits = None;
         state.config_options = config_options;
         state.last_session_update_at = None;
     }

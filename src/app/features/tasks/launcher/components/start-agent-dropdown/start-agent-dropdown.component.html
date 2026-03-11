@@ -11,8 +11,7 @@
         ariaHaspopup="menu"
         (action)="toggleMenu($event)"
     >
-        <span class="start-icon" aria-hidden="true">▶</span>
-        <span class="start-label">Start</span>
+        <span class="start-label">Start Agent</span>
         <span class="caret" aria-hidden="true">▾</span>
     </app-loading-button>
     <div
@@ -29,8 +28,39 @@
             [disabled]="disabled || loading"
             (click)="choose(option.kind, $event)"
         >
-            <span class="menu-caret" aria-hidden="true">&gt;</span>
-            Launch {{ option.label }}
+            <span class="agent-icon" [attr.data-agent]="option.kind" aria-hidden="true">
+                <svg *ngIf="isCodexAgent(option.kind)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <path d="M8 8 4 12l4 4"></path>
+                    <path d="m16 8 4 4-4 4"></path>
+                    <path d="m14 5-4 14"></path>
+                </svg>
+                <svg *ngIf="isCopilotAgent(option.kind)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 4.5v3"></path>
+                    <path d="m9.8 6.7 2.2-2.2 2.2 2.2"></path>
+                    <path d="M7 13a5 5 0 0 1 10 0v1.5a2.5 2.5 0 0 1-2.5 2.5h-5A2.5 2.5 0 0 1 7 14.5Z"></path>
+                    <path d="M9.5 17v1a2.5 2.5 0 0 0 5 0v-1"></path>
+                    <circle cx="10" cy="12.5" r=".75" fill="currentColor" stroke="none"></circle>
+                    <circle cx="14" cy="12.5" r=".75" fill="currentColor" stroke="none"></circle>
+                </svg>
+                <svg *ngIf="!isCodexAgent(option.kind) && !isCopilotAgent(option.kind)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="4" y="5" width="16" height="14" rx="2"></rect>
+                    <path d="M4 9h16"></path>
+                    <path d="m9 13-2 2 2 2"></path>
+                    <path d="m12 17 2-4"></path>
+                    <path d="m15 13 2 2-2 2"></path>
+                </svg>
+            </span>
+            <span class="menu-copy">
+                <span class="menu-label">{{ option.label }}</span>
+                <span class="menu-description" *ngIf="isGuiAgent(option.kind)">
+                    Chat-first agent session
+                </span>
+                <span class="menu-description" *ngIf="!isGuiAgent(option.kind)">
+                    Terminal-driven agent session
+                </span>
+            </span>
+            <span class="menu-meta" *ngIf="isGuiAgent(option.kind)">GUI</span>
+            <span class="menu-meta" *ngIf="!isGuiAgent(option.kind)">CLI</span>
         </button>
     </div>
 </div>
