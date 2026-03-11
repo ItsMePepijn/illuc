@@ -13,6 +13,7 @@ import { LoadingButtonComponent } from "../../../../../shared/components/loading
 import { TaskStore } from "../../../task.store";
 import { IconCodeBracketsComponent } from "../icon-code-brackets/icon-code-brackets.component";
 import { EditorAppIconComponent } from "../editor-app-icon/editor-app-icon.component";
+import { IconFolderOpenComponent } from "../icon-folder-open/icon-folder-open.component";
 
 @Component({
     selector: "app-launch-editor-dropdown",
@@ -22,11 +23,16 @@ import { EditorAppIconComponent } from "../editor-app-icon/editor-app-icon.compo
         LoadingButtonComponent,
         IconCodeBracketsComponent,
         EditorAppIconComponent,
+        IconFolderOpenComponent,
     ],
     templateUrl: "./launch-editor-dropdown.component.html",
     styleUrl: "./launch-editor-dropdown.component.css",
 })
 export class LaunchEditorDropdownComponent implements OnInit {
+    private readonly isWindows = navigator.userAgent
+        .toLowerCase()
+        .includes("windows");
+
     @Input() path: string | null = null;
     @Input() title = "Launch in editor";
     @Input() ariaLabel = "Launch in editor";
@@ -51,7 +57,7 @@ export class LaunchEditorDropdownComponent implements OnInit {
     }
 
     get isDisabled(): boolean {
-        return !this.path || this.isBusy || this.editors.length === 0;
+        return !this.path || this.isBusy;
     }
 
     get resolvedButtonClass(): string {
@@ -61,6 +67,10 @@ export class LaunchEditorDropdownComponent implements OnInit {
         ]
             .filter(Boolean)
             .join(" ");
+    }
+
+    get explorerLabel(): string {
+        return this.isWindows ? "Open in Explorer" : "Open in File Manager";
     }
 
     ngOnInit(): void {
@@ -107,6 +117,27 @@ export class LaunchEditorDropdownComponent implements OnInit {
             }
         } catch (error) {
             console.error(`Failed to launch ${editor.name}`, error);
+        } finally {
+            this.zone.run(() => {
+                this.launchingEditorId = null;
+                this.cdr.markForCheck();
+            });
+        }
+    }
+
+    async openInExplorer(event: MouseEvent): Promise<void> {
+        event.stopPropagation();
+        if (!this.path || this.isBusy) {
+            return;
+        }
+
+        this.menuOpen = false;
+        this.launchingEditorId = "__explorer__";
+
+        try {
+            await this.launcher.openInExplorer(this.path);
+        } catch (error) {
+            console.error(`Failed to ${this.explorerLabel.toLowerCase()}`, error);
         } finally {
             this.zone.run(() => {
                 this.launchingEditorId = null;

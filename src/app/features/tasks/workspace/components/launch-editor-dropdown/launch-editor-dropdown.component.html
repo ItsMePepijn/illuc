@@ -41,5 +41,18 @@
             ></app-editor-app-icon>
             <span class="editor-name">{{ editor.name }}</span>
         </button>
+
+        <div class="launch-menu-divider" aria-hidden="true"></div>
+
+        <button
+            type="button"
+            class="launch-menu-item launch-menu-item-special"
+            role="menuitem"
+            [disabled]="isBusy"
+            (click)="openInExplorer($event)"
+        >
+            <app-icon-folder-open aria-hidden="true"></app-icon-folder-open>
+            <span class="editor-name">{{ explorerLabel }}</span>
+        </button>
     </div>
 </div>

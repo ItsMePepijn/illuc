@@ -75,6 +75,16 @@
     outline-offset: 2px;
 }
 
+.launch-menu-divider {
+    height: 1px;
+    background: var(--borders-default);
+    margin: 0.15rem 0;
+}
+
+.launch-menu-item-special {
+    margin-top: 0;
+}
+
 .editor-name {
     white-space: nowrap;
 }
