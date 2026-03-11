@@ -6,7 +6,9 @@ use anyhow::{Context, Result};
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::path::Path;
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, Stdio};
+#[cfg(not(target_os = "windows"))]
+use std::process::Command;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;

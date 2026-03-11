@@ -6,7 +6,6 @@ use crate::utils::pty::{ChildHandle, MasterHandle, ReadHandle, WriteHandle};
 use crate::utils::screen::Screen;
 #[cfg(target_os = "windows")]
 use crate::utils::wsl_pty::spawn_wsl_pty;
-#[cfg(not(target_os = "windows"))]
 use anyhow::Context;
 use log::warn;
 use parking_lot::Mutex;

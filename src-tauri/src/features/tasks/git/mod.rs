@@ -9,7 +9,7 @@ use git2::{
 use log::warn;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
@@ -364,7 +364,101 @@ pub fn add_worktree(
     options.reference(Some(&reference));
     repo.worktree(worktree_name, worktree_path, Some(&options))
         .map_err(map_git_err)?;
+    ensure_relative_worktree_gitdir(worktree_path)?;
     Ok(())
+}
+
+pub fn ensure_relative_worktree_gitdir(worktree_path: &Path) -> Result<()> {
+    let git_file_path = worktree_path.join(".git");
+    let git_file = std::fs::read_to_string(&git_file_path)
+        .map_err(|error| TaskError::Message(error.to_string()))?;
+    let Some(gitdir) = git_file
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("gitdir:").map(str::trim))
+    else {
+        return Ok(());
+    };
+
+    let gitdir_path = normalize_relative_path_input(Path::new(gitdir));
+    if !gitdir_path.is_absolute() {
+        return Ok(());
+    }
+
+    let worktree_root = std::fs::canonicalize(worktree_path)
+        .map_err(|error| TaskError::Message(error.to_string()))?;
+    let worktree_root = normalize_relative_path_input(&worktree_root);
+    let relative_gitdir = diff_paths(&gitdir_path, &worktree_root).ok_or_else(|| {
+        TaskError::Message(format!(
+            "failed to relativize gitdir {} from worktree {}",
+            gitdir_path.display(),
+            worktree_root.display()
+        ))
+    })?;
+
+    let relative_gitdir = relative_gitdir.to_string_lossy().replace('\\', "/");
+    std::fs::write(&git_file_path, format!("gitdir: {relative_gitdir}\n"))
+        .map_err(|error| TaskError::Message(error.to_string()))?;
+    Ok(())
+}
+
+fn diff_paths(path: &Path, base: &Path) -> Option<PathBuf> {
+    let path_components: Vec<_> = path.components().collect();
+    let base_components: Vec<_> = base.components().collect();
+
+    let mut common_length = 0usize;
+    while common_length < path_components.len()
+        && common_length < base_components.len()
+        && path_components[common_length] == base_components[common_length]
+    {
+        common_length += 1;
+    }
+
+    let path_prefix = path_components
+        .iter()
+        .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
+        .count();
+    let base_prefix = base_components
+        .iter()
+        .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
+        .count();
+    if common_length < path_prefix.max(base_prefix) {
+        return None;
+    }
+
+    let mut relative = PathBuf::new();
+    for component in &base_components[common_length..] {
+        if matches!(component, Component::Normal(_) | Component::ParentDir) {
+            relative.push("..");
+        }
+    }
+    for component in &path_components[common_length..] {
+        match component {
+            Component::Normal(value) => relative.push(value),
+            Component::CurDir => {}
+            Component::ParentDir => relative.push(".."),
+            Component::Prefix(_) | Component::RootDir => return None,
+        }
+    }
+
+    if relative.as_os_str().is_empty() {
+        relative.push(".");
+    }
+    Some(relative)
+}
+
+#[cfg(target_os = "windows")]
+fn normalize_relative_path_input(path: &Path) -> PathBuf {
+    let value = path.to_string_lossy().replace('/', "\\");
+    let value = value
+        .strip_prefix(r"\\?\")
+        .map(str::to_string)
+        .unwrap_or(value);
+    PathBuf::from(value)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn normalize_relative_path_input(path: &Path) -> PathBuf {
+    path.to_path_buf()
 }
 
 pub fn remove_worktree(repo_root: &Path, worktree_path: &Path) -> Result<()> {

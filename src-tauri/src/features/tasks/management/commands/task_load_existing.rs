@@ -1,7 +1,8 @@
 use crate::commands::CommandResult;
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::git::{
-    get_head_branch, get_head_commit, get_repo_root, list_worktrees, prune_worktrees,
+    ensure_relative_worktree_gitdir, get_head_branch, get_head_commit, get_repo_root,
+    list_worktrees, prune_worktrees,
     validate_git_repo,
 };
 use crate::features::tasks::worktree::{
@@ -56,6 +57,13 @@ pub async fn task_load_existing(
     let entries = list_worktrees(&repo_root).map_err(|err| err.to_string())?;
     let mut inserted = Vec::new();
     for entry in entries {
+        if let Err(err) = ensure_relative_worktree_gitdir(&entry.path) {
+            warn!(
+                "failed to rewrite .git gitdir for worktree {}: {}",
+                entry.path.display(),
+                err
+            );
+        }
         let canonical_path = entry.path.canonicalize().unwrap_or_else(|err| {
             warn!(
                 "failed to canonicalize worktree path {}; using raw path: {}",

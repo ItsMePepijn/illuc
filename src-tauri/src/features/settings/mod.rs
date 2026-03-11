@@ -24,7 +24,7 @@ pub(crate) struct ThemeSettingsSnapshot {
 }
 
 pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Theme>>) -> String {
-    let mut resolved = match window_theme {
+    let resolved = match window_theme {
         Some(Ok(tauri::Theme::Dark)) => "dark".to_string(),
         Some(Ok(tauri::Theme::Light)) => "light".to_string(),
         Some(Ok(_)) => DEFAULT_THEME_NAME.to_string(),
@@ -35,17 +35,25 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
     // Prefer the explicit desktop setting when available.
     #[cfg(target_os = "linux")]
     {
-        if let Some(color_scheme) = gnome_color_scheme() {
-            if matches!(color_scheme.as_str(), "prefer-dark" | "dark") {
-                resolved = "dark".to_string();
-            } else if matches!(color_scheme.as_str(), "default" | "prefer-light" | "light") {
-                resolved = "light".to_string();
-            }
-        } else if let Some(gtk_theme) = gnome_gtk_theme_name() {
-            // Older GNOME setups often encode dark preference in the GTK theme name.
-            if gtk_theme.to_ascii_lowercase().contains("dark") {
-                resolved = "dark".to_string();
-            }
+        return resolve_linux_theme_name(resolved);
+    }
+
+    resolved
+}
+
+#[cfg(target_os = "linux")]
+fn resolve_linux_theme_name(resolved: String) -> String {
+    if let Some(color_scheme) = gnome_color_scheme() {
+        if matches!(color_scheme.as_str(), "prefer-dark" | "dark") {
+            return "dark".to_string();
+        }
+        if matches!(color_scheme.as_str(), "default" | "prefer-light" | "light") {
+            return "light".to_string();
+        }
+    } else if let Some(gtk_theme) = gnome_gtk_theme_name() {
+        // Older GNOME setups often encode dark preference in the GTK theme name.
+        if gtk_theme.to_ascii_lowercase().contains("dark") {
+            return "dark".to_string();
         }
     }
 
