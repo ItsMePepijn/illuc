@@ -82,9 +82,13 @@ pub fn run() {
                 .on_navigation(|app_webview, url| {
                     let scheme = url.scheme();
                     let host = url.host_str().unwrap_or_default();
-                    let is_dev_host = host.eq_ignore_ascii_case("localhost") || host == "127.0.0.1";
+                    let is_internal_host = host.eq_ignore_ascii_case("localhost")
+                        || host.eq_ignore_ascii_case("tauri.localhost")
+                        || host.ends_with(".localhost")
+                        || host == "127.0.0.1"
+                        || host == "::1";
                     let should_open_external = match scheme {
-                        "http" | "https" => !is_dev_host,
+                        "http" | "https" => !is_internal_host,
                         "mailto" => true,
                         _ => false,
                     };
