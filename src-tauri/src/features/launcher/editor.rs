@@ -133,8 +133,8 @@ pub(crate) fn resolve_command_path(
     command_candidates: &[&str],
     windows_paths: &[&str],
 ) -> Option<PathBuf> {
-    find_command_in_path(command_candidates)
-        .or_else(|| super::windows::resolve_install_path(windows_paths))
+    super::windows::resolve_install_path(windows_paths)
+        .or_else(|| find_command_in_path(command_candidates))
 }
 
 fn detect_installed_editors() -> Vec<InstalledEditor> {
@@ -142,12 +142,20 @@ fn detect_installed_editors() -> Vec<InstalledEditor> {
 
     for definition in EDITOR_DEFINITIONS {
         if let Some(metadata) = super::linux::resolve_editor_launch(definition) {
+            let icon_data_url = metadata.icon_data_url.or_else(|| {
+                log::warn!(
+                    "launcher editor `{}` (id={}) has no resolved Linux icon; falling back to default icon",
+                    definition.name,
+                    definition.id
+                );
+                None
+            });
             installed.push(InstalledEditor {
                 app: EditorApp {
                     id: definition.id.to_string(),
                     name: definition.name.to_string(),
                     icon: definition.icon,
-                    icon_data_url: metadata.icon_data_url,
+                    icon_data_url,
                 },
                 launch: metadata.launch,
             });
@@ -159,15 +167,20 @@ fn detect_installed_editors() -> Vec<InstalledEditor> {
             resolve_command_path(definition.command_candidates, definition.windows_paths);
 
         if let Some(command) = launch_command {
-            let icon_source = installed_path
-                .as_deref()
-                .or_else(|| super::windows::icon_source_from_command(&command));
+            let icon_source: Option<PathBuf> =
+                installed_path.or_else(|| super::windows::icon_source_from_command(&command));
+            let icon_data_url = resolve_icon_data_url(
+                definition.name,
+                definition.id,
+                icon_source.as_deref(),
+                &command,
+            );
             installed.push(InstalledEditor {
                 app: EditorApp {
                     id: definition.id.to_string(),
                     name: definition.name.to_string(),
                     icon: definition.icon,
-                    icon_data_url: icon_source.and_then(super::windows::load_icon_data_url),
+                    icon_data_url,
                 },
                 launch: LaunchCommand {
                     command,
@@ -177,6 +190,34 @@ fn detect_installed_editors() -> Vec<InstalledEditor> {
         }
     }
     installed
+}
+
+fn resolve_icon_data_url(
+    editor_name: &str,
+    editor_id: &str,
+    icon_source: Option<&Path>,
+    command: &Path,
+) -> Option<String> {
+    match icon_source {
+        Some(source) => super::windows::load_icon_data_url(source).or_else(|| {
+            log::warn!(
+                "launcher editor `{}` (id={}) failed to load icon from {}; falling back to default icon",
+                editor_name,
+                editor_id,
+                source.display()
+            );
+            None
+        }),
+        None => {
+            log::warn!(
+                "launcher editor `{}` (id={}) has no icon source for command {}; falling back to default icon",
+                editor_name,
+                editor_id,
+                command.display()
+            );
+            None
+        }
+    }
 }
 
 fn spawn_launch_command(launch: &LaunchCommand, path: &Path) -> Result<()> {

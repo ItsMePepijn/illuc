@@ -9,6 +9,9 @@ pub(super) const DEFINITION: EditorDefinition = EditorDefinition {
     linux_execs: &[],
     linux_desktop_ids: &[],
     windows_paths: &[
+        "%PROGRAMFILES%\\Microsoft Visual Studio\\18\\Community\\Common7\\IDE\\devenv.exe",
+        "%PROGRAMFILES%\\Microsoft Visual Studio\\18\\Professional\\Common7\\IDE\\devenv.exe",
+        "%PROGRAMFILES%\\Microsoft Visual Studio\\18\\Enterprise\\Common7\\IDE\\devenv.exe",
         "%PROGRAMFILES%\\Microsoft Visual Studio\\2026\\Community\\Common7\\IDE\\devenv.exe",
         "%PROGRAMFILES%\\Microsoft Visual Studio\\2026\\Professional\\Common7\\IDE\\devenv.exe",
         "%PROGRAMFILES%\\Microsoft Visual Studio\\2026\\Enterprise\\Common7\\IDE\\devenv.exe",

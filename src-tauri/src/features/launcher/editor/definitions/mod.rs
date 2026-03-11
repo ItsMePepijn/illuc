@@ -30,10 +30,10 @@ use super::EditorDefinition;
 pub(super) const EDITOR_DEFINITIONS: &[EditorDefinition] = &[
     vscode::DEFINITION,
     vscodium::DEFINITION,
-    visual_studio_2017::DEFINITION,
-    visual_studio_2019::DEFINITION,
-    visual_studio_2022::DEFINITION,
     visual_studio_2026::DEFINITION,
+    visual_studio_2022::DEFINITION,
+    visual_studio_2019::DEFINITION,
+    visual_studio_2017::DEFINITION,
     rider::DEFINITION,
     vscode_insiders::DEFINITION,
     cursor::DEFINITION,

@@ -11,24 +11,22 @@ use std::env;
 #[cfg(target_os = "windows")]
 use std::ffi::OsStr;
 #[cfg(target_os = "windows")]
+use std::fs;
+#[cfg(target_os = "windows")]
 use std::io::Cursor;
 #[cfg(target_os = "windows")]
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 #[cfg(target_os = "windows")]
-use windows_sys::Win32::Foundation::HWND;
-#[cfg(target_os = "windows")]
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, SelectObject,
-    BITMAPINFO, BITMAPINFOHEADER, BI_RGB,
+    CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC,
+    ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, RGBQUAD, BI_RGB,
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::Shell::ExtractIconExW;
 #[cfg(target_os = "windows")]
-use windows_sys::Win32::UI::WindowsAndMessaging::{
-    DestroyIcon, DrawIconEx, GetDC, ReleaseDC, DI_NORMAL,
-};
+use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, DrawIconEx, HICON, DI_NORMAL};
 
 #[cfg(target_os = "windows")]
 pub(crate) fn resolve_install_path(paths: &[&str]) -> Option<PathBuf> {
@@ -44,17 +42,21 @@ pub(crate) fn resolve_install_path(_: &[&str]) -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
-pub(crate) fn icon_source_from_command(path: &Path) -> Option<&Path> {
+pub(crate) fn icon_source_from_command(path: &Path) -> Option<PathBuf> {
     let is_exe = path
         .extension()
         .and_then(|value| value.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("exe"));
 
-    is_exe.then_some(path)
+    if is_exe {
+        return Some(path.to_path_buf());
+    }
+
+    extract_windows_exe_path_from_script(path)
 }
 
 #[cfg(not(target_os = "windows"))]
-pub(crate) fn icon_source_from_command(_: &Path) -> Option<&Path> {
+pub(crate) fn icon_source_from_command(_: &Path) -> Option<PathBuf> {
     None
 }
 
@@ -119,9 +121,30 @@ fn expand_windows_env_vars(value: &str) -> Option<PathBuf> {
 }
 
 #[cfg(target_os = "windows")]
+fn extract_windows_exe_path_from_script(path: &Path) -> Option<PathBuf> {
+    let contents = fs::read_to_string(path).ok()?;
+
+    contents
+        .split('"')
+        .find(|segment| is_windows_exe_path(segment))
+        .map(PathBuf::from)
+        .filter(|candidate| candidate.is_file())
+}
+
+#[cfg(target_os = "windows")]
+fn is_windows_exe_path(value: &str) -> bool {
+    value.len() > 6
+        && value
+            .as_bytes()
+            .get(1)
+            .is_some_and(|separator| *separator == b':')
+        && value.ends_with(".exe")
+}
+
+#[cfg(target_os = "windows")]
 fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
     let wide_path = to_wide(path.as_os_str());
-    let mut icon_handle = 0isize;
+    let mut icon_handle: HICON = std::ptr::null_mut();
 
     let extracted = unsafe {
         ExtractIconExW(
@@ -133,12 +156,12 @@ fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
         )
     };
 
-    if extracted == 0 || icon_handle == 0 {
+    if extracted == 0 || icon_handle.is_null() {
         return None;
     }
 
-    let screen_dc = unsafe { GetDC(HWND::default()) };
-    if screen_dc == 0 {
+    let screen_dc = unsafe { GetDC(std::ptr::null_mut()) };
+    if screen_dc.is_null() {
         unsafe {
             DestroyIcon(icon_handle);
         }
@@ -146,15 +169,15 @@ fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
     }
 
     let memory_dc = unsafe { CreateCompatibleDC(screen_dc) };
-    if memory_dc == 0 {
+    if memory_dc.is_null() {
         unsafe {
-            ReleaseDC(HWND::default(), screen_dc);
+            ReleaseDC(std::ptr::null_mut(), screen_dc);
             DestroyIcon(icon_handle);
         }
         return None;
     }
 
-    let mut bitmap_info = BITMAPINFO {
+    let bitmap_info = BITMAPINFO {
         bmiHeader: BITMAPINFOHEADER {
             biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
             biWidth: size,
@@ -162,9 +185,18 @@ fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
             biPlanes: 1,
             biBitCount: 32,
             biCompression: BI_RGB,
-            ..Default::default()
+            biSizeImage: 0,
+            biXPelsPerMeter: 0,
+            biYPelsPerMeter: 0,
+            biClrUsed: 0,
+            biClrImportant: 0,
         },
-        bmiColors: [Default::default(); 1],
+        bmiColors: [RGBQUAD {
+            rgbBlue: 0,
+            rgbGreen: 0,
+            rgbRed: 0,
+            rgbReserved: 0,
+        }],
     };
 
     let mut pixels_ptr = std::ptr::null_mut();
@@ -179,17 +211,29 @@ fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
         )
     };
 
-    if dib == 0 || pixels_ptr.is_null() {
+    if dib.is_null() || pixels_ptr.is_null() {
         unsafe {
             DeleteDC(memory_dc);
-            ReleaseDC(HWND::default(), screen_dc);
+            ReleaseDC(std::ptr::null_mut(), screen_dc);
             DestroyIcon(icon_handle);
         }
         return None;
     }
 
     let previous_bitmap = unsafe { SelectObject(memory_dc, dib) };
-    let draw_result = unsafe { DrawIconEx(memory_dc, 0, 0, icon_handle, size, size, 0, 0, DI_NORMAL) };
+    let draw_result = unsafe {
+        DrawIconEx(
+            memory_dc,
+            0,
+            0,
+            icon_handle,
+            size,
+            size,
+            0,
+            std::ptr::null_mut(),
+            DI_NORMAL,
+        )
+    };
 
     let pixels_len = (size as usize) * (size as usize) * 4;
     let rgba = if draw_result != 0 {
@@ -203,7 +247,7 @@ fn extract_icon_rgba(path: &Path, size: i32) -> Option<Vec<u8>> {
         SelectObject(memory_dc, previous_bitmap);
         DeleteObject(dib);
         DeleteDC(memory_dc);
-        ReleaseDC(HWND::default(), screen_dc);
+        ReleaseDC(std::ptr::null_mut(), screen_dc);
         DestroyIcon(icon_handle);
     }
 

@@ -60,6 +60,14 @@ export class EditorAppIconComponent {
     }
 
     handleImageError(): void {
+        console.warn(
+            `Launcher icon image failed for ${this.appName ?? this.icon ?? "unknown editor"}; falling back to default icon.`,
+            {
+                appName: this.appName,
+                icon: this.icon,
+                iconDataUrlPresent: Boolean(this.iconDataUrl),
+            },
+        );
         this.failedToLoadIcon = true;
     }
 }

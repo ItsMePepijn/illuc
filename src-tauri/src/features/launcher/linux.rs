@@ -1,8 +1,13 @@
 use super::editor::{EditorDefinition, LaunchCommand};
+#[cfg(target_os = "linux")]
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+#[cfg(target_os = "linux")]
 use base64::Engine as _;
+#[cfg(target_os = "linux")]
 use std::env;
+#[cfg(target_os = "linux")]
 use std::fs;
+#[cfg(target_os = "linux")]
 use std::path::{Path, PathBuf};
 
 pub(crate) struct PlatformEditorMetadata {
