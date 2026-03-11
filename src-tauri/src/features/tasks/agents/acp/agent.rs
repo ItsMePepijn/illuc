@@ -111,12 +111,6 @@ impl<C: AcpAgentConfig> Agent for AcpAgent<C> {
         let new_session_request = self.config.new_session_request(&worktree_path)?;
         let load_session_request = self.config.load_session_request(&worktree_path)?;
         let config_title = self.config.title().to_string();
-        log::info!(
-            "ACP agent {} starting for worktree {}",
-            config_id,
-            worktree_path.display()
-        );
-
         std::thread::spawn(move || {
             let runtime = match Builder::new_current_thread().enable_all().build() {
                 Ok(runtime) => runtime,
@@ -150,7 +144,6 @@ impl<C: AcpAgentConfig> Agent for AcpAgent<C> {
         startup_rx
             .recv()
             .map_err(|_| anyhow!("ACP runtime did not finish startup"))??;
-        log::info!("ACP agent {} startup completed", self.config.id());
         Ok(())
     }
 
@@ -184,11 +177,6 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
             return Ok(());
         }
         self.apply_pending_session_config()?;
-        log::info!(
-            "ACP agent {} sending prompt ({} chars)",
-            self.config.id(),
-            trimmed.chars().count()
-        );
         self.send_command(|reply| AcpCommand::Prompt {
             content: trimmed,
             reply,
@@ -196,7 +184,6 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
     }
 
     fn interrupt(&mut self) -> Result<()> {
-        log::info!("ACP agent {} sending cancel request", self.config.id());
         self.send_command(|reply| AcpCommand::Cancel { reply })
     }
 
@@ -249,11 +236,6 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
     }
 
     fn respond_ui_request(&mut self, request_id: String, response: Value) -> Result<()> {
-        log::info!(
-            "ACP agent {} responding to UI request {}",
-            self.config.id(),
-            request_id
-        );
         self.send_command(|reply| AcpCommand::RespondUiRequest {
             request_id,
             response,
@@ -272,7 +254,6 @@ impl<C: AcpAgentConfig> GuiAgent for AcpAgent<C> {
 
 impl<C: AcpAgentConfig> GuiSessionAgent for AcpAgent<C> {
     fn start_new_thread(&mut self) -> Result<()> {
-        log::info!("ACP agent {} starting new session", self.config.id());
         self.send_command(|reply| AcpCommand::NewSession { reply })
     }
 }

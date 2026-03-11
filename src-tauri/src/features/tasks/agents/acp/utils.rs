@@ -259,10 +259,7 @@ pub(crate) async fn log_acp_rpc_stream(mut receiver: StreamReceiver, title: Stri
     loop {
         let message = match receiver.recv().await {
             Ok(message) => message,
-            Err(error) => {
-                log::debug!("ACP {} RPC stream closed: {}", title, error);
-                break;
-            }
+            Err(_) => break,
         };
 
         match (message.direction, message.message) {
@@ -273,34 +270,23 @@ pub(crate) async fn log_acp_rpc_stream(mut receiver: StreamReceiver, title: Stri
                 let id = format!("{id:?}");
                 let method_name = method.to_string();
                 pending_methods.insert(id.clone(), method_name.clone());
-                log::info!("ACP {} -> request {} {}", title, id, method_name);
             }
             (StreamMessageDirection::Incoming, StreamMessageContent::Response { id, result }) => {
                 let id = format!("{id:?}");
                 let method_name = pending_methods
                     .remove(&id)
                     .unwrap_or_else(|| "<unknown>".to_string());
-                match result {
-                    Ok(_) => {
-                        log::info!("ACP {} <- response {} {}", title, id, method_name);
-                    }
-                    Err(error) => {
-                        log::warn!(
-                            "ACP {} <- response {} {} error: {:?}",
-                            title,
-                            id,
-                            method_name,
-                            error
-                        );
-                    }
+                if let Err(error) = result {
+                    log::warn!(
+                        "ACP {} <- response {} {} error: {:?}",
+                        title,
+                        id,
+                        method_name,
+                        error
+                    );
                 }
             }
-            (
-                StreamMessageDirection::Incoming,
-                StreamMessageContent::Notification { method, .. },
-            ) => {
-                log::info!("ACP {} <- notification {}", title, method);
-            }
+            (StreamMessageDirection::Incoming, StreamMessageContent::Notification { .. }) => {}
             _ => {}
         }
     }
@@ -546,14 +532,24 @@ fn content_rows(tool_call: &ToolCall) -> Vec<GuiToolRow> {
                 });
             }
             ToolCallContent::Content(content) => {
-                let rendered = render_content_block(content.content.clone());
-                if is_file_change_summary(&rendered) {
-                    continue;
+                match &content.content {
+                    ContentBlock::Text(text) => {
+                        let rendered = text.text.trim();
+                        if rendered.is_empty() || !is_file_change_summary(rendered) {
+                            continue;
+                        }
+                    }
+                    _ => {
+                        let rendered = render_content_block(content.content.clone());
+                        if rendered.trim().is_empty() {
+                            continue;
+                        }
+                        rows.push(text_row(
+                            content_label(&content.content),
+                            truncate_inline(&rendered, 240),
+                        ));
+                    }
                 }
-                rows.push(text_row(
-                    content_label(&content.content),
-                    truncate_inline(&rendered, 240),
-                ));
             }
             ToolCallContent::Terminal(terminal) => {
                 rows.push(text_row("Terminal", terminal.terminal_id.0.to_string()));
@@ -896,7 +892,7 @@ mod tests {
     }
 
     #[test]
-    fn tool_rows_map_text_content_into_text_rows() {
+    fn tool_rows_ignore_plain_text_output_content() {
         let tool_call = ToolCall::new("tool-1", "Show output").content(vec![
             agent_client_protocol::ToolCallContent::Content(Content::new(ContentBlock::from(
                 "hello world",
@@ -904,9 +900,12 @@ mod tests {
         ]);
 
         let rows = tool_rows_for(&tool_call);
-        assert!(rows
+        assert!(!rows.iter().any(|row| row.label == "Output"));
+        assert!(!rows
             .iter()
             .any(|row| row.value.as_deref() == Some("hello world")));
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].value.as_deref(), Some("Show output"));
     }
 
     #[test]

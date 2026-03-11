@@ -2,9 +2,11 @@ pub mod commands;
 
 use crate::error::{Result, TaskError};
 use crate::features::tasks::{DiffLine, DiffLineType};
+use git2::build::CheckoutBuilder;
 use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, ErrorCode, FetchOptions, IndexAddOption,
-    PushOptions, RemoteCallbacks, Repository, Signature, Status, StatusOptions, WorktreeAddOptions,
+    ObjectType, PushOptions, RemoteCallbacks, Repository, ResetType, Signature, Status,
+    StatusOptions, WorktreeAddOptions,
 };
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -693,6 +695,133 @@ pub fn git_push(repo: &Path, remote_name: &str, branch: &str, set_upstream: bool
     Ok(())
 }
 
+pub fn git_merge_branch(repo_root: &Path, target_branch: &str, source_branch: &str) -> Result<()> {
+    let target_branch = target_branch.trim();
+    let source_branch = source_branch.trim();
+    if target_branch.is_empty() {
+        return Err(TaskError::Message("Target branch is required.".into()));
+    }
+    if source_branch.is_empty() {
+        return Err(TaskError::Message("Source branch is required.".into()));
+    }
+    if target_branch == source_branch {
+        return Err(TaskError::Message(
+            "The task branch already matches the selected main branch.".into(),
+        ));
+    }
+    if has_uncommitted_changes(repo_root)? {
+        return Err(TaskError::Message(
+            "The main repository has uncommitted changes. Commit, stash, or discard them before merging."
+                .into(),
+        ));
+    }
+
+    let repo = open_repo(repo_root)?;
+    if repo.state() != git2::RepositoryState::Clean {
+        return Err(TaskError::Message(
+            "The repository is already in the middle of another Git operation. Resolve that first."
+                .into(),
+        ));
+    }
+
+    checkout_local_branch(&repo, target_branch)?;
+
+    let source_ref = format!("refs/heads/{}", source_branch);
+    let source_oid = repo.refname_to_id(&source_ref).map_err(map_git_err)?;
+    let source_annotated = repo
+        .find_annotated_commit(source_oid)
+        .map_err(map_git_err)?;
+    let (analysis, _) = repo
+        .merge_analysis(&[&source_annotated])
+        .map_err(map_git_err)?;
+
+    if analysis.is_up_to_date() {
+        return Ok(());
+    }
+
+    if analysis.is_fast_forward() {
+        fast_forward_branch_to(&repo, target_branch, source_oid)?;
+        return Ok(());
+    }
+
+    if !analysis.is_normal() {
+        return Err(TaskError::Message(
+            "Git could not determine a supported merge strategy for this branch pair.".into(),
+        ));
+    }
+
+    let mut checkout = CheckoutBuilder::new();
+    checkout.safe().allow_conflicts(true).conflict_style_merge(true);
+    repo.merge(&[&source_annotated], None, Some(&mut checkout))
+        .map_err(map_git_err)?;
+
+    let mut index = repo.index().map_err(map_git_err)?;
+    if index.has_conflicts() {
+        return Err(TaskError::Message(format!(
+            "Merge conflicts occurred while merging '{}' into '{}'. Resolve them manually in the main repository, then complete or abort the merge there.",
+            source_branch, target_branch
+        )));
+    }
+
+    let tree_id = index.write_tree_to(&repo).map_err(map_git_err)?;
+    let tree = repo.find_tree(tree_id).map_err(map_git_err)?;
+    let signature = repo
+        .signature()
+        .or_else(|_| Signature::now("illuc", "illuc@local").map_err(map_git_err))?;
+    let target_commit = repo
+        .head()
+        .and_then(|head| head.peel_to_commit())
+        .map_err(map_git_err)?;
+    let source_commit = repo.find_commit(source_oid).map_err(map_git_err)?;
+    let message = format!("Merge branch '{}' into '{}'", source_branch, target_branch);
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        &message,
+        &tree,
+        &[&target_commit, &source_commit],
+    )
+    .map_err(map_git_err)?;
+    let mut checkout = CheckoutBuilder::new();
+    checkout.safe();
+    repo.checkout_head(Some(&mut checkout)).map_err(map_git_err)?;
+    repo.cleanup_state().map_err(map_git_err)?;
+    Ok(())
+}
+
+fn checkout_local_branch(repo: &Repository, branch: &str) -> Result<()> {
+    repo.find_branch(branch, BranchType::Local)
+        .map_err(map_git_err)?;
+    let reference_name = format!("refs/heads/{}", branch);
+    let object = repo
+        .revparse_single(reference_name.as_str())
+        .map_err(map_git_err)?;
+    let mut checkout = CheckoutBuilder::new();
+    checkout.safe();
+    repo.checkout_tree(&object, Some(&mut checkout))
+        .map_err(map_git_err)?;
+    repo.set_head(reference_name.as_str()).map_err(map_git_err)?;
+    Ok(())
+}
+
+fn fast_forward_branch_to(repo: &Repository, branch: &str, oid: git2::Oid) -> Result<()> {
+    let reference_name = format!("refs/heads/{}", branch);
+    let mut reference = repo
+        .find_reference(reference_name.as_str())
+        .map_err(map_git_err)?;
+    reference
+        .set_target(oid, "illuc: fast-forward merge")
+        .map_err(map_git_err)?;
+    repo.set_head(reference_name.as_str()).map_err(map_git_err)?;
+    let object = repo
+        .find_object(oid, Some(ObjectType::Commit))
+        .map_err(map_git_err)?;
+    repo.reset(&object, ResetType::Hard, None)
+        .map_err(map_git_err)?;
+    Ok(())
+}
+
 #[cfg(target_os = "windows")]
 fn try_gcm_credential(url: &str, username: Option<&str>) -> Option<Cred> {
     let mut config = match git2::Config::new() {
@@ -846,4 +975,121 @@ pub fn has_uncommitted_changes(repo: &Path) -> Result<bool> {
     Ok(statuses
         .iter()
         .any(|entry| entry.status() != Status::CURRENT))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{get_head_commit, git_merge_branch, has_uncommitted_changes};
+    use git2::{Repository, Signature};
+    use git2::build::CheckoutBuilder;
+    use std::fs;
+    use std::path::Path;
+    use uuid::Uuid;
+
+    #[test]
+    fn merge_branch_fast_forwards_target_when_possible() {
+        let repo_dir = temp_repo_dir("merge-ff");
+        let repo = init_repo(&repo_dir);
+        create_commit(&repo, "main.txt", "base\n", "initial");
+
+        checkout_branch(&repo, "feature", true);
+        let feature_commit = create_commit(&repo, "feature.txt", "feature\n", "feature");
+
+        checkout_branch(&repo, "main", false);
+        git_merge_branch(&repo_dir, "main", "feature").unwrap();
+
+        assert_eq!(repo.head().unwrap().shorthand(), Some("main"));
+        assert_eq!(get_head_commit(&repo_dir).unwrap(), feature_commit.to_string());
+        assert!(!has_uncommitted_changes(&repo_dir).unwrap());
+
+        let _ = fs::remove_dir_all(&repo_dir);
+    }
+
+    #[test]
+    fn merge_branch_reports_conflicts_for_manual_resolution() {
+        let repo_dir = temp_repo_dir("merge-conflict");
+        let repo = init_repo(&repo_dir);
+        create_commit(&repo, "shared.txt", "base\n", "initial");
+
+        checkout_branch(&repo, "feature", true);
+        create_commit(&repo, "shared.txt", "feature\n", "feature");
+
+        checkout_branch(&repo, "main", false);
+        create_commit(&repo, "shared.txt", "main\n", "main");
+
+        let error = git_merge_branch(&repo_dir, "main", "feature").unwrap_err();
+        assert!(error
+            .to_string()
+            .contains("Resolve them manually in the main repository"));
+
+        let _ = fs::remove_dir_all(&repo_dir);
+    }
+
+    fn temp_repo_dir(label: &str) -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("illuc-{label}-{}", Uuid::new_v4()))
+    }
+
+    fn init_repo(path: &Path) -> Repository {
+        fs::create_dir_all(path).unwrap();
+        let repo = Repository::init(path).unwrap();
+        let signature = signature();
+        let commit_id = {
+            let mut index = repo.index().unwrap();
+            let tree_id = index.write_tree().unwrap();
+            let tree = repo.find_tree(tree_id).unwrap();
+            repo.commit(Some("HEAD"), &signature, &signature, "initial", &tree, &[])
+                .unwrap()
+        };
+        {
+            let commit = repo.find_commit(commit_id).unwrap();
+            repo.branch("main", &commit, true).unwrap();
+        }
+        repo.set_head("refs/heads/main").unwrap();
+        let mut checkout = CheckoutBuilder::new();
+        checkout.force();
+        repo.checkout_head(Some(&mut checkout)).unwrap();
+        repo
+    }
+
+    fn checkout_branch(repo: &Repository, branch: &str, create_from_head: bool) {
+        if create_from_head {
+            let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
+            repo.branch(branch, &head_commit, false).unwrap();
+        }
+        let reference = format!("refs/heads/{branch}");
+        let object = repo.revparse_single(reference.as_str()).unwrap();
+        let mut checkout = CheckoutBuilder::new();
+        checkout.force();
+        repo.checkout_tree(&object, Some(&mut checkout)).unwrap();
+        repo.set_head(reference.as_str()).unwrap();
+    }
+
+    fn create_commit(repo: &Repository, relative_path: &str, content: &str, message: &str) -> git2::Oid {
+        let path = repo.workdir().unwrap().join(relative_path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(&path, content).unwrap();
+
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new(relative_path)).unwrap();
+        index.write().unwrap();
+        let tree_id = index.write_tree().unwrap();
+        let tree = repo.find_tree(tree_id).unwrap();
+        let signature = signature();
+        let parent = repo.head().unwrap().peel_to_commit().unwrap();
+        repo.commit(
+            Some("HEAD"),
+            &signature,
+            &signature,
+            message,
+            &tree,
+            &[&parent],
+        )
+        .unwrap()
+    }
+
+    fn signature() -> Signature<'static> {
+        Signature::now("illuc", "illuc@local").unwrap()
+    }
 }

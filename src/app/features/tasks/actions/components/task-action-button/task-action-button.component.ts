@@ -2,7 +2,12 @@ import { CommonModule } from "@angular/common";
 import { Component, EventEmitter, Input, Output } from "@angular/core";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 
-export type TaskActionButtonType = "stop" | "discard" | "commit" | "push";
+export type TaskActionButtonType =
+    | "stop"
+    | "discard"
+    | "commit"
+    | "push"
+    | "merge";
 export type TaskActionButtonVariant = "icon" | "text";
 
 @Component({
@@ -57,7 +62,9 @@ export class TaskActionButtonComponent {
         if (this.variant) {
             return this.variant;
         }
-        return this.type === "commit" || this.type === "push"
+        return this.type === "commit" ||
+            this.type === "push" ||
+            this.type === "merge"
             ? "text"
             : "icon";
     }

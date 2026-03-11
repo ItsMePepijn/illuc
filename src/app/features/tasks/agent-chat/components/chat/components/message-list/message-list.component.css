@@ -77,7 +77,7 @@
 }
 
 .msg-body {
-    max-width: 70ch;
+    max-width: 75ch;
     min-width: 0;
     overflow-x: hidden;
 }

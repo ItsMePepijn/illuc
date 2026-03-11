@@ -368,6 +368,20 @@ export class TaskStore implements OnDestroy {
         });
     }
 
+    async mergeTask(
+        taskId: string,
+        targetBranch: string,
+        pushMainAfterMerge = false,
+    ): Promise<void> {
+        await tauriInvoke<void>(this.zone, "task_git_merge", {
+            req: {
+                taskId,
+                targetBranch,
+                pushMainAfterMerge,
+            },
+        });
+    }
+
     selectTask(taskId: string | null): void {
         if (taskId) {
             this.viewModeSignal.set("task");

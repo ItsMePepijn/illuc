@@ -32,7 +32,6 @@ pub(crate) async fn run_acp_runtime(
     title: String,
 ) -> Result<()> {
     let command_description = describe_command(&command);
-    log::info!("ACP runtime {} spawning {}", title, command_description);
     command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
@@ -67,27 +66,15 @@ pub(crate) async fn run_acp_runtime(
         }
     });
 
-    log::info!("ACP runtime {} sending initialize request", title);
     let initialize = agent_client_protocol::Agent::initialize(&conn, initialize_request)
         .await
         .map_err(|error| anyhow!("ACP initialize failed: {}", error))?;
     handle_initialize(&callbacks, &initialize);
-    log::info!("ACP runtime {} initialize completed", title);
     if let Some(load_request) = load_session_request {
-        log::info!(
-            "ACP runtime {} loading session {}",
-            title,
-            load_request.session_id.0
-        );
         let session_id = load_request.session_id.clone();
         match agent_client_protocol::Agent::load_session(&conn, load_request).await {
             Ok(response) => {
                 apply_session_response(&state, session_id.clone(), response.config_options);
-                log::info!(
-                    "ACP runtime {} startup resumed session {}",
-                    title,
-                    session_id.0
-                );
             }
             Err(error) if should_fallback_to_new_session(&error) => {
                 log::warn!(
@@ -101,28 +88,17 @@ pub(crate) async fn run_acp_runtime(
                     .map_err(|new_error| anyhow!("ACP new_session failed after load fallback: {}", new_error))?;
                 let session_id = session.session_id.clone();
                 apply_session_response(&state, session_id.clone(), session.config_options);
-                log::info!(
-                    "ACP runtime {} startup ready with session {}",
-                    title,
-                    session_id.0
-                );
             }
             Err(error) => {
                 return Err(anyhow!("ACP load_session failed: {}", error));
             }
         }
     } else {
-        log::info!("ACP runtime {} creating session", title);
         let session = agent_client_protocol::Agent::new_session(&conn, new_session_request.clone())
             .await
             .map_err(|error| anyhow!("ACP new_session failed: {}", error))?;
         let session_id = session.session_id.clone();
         apply_session_response(&state, session_id.clone(), session.config_options);
-        log::info!(
-            "ACP runtime {} startup ready with session {}",
-            title,
-            session_id.0
-        );
     }
     (callbacks.on_status)(TaskStatus::Idle);
     (callbacks.on_gui_hydrated)();
@@ -146,11 +122,6 @@ pub(crate) async fn run_acp_runtime(
         {
             match command {
                 AcpCommand::Prompt { content, reply } => {
-                    log::info!(
-                        "ACP runtime {} received prompt command ({} chars)",
-                        title,
-                        content.chars().count()
-                    );
                     let result = handle_prompt(&conn, &state, &callbacks, content).await;
                     let _ = reply.send(result);
                 }
@@ -159,17 +130,10 @@ pub(crate) async fn run_acp_runtime(
                     value,
                     reply,
                 } => {
-                    log::info!(
-                        "ACP runtime {} setting config option {}={}",
-                        title,
-                        config_id,
-                        value
-                    );
                     let result = handle_set_config_option(&conn, &state, config_id, value).await;
                     let _ = reply.send(result);
                 }
                 AcpCommand::Cancel { reply } => {
-                    log::info!("ACP runtime {} received cancel command", title);
                     let result = handle_cancel(&conn, &state).await;
                     let _ = reply.send(result);
                 }
@@ -178,23 +142,16 @@ pub(crate) async fn run_acp_runtime(
                     response,
                     reply,
                 } => {
-                    log::info!(
-                        "ACP runtime {} received UI response for {}",
-                        title,
-                        request_id
-                    );
                     let result = handle_ui_response(&state, &callbacks, request_id, response);
                     let _ = reply.send(result);
                 }
                 AcpCommand::NewSession { reply } => {
-                    log::info!("ACP runtime {} received new session command", title);
                     finalize_active_messages(&state, &callbacks);
                     let result =
                         handle_new_session(&conn, &state, &callbacks, &new_session_request).await;
                     let _ = reply.send(result);
                 }
                 AcpCommand::Shutdown => {
-                    log::info!("ACP runtime {} received shutdown command", title);
                     finalize_active_messages(&state, &callbacks);
                     cancel_pending_permission_requests(&state, true);
                     let _ = child.kill().await;
@@ -289,11 +246,6 @@ async fn handle_prompt(
             .clone()
             .context("ACP session is not initialized")?
     };
-    log::info!(
-        "ACP prompt sending for session {} ({} chars)",
-        session_id.0,
-        content.chars().count()
-    );
     (callbacks.on_status)(TaskStatus::Working);
     let response = agent_client_protocol::Agent::prompt(
         conn,
@@ -305,10 +257,8 @@ async fn handle_prompt(
     .await
     .map_err(|error| anyhow!("ACP prompt failed: {}", error))?;
     let _ = response;
-    log::info!("ACP prompt request completed");
     finalize_active_messages(state, callbacks);
     (callbacks.on_status)(TaskStatus::Idle);
-    log::info!("ACP prompt finalized active messages and returned to idle");
     Ok(())
 }
 
@@ -320,7 +270,6 @@ async fn handle_cancel(conn: &ClientSideConnection, state: &SharedAcpAgentState)
             .clone()
             .context("ACP session is not initialized")?
     };
-    log::info!("ACP cancel sending for session {}", session_id.0);
     cancel_pending_permission_requests(state, true);
     agent_client_protocol::Agent::cancel(conn, CancelNotification::new(session_id))
         .await
@@ -358,14 +307,12 @@ async fn handle_new_session(
     request: &NewSessionRequest,
 ) -> Result<()> {
     cancel_pending_permission_requests(state, true);
-    log::info!("ACP requesting new session");
     let response = agent_client_protocol::Agent::new_session(conn, request.clone())
         .await
         .map_err(|error| anyhow!("ACP new_session failed: {}", error))?;
     apply_session_response(state, response.session_id, response.config_options);
     (callbacks.on_status)(TaskStatus::Idle);
     (callbacks.on_gui_hydrated)();
-    log::info!("ACP new session ready");
     Ok(())
 }
 
@@ -394,11 +341,6 @@ fn handle_ui_response(
     request_id: String,
     response: serde_json::Value,
 ) -> Result<()> {
-    log::info!(
-        "ACP handling UI response for request {} with payload {}",
-        request_id,
-        response
-    );
     let (reply, parsed_response) = {
         let state = state.lock();
         let pending = state
@@ -408,11 +350,6 @@ fn handle_ui_response(
         let parsed_response = parse_permission_response(&pending.options, response)?;
         (pending.reply.clone(), parsed_response)
     };
-    log::info!(
-        "ACP parsed UI response for request {} as {:?}",
-        request_id,
-        parsed_response.outcome
-    );
     {
         let mut state = state.lock();
         state.pending_permission_requests.remove(&request_id);
@@ -420,7 +357,6 @@ fn handle_ui_response(
     reply
         .send(parsed_response)
         .map_err(|_| anyhow!("failed delivering ACP request response"))?;
-    log::info!("ACP delivered UI response for request {}", request_id);
     (callbacks.on_gui_request)(crate::features::tasks::agents::GuiRequestEvent::Cleared);
     Ok(())
 }

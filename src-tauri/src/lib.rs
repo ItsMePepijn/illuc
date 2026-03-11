@@ -31,6 +31,7 @@ use crate::features::tasks::git::commands::task_git_diff_watch_start::task_git_d
 use crate::features::tasks::git::commands::task_git_diff_watch_stop::task_git_diff_watch_stop;
 use crate::features::tasks::git::commands::task_git_has_changes::task_git_has_changes;
 use crate::features::tasks::git::commands::task_git_list_branches::task_git_list_branches;
+use crate::features::tasks::git::commands::task_git_merge::task_git_merge;
 use crate::features::tasks::git::commands::task_git_push::task_git_push;
 use crate::features::tasks::management::commands::select_base_repo::select_base_repo;
 use crate::features::tasks::management::commands::task_create::task_create;
@@ -177,6 +178,7 @@ pub fn run() {
             task_git_diff_watch_start,
             task_git_diff_watch_stop,
             task_git_commit,
+            task_git_merge,
             task_git_push,
             task_load_existing,
             task_open_worktree_in_vscode,

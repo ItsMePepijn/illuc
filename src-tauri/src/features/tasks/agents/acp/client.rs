@@ -74,12 +74,6 @@ impl AcpClient for AcpClientHandler {
             .title
             .clone()
             .unwrap_or_else(|| "Allow this ACP tool call?".to_string());
-        log::info!(
-            "ACP {} requested permission for tool call {}: {}",
-            self.title,
-            args.tool_call.tool_call_id.0,
-            summary
-        );
         (self.callbacks.on_status)(TaskStatus::AwaitingApproval);
         (self.callbacks.on_gui_request)(GuiRequestEvent::UserInput {
             request_id: request_id.clone(),
@@ -109,11 +103,6 @@ impl AcpClient for AcpClientHandler {
             .unwrap_or_else(|_| {
                 RequestPermissionResponse::new(RequestPermissionOutcome::Cancelled)
             });
-        log::info!(
-            "ACP {} permission request {} resolved",
-            self.title,
-            request_id
-        );
         (self.callbacks.on_status)(TaskStatus::Working);
         Ok(response)
     }
@@ -122,11 +111,6 @@ impl AcpClient for AcpClientHandler {
         &self,
         args: SessionNotification,
     ) -> agent_client_protocol::Result<()> {
-        log::debug!(
-            "ACP {} session update: {}",
-            self.title,
-            summarize_session_update(&args.update)
-        );
         match args.update {
             SessionUpdate::UserMessageChunk(chunk) => {
                 emit_chunk(
@@ -290,34 +274,6 @@ impl AcpClient for AcpClientHandler {
             .kill(&args.terminal_id)
             .map_err(anyhow_to_acp_error)?;
         Ok(agent_client_protocol::KillTerminalCommandResponse::new())
-    }
-}
-
-fn summarize_session_update(update: &SessionUpdate) -> String {
-    match update {
-        SessionUpdate::UserMessageChunk(_) => "user_message_chunk".to_string(),
-        SessionUpdate::AgentMessageChunk(_) => "agent_message_chunk".to_string(),
-        SessionUpdate::AgentThoughtChunk(_) => "agent_thought_chunk".to_string(),
-        SessionUpdate::Plan(plan) => format!("plan({} entries)", plan.entries.len()),
-        SessionUpdate::ToolCall(tool_call) => format!(
-            "tool_call(id={}, status={:?})",
-            tool_call.tool_call_id.0, tool_call.status
-        ),
-        SessionUpdate::ToolCallUpdate(update) => {
-            format!("tool_call_update(id={})", update.tool_call_id.0)
-        }
-        SessionUpdate::AvailableCommandsUpdate(update) => format!(
-            "available_commands_update({} commands)",
-            update.available_commands.len()
-        ),
-        SessionUpdate::CurrentModeUpdate(update) => {
-            format!("current_mode_update({})", update.current_mode_id.0)
-        }
-        SessionUpdate::ConfigOptionUpdate(update) => format!(
-            "config_option_update({} options)",
-            update.config_options.len()
-        ),
-        other => format!("{other:?}"),
     }
 }
 

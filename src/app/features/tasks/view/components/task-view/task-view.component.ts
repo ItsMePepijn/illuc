@@ -18,6 +18,7 @@ import { TerminalSessionComponent } from "../../../terminal/components/terminal-
 import { TaskDiffComponent } from "../../../git/components/task-diff/task-diff.component";
 import { TaskActionButtonComponent } from "../../../actions/components/task-action-button/task-action-button.component";
 import { IconGitCommitComponent } from "../../../actions/components/icon-git-commit/icon-git-commit.component";
+import { IconGitMergeComponent } from "../../../actions/components/icon-git-merge/icon-git-merge.component";
 import { IconGitPushComponent } from "../../../actions/components/icon-git-push/icon-git-push.component";
 import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
 import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
@@ -43,6 +44,7 @@ import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
         TaskDiffComponent,
         TaskActionButtonComponent,
         IconGitCommitComponent,
+        IconGitMergeComponent,
         IconGitPushComponent,
         IconTrashBinComponent,
         IconStopSquareComponent,
@@ -89,7 +91,9 @@ export class TaskViewComponent {
     @Output() selectBaseRepo = new EventEmitter<void>();
     showCommitModal = false;
     showPushModal = false;
+    showMergeModal = false;
     pendingAgentChatAction: "new-chat" | "rollback" | null = null;
+    pendingPostCommitAction: "merge" | null = null;
     commitMessage = "";
     commitStageAll = true;
     commitError = "";
@@ -98,7 +102,12 @@ export class TaskViewComponent {
     pushSetUpstream = true;
     pushError = "";
     isCommitting = false;
+    isPreparingMerge = false;
+    isMerging = false;
     isPushing = false;
+    mergeError = "";
+    mergePushAfter = true;
+    mergeRequiresAcknowledgement = false;
     readonly agentKind = AgentKind;
 
     constructor(
@@ -287,10 +296,11 @@ export class TaskViewComponent {
         this.agentActionsMenuOpen = !this.agentActionsMenuOpen;
     }
 
-    openCommitModal(): void {
+    openCommitModal(nextAction: "merge" | null = null): void {
         if (!this.task) {
             return;
         }
+        this.pendingPostCommitAction = nextAction;
         this.commitMessage = "";
         this.commitStageAll = true;
         this.commitError = "";
@@ -301,6 +311,7 @@ export class TaskViewComponent {
         this.showCommitModal = false;
         this.commitMessage = "";
         this.commitError = "";
+        this.pendingPostCommitAction = null;
     }
 
     async submitCommit(): Promise<void> {
@@ -323,7 +334,14 @@ export class TaskViewComponent {
                 this.commitMessage.trim(),
                 this.commitStageAll,
             );
-            this.closeCommitModal();
+            const nextAction = this.pendingPostCommitAction;
+            this.showCommitModal = false;
+            this.commitMessage = "";
+            this.commitError = "";
+            this.pendingPostCommitAction = null;
+            if (nextAction === "merge") {
+                this.openMergeModal();
+            }
         } catch (error: unknown) {
             this.commitError = this.describeError(
                 error,
@@ -344,6 +362,113 @@ export class TaskViewComponent {
         this.pushSetUpstream = true;
         this.pushError = "";
         this.showPushModal = true;
+    }
+
+    mergeTargetBranch(): string {
+        return this.baseRepo?.currentBranch?.trim() ?? "";
+    }
+
+    canMerge(task: TaskSummary | null = this.task): boolean {
+        const targetBranch = this.mergeTargetBranch();
+        return !!task && !!targetBranch && task.branchName !== targetBranch;
+    }
+
+    async openMergeFlow(): Promise<void> {
+        const task = this.task;
+        if (!task || !this.canMerge(task) || this.isPreparingMerge) {
+            return;
+        }
+        this.isPreparingMerge = true;
+        this.mergeError = "";
+        try {
+            const hasChanges = await this.taskStore.hasUncommittedChanges(task.taskId);
+            if (hasChanges) {
+                this.openCommitModal("merge");
+                return;
+            }
+            this.openMergeModal();
+        } catch (error: unknown) {
+            this.mergeError = this.describeError(error, "Unable to prepare merge.");
+            this.showMergeModal = true;
+        } finally {
+            this.isPreparingMerge = false;
+            this.cdr.detectChanges();
+        }
+    }
+
+    openMergeModal(): void {
+        if (!this.canMerge()) {
+            return;
+        }
+        this.mergeError = "";
+        this.mergePushAfter = true;
+        this.mergeRequiresAcknowledgement = false;
+        this.showMergeModal = true;
+    }
+
+    closeMergeModal(): void {
+        if (this.isMerging) {
+            return;
+        }
+        this.resetMergeModalState();
+    }
+
+    private resetMergeModalState(): void {
+        this.showMergeModal = false;
+        this.mergeError = "";
+        this.mergePushAfter = true;
+        this.mergeRequiresAcknowledgement = false;
+    }
+
+    async submitMerge(): Promise<void> {
+        const task = this.task;
+        const targetBranch = this.mergeTargetBranch();
+        if (!task || !this.canMerge(task) || this.isMerging) {
+            return;
+        }
+        this.mergeError = "";
+        this.mergeRequiresAcknowledgement = false;
+        this.isMerging = true;
+        try {
+            await this.taskStore.mergeTask(
+                task.taskId,
+                targetBranch,
+                this.mergePushAfter,
+            );
+            this.resetMergeModalState();
+        } catch (error: unknown) {
+            const message = this.describeError(
+                error,
+                `Unable to merge ${task.branchName} into ${targetBranch}.`,
+            );
+            this.mergeError = message;
+            this.mergeRequiresAcknowledgement =
+                message.startsWith("Merged into ") &&
+                message.includes("locally, but pushing");
+        } finally {
+            this.isMerging = false;
+            this.cdr.detectChanges();
+        }
+    }
+
+    commitModalTitle(): string {
+        return this.pendingPostCommitAction === "merge"
+            ? "Commit changes before merging"
+            : "Commit changes";
+    }
+
+    commitModalSubtitle(): string {
+        if (this.pendingPostCommitAction === "merge" && this.task) {
+            return `Commit your task changes before merging ${this.task.branchName} into ${this.mergeTargetBranch()}.`;
+        }
+        return "Write a commit message for this task.";
+    }
+
+    commitModalSubmitLabel(): string {
+        if (this.pendingPostCommitAction === "merge") {
+            return this.isCommitting ? "Committing..." : "Commit and continue";
+        }
+        return this.isCommitting ? "Committing..." : "Commit";
     }
 
     closePushModal(): void {

@@ -43,6 +43,17 @@
                     <span class="action-label">Push</span>
                 </app-task-action-button>
                 <app-task-action-button
+                    type="merge"
+                    variant="text"
+                    title="Merge this branch into the main branch"
+                    [disabled]="!canMerge(current)"
+                    [loading]="isPreparingMerge || isMerging"
+                    (action)="openMergeFlow()"
+                >
+                    <app-icon-git-merge></app-icon-git-merge>
+                    <span class="action-label">Merge</span>
+                </app-task-action-button>
+                <app-task-action-button
                     type="discard"
                     variant="icon"
                     title="Discard task"
@@ -286,8 +297,8 @@
 
 <div class="modal-backdrop" *ngIf="showCommitModal">
     <div class="modal">
-        <h3>Commit changes</h3>
-        <p class="modal-subtitle">Write a commit message for this task.</p>
+        <h3>{{ commitModalTitle() }}</h3>
+        <p class="modal-subtitle">{{ commitModalSubtitle() }}</p>
         <label class="input-label">Commit message</label>
         <input
             type="text"
@@ -314,7 +325,7 @@
                 [loading]="isCommitting"
                 (action)="submitCommit()"
             >
-                Commit
+                {{ commitModalSubmitLabel() }}
             </app-loading-button>
         </div>
     </div>
@@ -349,6 +360,49 @@
                 (action)="submitPush()"
             >
                 Push
+            </app-loading-button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showMergeModal">
+    <div class="modal">
+        <h3>Merge branch</h3>
+        <p class="modal-subtitle">
+            Merge <strong>{{ task?.branchName }}</strong> into
+            <strong>{{ mergeTargetBranch() }}</strong>. Fast-forward will be used
+            when possible.
+        </p>
+        <p class="modal-subtitle">
+            If Git reports conflicts, you will need to resolve them manually in
+            the main repository.
+        </p>
+        <label class="checkbox" *ngIf="!mergeRequiresAcknowledgement">
+            <input type="checkbox" [(ngModel)]="mergePushAfter" />
+            Push main branch after merging
+        </label>
+        <div class="error" *ngIf="mergeError">{{ mergeError }}</div>
+        <div class="modal-actions">
+            <app-loading-button
+                *ngIf="!mergeRequiresAcknowledgement"
+                buttonType="button"
+                buttonClass="ghost"
+                [disabled]="isMerging"
+                (action)="closeMergeModal()"
+            >
+                Cancel
+            </app-loading-button>
+            <app-loading-button
+                buttonType="button"
+                buttonClass="primary"
+                [loading]="isMerging"
+                (action)="
+                    mergeRequiresAcknowledgement
+                        ? closeMergeModal()
+                        : submitMerge()
+                "
+            >
+                {{ mergeRequiresAcknowledgement ? "Ok" : "Merge" }}
             </app-loading-button>
         </div>
     </div>
