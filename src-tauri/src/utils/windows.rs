@@ -1,4 +1,6 @@
+#[cfg(target_os = "windows")]
 use portable_pty::CommandBuilder;
+#[cfg(target_os = "windows")]
 use std::path::Path;
 use std::process::Command;
 
@@ -11,8 +13,10 @@ pub fn suppress_console_window(command: &mut Command) {
 }
 
 #[cfg(not(target_os = "windows"))]
+#[allow(dead_code)]
 pub fn suppress_console_window(_command: &mut Command) {}
 
+#[cfg(target_os = "windows")]
 pub fn to_wsl_path(path: &Path) -> Option<String> {
     let mut path_str = path.to_string_lossy().replace('\\', "/");
     if path_str.starts_with("//?/") {
@@ -37,6 +41,7 @@ pub fn to_wsl_path(path: &Path) -> Option<String> {
     None
 }
 
+#[cfg(target_os = "windows")]
 pub fn bash_escape(value: &str) -> String {
     let mut escaped = String::from("'");
     for ch in value.chars() {
@@ -50,6 +55,7 @@ pub fn bash_escape(value: &str) -> String {
     escaped
 }
 
+#[cfg(target_os = "windows")]
 fn build_wsl_command_parts(worktree_path: &Path, command: &str, args: &[&str]) -> (String, String) {
     let wsl_path = to_wsl_path(worktree_path).unwrap_or_else(|| "/".to_string());
     let mut command_line = format!("cd {} && {}", bash_escape(&wsl_path), command);
@@ -60,6 +66,7 @@ fn build_wsl_command_parts(worktree_path: &Path, command: &str, args: &[&str]) -
     (wsl_path, command_line)
 }
 
+#[cfg(target_os = "windows")]
 pub fn build_wsl_command(worktree_path: &Path, command: &str, args: &[&str]) -> CommandBuilder {
     let mut command_builder = CommandBuilder::new("wsl.exe");
     let (wsl_path, command_line) = build_wsl_command_parts(worktree_path, command, args);
@@ -74,6 +81,7 @@ pub fn build_wsl_command(worktree_path: &Path, command: &str, args: &[&str]) -> 
     command_builder
 }
 
+#[cfg(target_os = "windows")]
 pub fn build_wsl_process_command(worktree_path: &Path, command: &str, args: &[&str]) -> Command {
     let mut command_builder = Command::new("wsl.exe");
     suppress_console_window(&mut command_builder);

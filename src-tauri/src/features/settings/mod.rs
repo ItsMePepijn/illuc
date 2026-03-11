@@ -35,10 +35,13 @@ pub fn resolve_default_theme_name(window_theme: Option<tauri::Result<tauri::Them
     // Prefer the explicit desktop setting when available.
     #[cfg(target_os = "linux")]
     {
-        return resolve_linux_theme_name(resolved);
+        resolve_linux_theme_name(resolved)
     }
 
-    resolved
+    #[cfg(not(target_os = "linux"))]
+    {
+        resolved
+    }
 }
 
 #[cfg(target_os = "linux")]

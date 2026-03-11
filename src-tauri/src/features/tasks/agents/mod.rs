@@ -63,9 +63,8 @@ pub trait Agent: Send + Sync {
         None
     }
 
-    fn is_running(&self) -> bool {
-        false
-    }
+    #[allow(dead_code)]
+    fn is_running(&self) -> bool;
 
     fn stop(&mut self) -> anyhow::Result<()> {
         Err(anyhow!("agent does not support stop"))
