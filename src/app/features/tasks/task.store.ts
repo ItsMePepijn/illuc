@@ -24,6 +24,7 @@ export class TaskStore implements OnDestroy {
     private readonly selectedTaskIdSignal = signal<string | null>(null);
     private readonly branchOptionsSignal = signal<string[]>([]);
     private readonly viewModeSignal = signal<"task" | "home">("task");
+    private readonly lastEditorByTaskId = new Map<string, string>();
     private readonly terminalBuffers = new Map<string, string>();
     private readonly terminalStreams = new Map<string, Subject<string>>();
     private readonly terminalSizes = new Map<
@@ -95,6 +96,7 @@ export class TaskStore implements OnDestroy {
             selectedTaskId: this.selectedTaskIdSignal(),
             branchOptions: [...this.branchOptionsSignal()],
             viewMode: this.viewModeSignal(),
+            lastEditorByTaskId: Object.fromEntries(this.lastEditorByTaskId),
             terminalBuffers: Object.fromEntries(this.terminalBuffers),
             worktreeTerminalBuffers: Object.fromEntries(
                 this.worktreeTerminalBuffers,
@@ -117,6 +119,7 @@ export class TaskStore implements OnDestroy {
         this.selectedTaskIdSignal.set(snapshot.selectedTaskId ?? null);
         this.branchOptionsSignal.set(snapshot.branchOptions ?? []);
         this.viewModeSignal.set(snapshot.viewMode ?? "task");
+        this.restoreMap(this.lastEditorByTaskId, snapshot.lastEditorByTaskId);
         this.restoreMap(this.terminalBuffers, snapshot.terminalBuffers);
         this.restoreMap(
             this.worktreeTerminalBuffers,
@@ -153,6 +156,7 @@ export class TaskStore implements OnDestroy {
         this.worktreeTerminalStreams.clear();
         this.worktreeTerminalLastResizeSent.clear();
         this.worktreeTerminalOpenState.clear();
+        this.lastEditorByTaskId.clear();
         this.agentChatStore.clearAll();
         await this.loadExistingTasks(normalized.path);
         await this.loadBranches(normalized.path);
@@ -212,6 +216,17 @@ export class TaskStore implements OnDestroy {
             return null;
         }
         return this.tasksSignal().find((task) => task.taskId === taskId) ?? null;
+    }
+
+    getLastEditorId(taskId: string): string | null {
+        return this.lastEditorByTaskId.get(taskId) ?? null;
+    }
+
+    rememberEditorForTask(taskId: string, editorId: string): void {
+        if (!taskId || !editorId) {
+            return;
+        }
+        this.lastEditorByTaskId.set(taskId, editorId);
     }
 
     async discardTask(taskId: string): Promise<void> {
@@ -526,6 +541,7 @@ export class TaskStore implements OnDestroy {
         this.worktreeTerminalStreams.delete(taskId);
         this.worktreeTerminalLastResizeSent.delete(taskId);
         this.worktreeTerminalOpenState.delete(taskId);
+        this.lastEditorByTaskId.delete(taskId);
         this.agentChatStore.removeTask(taskId);
         this.diffJumpStreams.delete(taskId);
     }
@@ -644,6 +660,7 @@ export type TaskStoreDevState = {
     selectedTaskId: string | null;
     branchOptions: string[];
     viewMode: "task" | "home";
+    lastEditorByTaskId?: Record<string, string>;
     terminalBuffers: Record<string, string>;
     worktreeTerminalBuffers: Record<string, string>;
     worktreeTerminalOpenState: Record<string, boolean>;

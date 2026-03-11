@@ -360,16 +360,30 @@ export class TaskDiffComponent implements OnChanges, OnDestroy {
         this.diffViewport?.scrollToIndex(index, "smooth");
     }
 
-    async openFileInVsCode(filePath: string, event?: Event): Promise<void> {
+    async openFileInDefaultEditor(filePath: string, event?: Event): Promise<void> {
         event?.stopPropagation();
         const resolved = this.resolveFilePath(filePath);
         if (!resolved) {
             return;
         }
         try {
-            await this.launcher.openFileInVsCode(resolved, 1, 1);
+            const editorId = this.taskId
+                ? this.taskStore.getLastEditorId(this.taskId)
+                : null;
+            if (editorId) {
+                try {
+                    await this.launcher.openFileInEditor(resolved, editorId, 1, 1);
+                    return;
+                } catch (error) {
+                    console.warn(
+                        `Failed to open file in remembered editor ${editorId}, falling back to default editor`,
+                        error,
+                    );
+                }
+            }
+            await this.launcher.openFileInDefaultEditor(resolved, 1, 1);
         } catch (error) {
-            console.error("Failed to open file in VS Code", error);
+            console.error("Failed to open file in editor", error);
         }
     }
 

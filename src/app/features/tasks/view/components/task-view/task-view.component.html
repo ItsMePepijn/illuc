@@ -15,12 +15,13 @@
             </div>
             <div class="header-actions">
                 <div class="workspace-actions">
-                    <app-open-vscode-button
-                        [path]="current.worktreePath"
-                    ></app-open-vscode-button>
                     <app-open-terminal-button
                         [path]="current.worktreePath"
                     ></app-open-terminal-button>
+                    <app-launch-editor-dropdown
+                        [taskId]="current.taskId"
+                        [path]="current.worktreePath"
+                    ></app-launch-editor-dropdown>
                 </div>
                 <app-task-action-button
                     type="commit"

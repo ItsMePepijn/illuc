@@ -2,8 +2,7 @@ use crate::commands::CommandResult;
 use crate::features::tasks::events::emit_status;
 use crate::features::tasks::git::{
     ensure_relative_worktree_gitdir, get_head_branch, get_head_commit, get_repo_root,
-    list_worktrees, prune_worktrees,
-    validate_git_repo,
+    list_worktrees, prune_worktrees, validate_git_repo,
 };
 use crate::features::tasks::worktree::{
     clean_branch_name, format_title_from_branch, managed_worktree_root,

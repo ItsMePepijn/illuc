@@ -45,7 +45,9 @@ pub(crate) struct TaskRecord {
 pub(crate) enum TaskRuntimeState {
     #[default]
     Stopped,
-    Starting { attempt_id: u64 },
+    Starting {
+        attempt_id: u64,
+    },
     Running,
 }
 

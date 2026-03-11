@@ -41,8 +41,12 @@ pub async fn task_git_merge(
         )
     };
 
-    git_merge_branch(base_repo_path.as_path(), target_branch.as_str(), source_branch.as_str())
-        .map_err(|err| err.to_string())?;
+    git_merge_branch(
+        base_repo_path.as_path(),
+        target_branch.as_str(),
+        source_branch.as_str(),
+    )
+    .map_err(|err| err.to_string())?;
     let base_commit = get_head_commit(base_repo_path.as_path()).map_err(|err| err.to_string())?;
 
     {
@@ -57,14 +61,18 @@ pub async fn task_git_merge(
 
     emit_diff_changed(&app_handle, task_id);
     if push_main_after_merge {
-        git_push(base_repo_path.as_path(), "origin", target_branch.as_str(), false).map_err(
-            |err| {
-                format!(
-                    "Merged into {} locally, but pushing {} failed: {}",
-                    target_branch, target_branch, err
-                )
-            },
-        )?;
+        git_push(
+            base_repo_path.as_path(),
+            "origin",
+            target_branch.as_str(),
+            false,
+        )
+        .map_err(|err| {
+            format!(
+                "Merged into {} locally, but pushing {} failed: {}",
+                target_branch, target_branch, err
+            )
+        })?;
     }
     Ok(())
 }

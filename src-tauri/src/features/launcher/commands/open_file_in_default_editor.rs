@@ -13,8 +13,8 @@ pub struct Request {
 pub type Response = ();
 
 #[tauri::command]
-pub async fn open_file_in_vscode(req: Request) -> CommandResult<Response> {
+pub async fn open_file_in_default_editor(req: Request) -> CommandResult<Response> {
     let target = std::path::PathBuf::from(req.path);
-    launcher::open_file_in_vscode(target.as_path(), req.line, req.column)
+    launcher::open_file_in_default_editor(target.as_path(), req.line, req.column)
         .map_err(|err| err.to_string())
 }

@@ -2,8 +2,8 @@ use super::config::AcpAgentConfig;
 use crate::features::tasks::agents::copilot::{find_latest_session_id, resolve_session_cwd};
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_process_command;
-use anyhow::Result;
 use agent_client_protocol::{LoadSessionRequest, NewSessionRequest};
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

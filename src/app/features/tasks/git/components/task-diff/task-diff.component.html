@@ -71,7 +71,7 @@
                                 type="button"
                                 class="diff-file-header-button"
                                 [title]="row.filePath"
-                                (click)="openFileInVsCode(row.filePath, $event)"
+                                (click)="openFileInDefaultEditor(row.filePath, $event)"
                             >
                                 {{ row.filePath }}
                             </button>

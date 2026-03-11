@@ -566,11 +566,9 @@ fn primary_tool_row(tool_call: &ToolCall) -> GuiToolRow {
             primary_location,
             primary_value,
         ),
-        ToolKind::Edit | ToolKind::Delete | ToolKind::Move => file_change_primary_row(
-            tool_call,
-            primary_location,
-            primary_value,
-        ),
+        ToolKind::Edit | ToolKind::Delete | ToolKind::Move => {
+            file_change_primary_row(tool_call, primary_location, primary_value)
+        }
         ToolKind::Think => text_row("Thought", primary_value),
         ToolKind::Fetch => text_row("Fetch", primary_value),
         ToolKind::SwitchMode => text_row("Mode", primary_value),
@@ -615,26 +613,24 @@ fn content_rows(tool_call: &ToolCall) -> Vec<GuiToolRow> {
                     removed,
                 });
             }
-            ToolCallContent::Content(content) => {
-                match &content.content {
-                    ContentBlock::Text(text) => {
-                        let rendered = text.text.trim();
-                        if rendered.is_empty() || !is_file_change_summary(rendered) {
-                            continue;
-                        }
-                    }
-                    _ => {
-                        let rendered = render_content_block(content.content.clone());
-                        if rendered.trim().is_empty() {
-                            continue;
-                        }
-                        rows.push(text_row(
-                            content_label(&content.content),
-                            truncate_inline(&rendered, 240),
-                        ));
+            ToolCallContent::Content(content) => match &content.content {
+                ContentBlock::Text(text) => {
+                    let rendered = text.text.trim();
+                    if rendered.is_empty() || !is_file_change_summary(rendered) {
+                        continue;
                     }
                 }
-            }
+                _ => {
+                    let rendered = render_content_block(content.content.clone());
+                    if rendered.trim().is_empty() {
+                        continue;
+                    }
+                    rows.push(text_row(
+                        content_label(&content.content),
+                        truncate_inline(&rendered, 240),
+                    ));
+                }
+            },
             ToolCallContent::Terminal(terminal) => {
                 rows.push(text_row("Terminal", terminal.terminal_id.0.to_string()));
             }
@@ -790,7 +786,7 @@ fn extract_file_change_path(value: &str) -> Option<String> {
         return None;
     }
 
-    for delimiter in [" with ", " using ", " containing ", " (" , "\n"] {
+    for delimiter in [" with ", " using ", " containing ", " (", "\n"] {
         if let Some((path, _)) = trimmed.split_once(delimiter) {
             let path = path.trim();
             if !path.is_empty() {
@@ -912,9 +908,9 @@ mod tests {
         available_commands_summary, config_options_summary, finalize_active_messages,
         normalized_tool_call_title, tool_rows_for, upsert_tool_call_message,
     };
+    use crate::features::tasks::agents::acp::state::AcpAgentState;
     use crate::features::tasks::agents::agent_gui::types::GuiMessageEvent;
     use crate::features::tasks::agents::AgentCallbacks;
-    use crate::features::tasks::agents::acp::state::AcpAgentState;
     use crate::features::tasks::TaskStatus;
     use agent_client_protocol::{
         AvailableCommand, Content, ContentBlock, Diff, SessionConfigOption, ToolCall,
@@ -1002,9 +998,11 @@ mod tests {
     fn tool_rows_map_created_file_summary_into_change_row() {
         let tool_call = ToolCall::new("tool-1", "Change story.md")
             .kind(ToolKind::Edit)
-            .content(vec![agent_client_protocol::ToolCallContent::Content(Content::new(
-                ContentBlock::from("Created file /tmp/project/story.md with 1134 characters"),
-            ))]);
+            .content(vec![agent_client_protocol::ToolCallContent::Content(
+                Content::new(ContentBlock::from(
+                    "Created file /tmp/project/story.md with 1134 characters",
+                )),
+            )]);
 
         let rows = tool_rows_for(&tool_call);
         assert!(rows.iter().any(|row| {
@@ -1015,8 +1013,7 @@ mod tests {
                 && row.path.as_deref() == Some("/tmp/project/story.md")
         }));
         assert!(!rows.iter().any(|row| {
-            row.value.as_deref()
-                == Some("Created file /tmp/project/story.md with 1134 characters")
+            row.value.as_deref() == Some("Created file /tmp/project/story.md with 1134 characters")
         }));
     }
 

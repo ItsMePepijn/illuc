@@ -1,0 +1,13 @@
+:host {
+    display: inline-flex;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+}
+
+img {
+    width: 18px;
+    height: 18px;
+    display: block;
+    object-fit: contain;
+}

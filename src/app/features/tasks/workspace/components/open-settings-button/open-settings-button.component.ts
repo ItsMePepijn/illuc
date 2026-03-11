@@ -26,9 +26,9 @@ export class OpenSettingsButtonComponent {
         }
         this.isLoading = true;
         try {
-            await this.launcher.openSettingsInVsCode();
+            await this.launcher.openSettingsInDefaultEditor();
         } catch (error) {
-            console.error("Failed to open settings.toml in VS Code", error);
+            console.error("Failed to open settings.toml in default editor", error);
         } finally {
             this.zone.run(() => {
                 this.isLoading = false;
