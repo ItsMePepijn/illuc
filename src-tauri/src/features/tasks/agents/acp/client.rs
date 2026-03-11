@@ -21,6 +21,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::sync::Arc;
+use std::time::Instant;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -46,6 +47,11 @@ impl AcpClientHandler {
             worktree_path,
             title,
         }
+    }
+
+    pub(crate) fn with_callbacks(mut self, callbacks: AgentCallbacks) -> Self {
+        self.callbacks = callbacks;
+        self
     }
 }
 
@@ -111,6 +117,10 @@ impl AcpClient for AcpClientHandler {
         &self,
         args: SessionNotification,
     ) -> agent_client_protocol::Result<()> {
+        {
+            let mut state = self.state.lock();
+            state.last_session_update_at = Some(Instant::now());
+        }
         match args.update {
             SessionUpdate::UserMessageChunk(chunk) => {
                 emit_chunk(

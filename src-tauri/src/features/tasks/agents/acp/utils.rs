@@ -46,9 +46,21 @@ pub(crate) fn emit_chunk(
 }
 
 pub(crate) fn finalize_active_messages(state: &SharedAcpAgentState, callbacks: &AgentCallbacks) {
-    let active_messages = {
+    let (active_messages, active_tool_calls) = {
         let mut state = state.lock();
-        std::mem::take(&mut state.active_message_ids)
+        let active_messages = std::mem::take(&mut state.active_message_ids);
+        let active_tool_calls = state
+            .tool_call_messages
+            .values_mut()
+            .filter_map(|tracked| {
+                if !tool_call_is_running(tracked.tool_call.status) {
+                    return None;
+                }
+                tracked.tool_call.status = ToolCallStatus::Completed;
+                Some((tracked.message_id.clone(), tracked.tool_call.clone()))
+            })
+            .collect::<Vec<_>>();
+        (active_messages, active_tool_calls)
     };
 
     for (role, message_id) in active_messages {
@@ -67,6 +79,10 @@ pub(crate) fn finalize_active_messages(state: &SharedAcpAgentState, callbacks: &
             is_delta: true,
             is_final: true,
         });
+    }
+
+    for (message_id, tool_call) in active_tool_calls {
+        emit_tool_call_message(callbacks, message_id, tool_call);
     }
 }
 
@@ -825,13 +841,19 @@ impl GuiMessagePresentationExt for GuiMessagePresentation {
 #[cfg(test)]
 mod tests {
     use super::{
-        available_commands_summary, config_options_summary, normalized_tool_call_title,
-        tool_rows_for,
+        available_commands_summary, config_options_summary, finalize_active_messages,
+        normalized_tool_call_title, tool_rows_for, upsert_tool_call_message,
     };
+    use crate::features::tasks::agents::agent_gui::types::GuiMessageEvent;
+    use crate::features::tasks::agents::AgentCallbacks;
+    use crate::features::tasks::agents::acp::state::AcpAgentState;
+    use crate::features::tasks::TaskStatus;
     use agent_client_protocol::{
-        AvailableCommand, Content, ContentBlock, Diff, SessionConfigOption, ToolCall, ToolKind,
-        ToolKind::Execute,
+        AvailableCommand, Content, ContentBlock, Diff, SessionConfigOption, ToolCall,
+        ToolCallStatus, ToolKind, ToolKind::Execute,
     };
+    use parking_lot::Mutex;
+    use std::sync::Arc;
 
     #[test]
     fn tool_rows_map_diff_content_into_change_rows() {
@@ -935,5 +957,42 @@ mod tests {
         let tool_call = ToolCall::new("tool-1", "Change story.md").kind(ToolKind::Edit);
 
         assert_eq!(normalized_tool_call_title(&tool_call), "Edit story.md");
+    }
+
+    #[test]
+    fn finalize_active_messages_completes_running_tool_calls() {
+        let events = Arc::new(Mutex::new(Vec::<GuiMessageEvent>::new()));
+        let callbacks = test_callbacks(events.clone());
+        let state = Arc::new(Mutex::new(AcpAgentState::default()));
+        let tool_call = ToolCall::new("tool-1", "Run cargo check")
+            .kind(Execute)
+            .status(ToolCallStatus::InProgress)
+            .raw_input(serde_json::json!({ "command": "cargo check" }));
+
+        upsert_tool_call_message(&state, &callbacks, tool_call);
+        finalize_active_messages(&state, &callbacks);
+
+        let emitted = events.lock();
+        assert_eq!(emitted.len(), 2);
+        let final_event = emitted.last().unwrap();
+        assert!(final_event.is_final);
+        assert!(!final_event.presentation.is_tool_running);
+    }
+
+    fn test_callbacks(events: Arc<Mutex<Vec<GuiMessageEvent>>>) -> AgentCallbacks {
+        AgentCallbacks {
+            on_output: Arc::new(|_| {}),
+            on_status: Arc::new(|_: TaskStatus| {}),
+            on_exit: Arc::new(|_| {}),
+            on_gui_event: Arc::new(move |event| {
+                events.lock().push(event);
+            }),
+            on_gui_history: Arc::new(|_| {}),
+            on_gui_activity: Arc::new(|_| {}),
+            on_gui_plan: Arc::new(|_| {}),
+            on_gui_token_usage: Arc::new(|_| {}),
+            on_gui_request: Arc::new(|_| {}),
+            on_gui_hydrated: Arc::new(|| {}),
+        }
     }
 }

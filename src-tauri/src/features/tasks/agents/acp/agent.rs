@@ -97,6 +97,7 @@ impl<C: AcpAgentConfig> Agent for AcpAgent<C> {
             state.tool_call_messages.clear();
             state.selected_model = None;
             state.selected_reasoning_effort = None;
+            state.last_session_update_at = None;
         }
 
         let config_id = self.config.id().to_string();

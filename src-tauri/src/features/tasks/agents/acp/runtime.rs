@@ -4,6 +4,7 @@ use super::state::SharedAcpAgentState;
 use super::utils::{
     finalize_active_messages, log_acp_rpc_stream, log_acp_stderr, update_config_options,
 };
+use crate::features::tasks::agents::agent_gui::types::GuiMessageEvent;
 use crate::features::tasks::agents::AgentCallbacks;
 use crate::features::tasks::TaskStatus;
 use agent_client_protocol::{
@@ -13,6 +14,8 @@ use agent_client_protocol::{
 };
 use anyhow::{anyhow, Context, Result};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::sync::mpsc::SyncSender;
 use std::time::Duration;
 use tokio::process::Command as TokioCommand;
@@ -31,6 +34,11 @@ pub(crate) async fn run_acp_runtime(
     startup_tx: SyncSender<Result<()>>,
     title: String,
 ) -> Result<()> {
+    let replay_buffer = load_session_request
+        .as_ref()
+        .map(|_| StartupReplayBuffer::default());
+    let callbacks = wrap_startup_replay_callbacks(callbacks, replay_buffer.clone());
+    let client = client.with_callbacks(callbacks.clone());
     let command_description = describe_command(&command);
     command
         .stdin(Stdio::piped())
@@ -75,6 +83,8 @@ pub(crate) async fn run_acp_runtime(
         match agent_client_protocol::Agent::load_session(&conn, load_request).await {
             Ok(response) => {
                 apply_session_response(&state, session_id.clone(), response.config_options);
+                wait_for_session_replay_quiescence(&state).await;
+                flush_startup_replay(&state, &callbacks, replay_buffer.as_ref());
             }
             Err(error) if should_fallback_to_new_session(&error) => {
                 log::warn!(
@@ -332,7 +342,257 @@ fn apply_session_response(
         state.session_message_ids.clear();
         state.tool_call_messages.clear();
         state.config_options = config_options;
+        state.last_session_update_at = None;
     }
+}
+
+async fn wait_for_session_replay_quiescence(state: &SharedAcpAgentState) {
+    const QUIET_WINDOW_MS: u64 = 150;
+    const MAX_WAIT_MS: u64 = 2_000;
+    let started_at = std::time::Instant::now();
+
+    loop {
+        let last_update_at = { state.lock().last_session_update_at };
+        let now = std::time::Instant::now();
+        let quiet_for = last_update_at.map(|instant| now.saturating_duration_since(instant));
+        let timed_out = now.saturating_duration_since(started_at)
+            >= Duration::from_millis(MAX_WAIT_MS);
+
+        if timed_out
+            || quiet_for.is_some_and(|duration| duration >= Duration::from_millis(QUIET_WINDOW_MS))
+            || (last_update_at.is_none()
+                && now.saturating_duration_since(started_at)
+                    >= Duration::from_millis(QUIET_WINDOW_MS))
+        {
+            return;
+        }
+
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+#[derive(Clone)]
+struct StartupReplayBuffer {
+    enabled: Arc<AtomicBool>,
+    events: Arc<parking_lot::Mutex<Vec<GuiMessageEvent>>>,
+}
+
+impl Default for StartupReplayBuffer {
+    fn default() -> Self {
+        Self {
+            enabled: Arc::new(AtomicBool::new(true)),
+            events: Arc::new(parking_lot::Mutex::new(Vec::new())),
+        }
+    }
+}
+
+fn wrap_startup_replay_callbacks(
+    callbacks: AgentCallbacks,
+    replay_buffer: Option<StartupReplayBuffer>,
+) -> AgentCallbacks {
+    let Some(replay_buffer) = replay_buffer else {
+        return callbacks;
+    };
+
+    let on_output = callbacks.on_output.clone();
+    let on_status = callbacks.on_status.clone();
+    let on_exit = callbacks.on_exit.clone();
+    let on_gui_history = callbacks.on_gui_history.clone();
+    let on_gui_activity = callbacks.on_gui_activity.clone();
+    let on_gui_plan = callbacks.on_gui_plan.clone();
+    let on_gui_token_usage = callbacks.on_gui_token_usage.clone();
+    let on_gui_request = callbacks.on_gui_request.clone();
+    let on_gui_hydrated = callbacks.on_gui_hydrated.clone();
+    let delegate_event = callbacks.on_gui_event.clone();
+    let buffer = replay_buffer.clone();
+
+    AgentCallbacks {
+        on_output,
+        on_status,
+        on_exit,
+        on_gui_event: Arc::new(move |event| {
+            if buffer.enabled.load(Ordering::SeqCst) {
+                buffer.events.lock().push(event);
+                return;
+            }
+            (delegate_event)(event);
+        }),
+        on_gui_history,
+        on_gui_activity,
+        on_gui_plan,
+        on_gui_token_usage,
+        on_gui_request,
+        on_gui_hydrated,
+    }
+}
+
+fn flush_startup_replay(
+    state: &SharedAcpAgentState,
+    callbacks: &AgentCallbacks,
+    replay_buffer: Option<&StartupReplayBuffer>,
+) {
+    let Some(replay_buffer) = replay_buffer else {
+        return;
+    };
+    replay_buffer.enabled.store(false, Ordering::SeqCst);
+    let events = std::mem::take(&mut *replay_buffer.events.lock());
+    if !events.is_empty() {
+        let collapsed = collapse_replay_events(events);
+        (callbacks.on_gui_history)(collapsed);
+    }
+    clear_replay_tracking(state);
+}
+
+fn clear_replay_tracking(state: &SharedAcpAgentState) {
+    let mut state = state.lock();
+    state.active_message_ids.clear();
+    for tracked in state.tool_call_messages.values_mut() {
+        if matches!(
+            tracked.tool_call.status,
+            agent_client_protocol::ToolCallStatus::Pending
+                | agent_client_protocol::ToolCallStatus::InProgress
+        ) {
+            tracked.tool_call.status = agent_client_protocol::ToolCallStatus::Completed;
+        }
+    }
+}
+
+fn collapse_replay_events(events: Vec<GuiMessageEvent>) -> Vec<GuiMessageEvent> {
+    let mut collapsed = Vec::new();
+    let mut active_text: Option<GuiMessageEvent> = None;
+    let mut replay_index: usize = 0;
+
+    for event in events {
+        let is_tool = matches!(
+            event.presentation.kind,
+            crate::features::tasks::agents::agent_gui::types::GuiMessagePresentationKind::Tool
+        );
+
+        if is_tool {
+            finalize_active_replay_text(&mut collapsed, &mut active_text);
+            if event.is_final {
+                collapsed.push(finalize_replay_event(event));
+            }
+            continue;
+        }
+
+        if should_start_new_replay_text_segment(active_text.as_ref(), &event) {
+            finalize_active_replay_text(&mut collapsed, &mut active_text);
+        }
+
+        if let Some(existing) = active_text.as_mut() {
+            let merged_content = if event.is_delta {
+                format!("{}{}", existing.content, event.content)
+            } else {
+                event.content.clone()
+            };
+            existing.content = merged_content.clone();
+            existing.presentation = merge_replay_presentation(
+                existing.presentation.clone(),
+                event.presentation,
+                merged_content,
+                event.is_delta,
+            );
+            existing.is_delta = false;
+            existing.is_final = true;
+        } else {
+            replay_index += 1;
+            active_text = Some(GuiMessageEvent {
+                message_id: format!("{}#replay-{replay_index}", event.message_id),
+                is_delta: false,
+                is_final: true,
+                presentation: finalize_replay_presentation(event.presentation),
+                ..event
+            });
+        }
+    }
+
+    finalize_active_replay_text(&mut collapsed, &mut active_text);
+    collapsed
+}
+
+fn finalize_active_replay_text(
+    collapsed: &mut Vec<GuiMessageEvent>,
+    active_text: &mut Option<GuiMessageEvent>,
+) {
+    if let Some(event) = active_text.take() {
+        if !event.content.is_empty() {
+            collapsed.push(finalize_replay_event(event));
+        }
+    }
+}
+
+fn finalize_replay_event(event: GuiMessageEvent) -> GuiMessageEvent {
+    GuiMessageEvent {
+        presentation: finalize_replay_presentation(event.presentation),
+        is_delta: false,
+        is_final: true,
+        ..event
+    }
+}
+
+fn should_start_new_replay_text_segment(
+    active_text: Option<&GuiMessageEvent>,
+    incoming: &GuiMessageEvent,
+) -> bool {
+    let Some(active_text) = active_text else {
+        return false;
+    };
+    let same_role = matches!(
+        (active_text.role, incoming.role),
+        (
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::User,
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::User
+        ) | (
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::Assistant,
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::Assistant
+        ) | (
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::System,
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::System
+        ) | (
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::Reasoning,
+            crate::features::tasks::agents::agent_gui::types::GuiMessageRole::Reasoning
+        )
+    );
+    let same_kind = std::mem::discriminant(&active_text.presentation.kind)
+        == std::mem::discriminant(&incoming.presentation.kind);
+    !same_role || !same_kind
+}
+
+fn merge_replay_presentation(
+    existing: crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation,
+    incoming: crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation,
+    merged_content: String,
+    is_delta: bool,
+) -> crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation {
+    if !is_delta || matches!(
+        incoming.kind,
+        crate::features::tasks::agents::agent_gui::types::GuiMessagePresentationKind::Tool
+    ) {
+        return finalize_replay_presentation(incoming);
+    }
+
+    finalize_replay_presentation(
+        crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation {
+            kind: incoming.kind,
+            text: Some(merged_content),
+            text_format: incoming.text_format.or(existing.text_format),
+            tool_rows: if incoming.tool_rows.is_empty() {
+                existing.tool_rows
+            } else {
+                incoming.tool_rows
+            },
+            tool_status_label: incoming.tool_status_label.or(existing.tool_status_label),
+            is_tool_running: false,
+        },
+    )
+}
+
+fn finalize_replay_presentation(
+    mut presentation: crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation,
+) -> crate::features::tasks::agents::agent_gui::types::GuiMessagePresentation {
+    presentation.is_tool_running = false;
+    presentation
 }
 
 fn handle_ui_response(

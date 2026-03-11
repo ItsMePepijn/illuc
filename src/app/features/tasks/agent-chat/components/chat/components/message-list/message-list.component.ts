@@ -122,6 +122,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     private resizeSyncFrameId?: number;
     private tailResizeSyncFrameId?: number;
     private adapterCheckFrameId?: number;
+    private adapterInitRetryFrameId?: number;
     private bottomSyncFrameId?: number;
     private bottomSyncFramesRemaining = 0;
     private pinnedToBottom = true;
@@ -170,6 +171,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.disconnectTailObserver();
         this.clearActivationSync();
         this.cancelAdapterCheck();
+        this.cancelAdapterInitRetry();
         this.cancelBottomSync();
     }
 
@@ -355,6 +357,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
 
         const adapter = this.datasource.adapter;
         if (!adapter.init) {
+            this.scheduleAdapterInitRetry();
             return false;
         }
 
@@ -611,12 +614,35 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         });
     }
 
+    private scheduleAdapterInitRetry(): void {
+        if (this.adapterInitRetryFrameId !== undefined) {
+            return;
+        }
+        this.zone.runOutsideAngular(() => {
+            this.adapterInitRetryFrameId = requestAnimationFrame(() => {
+                this.adapterInitRetryFrameId = undefined;
+                if (this.destroyed || !this.isActive || this.showInitialLoading) {
+                    return;
+                }
+                this.scheduleHistorySync(true);
+            });
+        });
+    }
+
     private cancelAdapterCheck(): void {
         if (this.adapterCheckFrameId === undefined) {
             return;
         }
         cancelAnimationFrame(this.adapterCheckFrameId);
         this.adapterCheckFrameId = undefined;
+    }
+
+    private cancelAdapterInitRetry(): void {
+        if (this.adapterInitRetryFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.adapterInitRetryFrameId);
+        this.adapterInitRetryFrameId = undefined;
     }
 
     private requestBottomSync(frames = CHAT_SETTLE_BOTTOM_SYNC_FRAMES): void {

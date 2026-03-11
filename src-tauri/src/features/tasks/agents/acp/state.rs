@@ -6,6 +6,7 @@ use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::sync::mpsc::SyncSender;
 use std::sync::Arc;
+use std::time::Instant;
 use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Default)]
@@ -21,6 +22,7 @@ pub(crate) struct AcpAgentState {
     pub(crate) tool_call_messages: HashMap<String, TrackedToolCall>,
     pub(crate) selected_model: Option<String>,
     pub(crate) selected_reasoning_effort: Option<String>,
+    pub(crate) last_session_update_at: Option<Instant>,
 }
 
 pub(crate) type SharedAcpAgentState = Arc<Mutex<AcpAgentState>>;
