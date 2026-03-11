@@ -37,6 +37,8 @@
             (click)="choose(editor, $event)"
         >
             <app-editor-app-icon
+                [icon]="editor.icon"
+                [appName]="editor.name"
                 [iconDataUrl]="editor.iconDataUrl ?? null"
             ></app-editor-app-icon>
             <span class="editor-name">{{ editor.name }}</span>

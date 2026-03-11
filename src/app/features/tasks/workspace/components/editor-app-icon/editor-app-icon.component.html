@@ -1,1 +1,11 @@
-<img *ngIf="iconDataUrl" [src]="iconDataUrl" alt="" aria-hidden="true" />
+<img
+    *ngIf="shouldShowImage; else fallback"
+    [src]="iconDataUrl"
+    alt=""
+    aria-hidden="true"
+    (error)="handleImageError()"
+/>
+
+<ng-template #fallback>
+    <span [class]="fallbackClass" aria-hidden="true">{{ fallbackLabel }}</span>
+</ng-template>

@@ -154,15 +154,20 @@ fn detect_installed_editors() -> Vec<InstalledEditor> {
             continue;
         }
 
-        if let Some(command) =
-            resolve_command_path(definition.command_candidates, definition.windows_paths)
-        {
+        let installed_path = super::windows::resolve_install_path(definition.windows_paths);
+        let launch_command =
+            resolve_command_path(definition.command_candidates, definition.windows_paths);
+
+        if let Some(command) = launch_command {
+            let icon_source = installed_path
+                .as_deref()
+                .or_else(|| super::windows::icon_source_from_command(&command));
             installed.push(InstalledEditor {
                 app: EditorApp {
                     id: definition.id.to_string(),
                     name: definition.name.to_string(),
                     icon: definition.icon,
-                    icon_data_url: super::windows::load_icon_data_url(&command),
+                    icon_data_url: icon_source.and_then(super::windows::load_icon_data_url),
                 },
                 launch: LaunchCommand {
                     command,

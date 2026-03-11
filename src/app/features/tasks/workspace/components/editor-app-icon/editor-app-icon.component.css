@@ -11,3 +11,54 @@ img {
     display: block;
     object-fit: contain;
 }
+
+.fallback-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #fff;
+    background: linear-gradient(135deg, #64748b, #334155);
+}
+
+.icon-vscode {
+    background: linear-gradient(135deg, #0ea5e9, #2563eb);
+}
+
+.icon-vscodeInsiders {
+    background: linear-gradient(135deg, #1d4ed8, #312e81);
+}
+
+.icon-vscodium {
+    background: linear-gradient(135deg, #16a34a, #0f766e);
+}
+
+.icon-cursor {
+    background: linear-gradient(135deg, #111827, #4b5563);
+}
+
+.icon-windsurf {
+    background: linear-gradient(135deg, #0891b2, #0f172a);
+}
+
+.icon-zed {
+    background: linear-gradient(135deg, #dc2626, #7c3aed);
+}
+
+.icon-sublimeText {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+.icon-notepadPlusPlus {
+    background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.icon-jetbrains {
+    background: linear-gradient(135deg, #ec4899, #7c3aed);
+}
