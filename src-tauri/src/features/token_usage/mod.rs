@@ -5,11 +5,7 @@ use crate::features::tasks::git::get_head_branch;
 use crate::features::tasks::worktree::{format_title_from_branch, managed_worktree_root};
 use crate::utils::path::normalize_path_string;
 #[cfg(target_os = "windows")]
-<<<<<<< Updated upstream
-use crate::utils::windows::resolve_wsl_home_dir;
-=======
 use crate::utils::windows::{resolve_wsl_home_dir, to_wsl_path};
->>>>>>> Stashed changes
 use anyhow::Context;
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -173,16 +169,6 @@ struct SessionMetaLine {
 struct SessionMetaPayload {
     cwd: String,
 }
-
-<<<<<<< Updated upstream
-impl SessionMetaPayload {
-    fn is_supported_codex_source(&self) -> bool {
-        true
-    }
-}
-
-=======
->>>>>>> Stashed changes
 #[derive(Debug, Clone, Deserialize)]
 struct TurnContextLine {
     #[serde(rename = "type")]
@@ -939,10 +925,6 @@ mod tests {
 
         assert_eq!(parsed.kind, "session_meta");
         assert_eq!(parsed.payload.cwd, "/tmp/project");
-<<<<<<< Updated upstream
-        assert!(parsed.payload.is_supported_codex_source());
-=======
->>>>>>> Stashed changes
     }
 
     #[test]
