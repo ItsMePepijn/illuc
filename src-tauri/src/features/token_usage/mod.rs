@@ -168,29 +168,12 @@ struct SessionMetaLine {
 #[serde(rename_all = "camelCase")]
 struct SessionMetaPayload {
     cwd: String,
-    #[serde(default)]
-    originator: Option<String>,
-    #[serde(default)]
-    source: Option<SessionSource>,
 }
 
 impl SessionMetaPayload {
     fn is_supported_codex_source(&self) -> bool {
-        let _ = &self.originator;
-        let _ = &self.source;
         true
     }
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
-#[allow(dead_code)]
-enum SessionSource {
-    CliString(String),
-    Subagent {
-        #[serde(rename = "subagent")]
-        _subagent: String,
-    },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -799,7 +782,7 @@ fn token_delta(previous: Option<&TokenTotals>, current: &TokenTotals) -> UsageBr
 #[cfg(test)]
 mod tests {
     use super::{
-        token_delta, PricingCatalog, SessionMetaPayload, SessionSource, TokenCountLine,
+        token_delta, PricingCatalog, SessionMetaLine, TokenCountLine,
         UsageBreakdown,
     };
     use std::collections::HashMap;
@@ -883,43 +866,25 @@ mod tests {
     }
 
     #[test]
-    fn codex_source_filter_accepts_cli_gui_and_subagents() {
-        let cli_payload = SessionMetaPayload {
-            cwd: "/tmp/project".to_string(),
-            originator: Some("codex_cli_rs".to_string()),
-            source: Some(SessionSource::CliString("cli".to_string())),
-        };
-        assert!(cli_payload.is_supported_codex_source());
+    fn session_meta_deserializes_even_with_arbitrary_unused_source_fields() {
+        let json = r#"{
+            "type": "session_meta",
+            "payload": {
+                "cwd": "/tmp/project",
+                "originator": "illuc-codex-gui",
+                "source": {
+                    "kind": "editor",
+                    "client": "something-new"
+                }
+            }
+        }"#;
 
-        let gui_payload = SessionMetaPayload {
-            cwd: "/tmp/project".to_string(),
-            originator: Some("illuc-codex-gui".to_string()),
-            source: Some(SessionSource::CliString("vscode".to_string())),
-        };
-        assert!(gui_payload.is_supported_codex_source());
+        let parsed: SessionMetaLine =
+            serde_json::from_str(json).expect("session meta should parse");
 
-        let subagent_payload = SessionMetaPayload {
-            cwd: "/tmp/project".to_string(),
-            originator: Some("codex_cli_rs".to_string()),
-            source: Some(SessionSource::Subagent {
-                _subagent: "review".to_string(),
-            }),
-        };
-        assert!(subagent_payload.is_supported_codex_source());
-
-        let legacy_cli_payload = SessionMetaPayload {
-            cwd: "/tmp/project".to_string(),
-            originator: Some("codex_cli_rs".to_string()),
-            source: None,
-        };
-        assert!(legacy_cli_payload.is_supported_codex_source());
-
-        let other_payload = SessionMetaPayload {
-            cwd: "/tmp/project".to_string(),
-            originator: Some("something_else".to_string()),
-            source: Some(SessionSource::CliString("editor".to_string())),
-        };
-        assert!(other_payload.is_supported_codex_source());
+        assert_eq!(parsed.kind, "session_meta");
+        assert_eq!(parsed.payload.cwd, "/tmp/project");
+        assert!(parsed.payload.is_supported_codex_source());
     }
 
     #[test]
