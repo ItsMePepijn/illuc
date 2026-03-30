@@ -684,10 +684,39 @@ fn classify_task_meta(cwd: &str, repo_root: &str, worktree_root: &str) -> Option
         return None;
     }
 
-    Some(resolve_task_meta(cwd, repo_root))
+    Some(resolve_task_meta(cwd, repo_root, worktree_root))
 }
 
-fn resolve_task_meta(cwd: &str, repo_root: &str) -> TaskMeta {
+fn resolve_task_meta(cwd: &str, repo_root: &str, worktree_root: &str) -> TaskMeta {
+    if path_in_scope(cwd, worktree_root) {
+        let path = resolve_session_filesystem_path(cwd);
+        if path.exists() {
+            if let Ok(branch_name) = get_head_branch(&path) {
+                return TaskMeta {
+                    key: cwd.to_string(),
+                    label: format_title_from_branch(&branch_name),
+                    subtitle: branch_name,
+                    path: cwd.to_string(),
+                    is_workspace: false,
+                };
+            }
+        }
+
+        let fallback = path
+            .file_name()
+            .and_then(|value| value.to_str())
+            .unwrap_or("task")
+            .to_string();
+        let short = fallback.chars().take(8).collect::<String>();
+        return TaskMeta {
+            key: cwd.to_string(),
+            label: format!("Task {}", short),
+            subtitle: "Discarded worktree".to_string(),
+            path: cwd.to_string(),
+            is_workspace: false,
+        };
+    }
+
     if path_in_scope(cwd, repo_root) {
         let repo_name = Path::new(repo_root)
             .file_name()
@@ -703,18 +732,6 @@ fn resolve_task_meta(cwd: &str, repo_root: &str) -> TaskMeta {
     }
 
     let path = resolve_session_filesystem_path(cwd);
-    if path.exists() {
-        if let Ok(branch_name) = get_head_branch(&path) {
-            return TaskMeta {
-                key: cwd.to_string(),
-                label: format_title_from_branch(&branch_name),
-                subtitle: branch_name,
-                path: cwd.to_string(),
-                is_workspace: false,
-            };
-        }
-    }
-
     let fallback = path
         .file_name()
         .and_then(|value| value.to_str())
@@ -823,7 +840,7 @@ fn token_delta(previous: Option<&TokenTotals>, current: &TokenTotals) -> UsageBr
 #[cfg(test)]
 mod tests {
     use super::{
-        token_delta, PricingCatalog, SessionMetaLine, TokenCountLine,
+        classify_task_meta, token_delta, PricingCatalog, SessionMetaLine, TokenCountLine,
         UsageBreakdown,
     };
     use std::collections::HashMap;
@@ -925,6 +942,19 @@ mod tests {
 
         assert_eq!(parsed.kind, "session_meta");
         assert_eq!(parsed.payload.cwd, "/tmp/project");
+    }
+
+    #[test]
+    fn managed_worktree_sessions_are_not_grouped_into_workspace() {
+        let repo_root = "/repo";
+        let worktree_root = "/repo/.illuc/worktrees";
+        let cwd = "/repo/.illuc/worktrees/1234abcd";
+
+        let task = classify_task_meta(cwd, repo_root, worktree_root)
+            .expect("managed worktree session should be in scope");
+
+        assert_eq!(task.key, cwd);
+        assert!(!task.is_workspace);
     }
 
     #[test]
