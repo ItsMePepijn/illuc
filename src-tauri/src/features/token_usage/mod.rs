@@ -5,7 +5,11 @@ use crate::features::tasks::git::get_head_branch;
 use crate::features::tasks::worktree::{format_title_from_branch, managed_worktree_root};
 use crate::utils::path::normalize_path_string;
 #[cfg(target_os = "windows")]
+<<<<<<< Updated upstream
 use crate::utils::windows::resolve_wsl_home_dir;
+=======
+use crate::utils::windows::{resolve_wsl_home_dir, to_wsl_path};
+>>>>>>> Stashed changes
 use anyhow::Context;
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -170,12 +174,15 @@ struct SessionMetaPayload {
     cwd: String,
 }
 
+<<<<<<< Updated upstream
 impl SessionMetaPayload {
     fn is_supported_codex_source(&self) -> bool {
         true
     }
 }
 
+=======
+>>>>>>> Stashed changes
 #[derive(Debug, Clone, Deserialize)]
 struct TurnContextLine {
     #[serde(rename = "type")]
@@ -291,9 +298,9 @@ pub fn load_token_usage(app: &tauri::AppHandle, repo_root: &Path) -> Result<Toke
     let repo_root = repo_root
         .canonicalize()
         .unwrap_or_else(|_| repo_root.to_path_buf());
-    let repo_root_display = normalize_path_string(&repo_root);
+    let repo_root_display = normalize_scope_path(&repo_root);
     let worktree_root = managed_worktree_root(&repo_root)?;
-    let worktree_root_display = normalize_path_string(&worktree_root);
+    let worktree_root_display = normalize_scope_path(&worktree_root);
     let pricing = load_pricing_catalog(app)?;
     let sessions_dir = resolve_codex_sessions_dir(app)?;
 
@@ -600,11 +607,7 @@ fn parse_session_file(path: &Path, pricing: &PricingCatalog) -> Result<Option<Pa
     if session_meta.kind != "session_meta" {
         return Ok(None);
     }
-    if !session_meta.payload.is_supported_codex_source() {
-        return Ok(None);
-    }
-
-    let cwd = normalize_path_string(Path::new(&session_meta.payload.cwd));
+    let cwd = normalize_session_cwd(&session_meta.payload.cwd);
     let mut aggregation = SessionAggregation::default();
     let mut active_model: Option<String> = None;
     let mut previous_totals: Option<TokenTotals> = None;
@@ -689,9 +692,8 @@ fn parse_session_file(path: &Path, pricing: &PricingCatalog) -> Result<Option<Pa
 }
 
 fn classify_task_meta(cwd: &str, repo_root: &str, worktree_root: &str) -> Option<TaskMeta> {
-    let is_repo_session = cwd == repo_root;
-    let worktree_prefix = format!("{}{}", worktree_root, std::path::MAIN_SEPARATOR);
-    let is_worktree_session = cwd == worktree_root || cwd.starts_with(&worktree_prefix);
+    let is_repo_session = path_in_scope(cwd, repo_root);
+    let is_worktree_session = path_in_scope(cwd, worktree_root);
     if !is_repo_session && !is_worktree_session {
         return None;
     }
@@ -700,7 +702,7 @@ fn classify_task_meta(cwd: &str, repo_root: &str, worktree_root: &str) -> Option
 }
 
 fn resolve_task_meta(cwd: &str, repo_root: &str) -> TaskMeta {
-    if cwd == repo_root {
+    if path_in_scope(cwd, repo_root) {
         let repo_name = Path::new(repo_root)
             .file_name()
             .and_then(|value| value.to_str())
@@ -714,7 +716,7 @@ fn resolve_task_meta(cwd: &str, repo_root: &str) -> TaskMeta {
         };
     }
 
-    let path = PathBuf::from(cwd);
+    let path = resolve_session_filesystem_path(cwd);
     if path.exists() {
         if let Ok(branch_name) = get_head_branch(&path) {
             return TaskMeta {
@@ -740,6 +742,59 @@ fn resolve_task_meta(cwd: &str, repo_root: &str) -> TaskMeta {
         path: cwd.to_string(),
         is_workspace: false,
     }
+}
+
+fn path_in_scope(path: &str, scope_root: &str) -> bool {
+    if path == scope_root {
+        return true;
+    }
+    path.strip_prefix(scope_root)
+        .is_some_and(|suffix| suffix.starts_with('/') || suffix.starts_with('\\'))
+}
+
+#[cfg(target_os = "windows")]
+fn normalize_scope_path(path: &Path) -> String {
+    to_wsl_path(path).unwrap_or_else(|| normalize_path_string(path))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn normalize_scope_path(path: &Path) -> String {
+    normalize_path_string(path)
+}
+
+#[cfg(target_os = "windows")]
+fn normalize_session_cwd(cwd: &str) -> String {
+    if cwd.starts_with('/') {
+        return cwd.replace('\\', "/");
+    }
+    normalize_path_string(Path::new(cwd))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn normalize_session_cwd(cwd: &str) -> String {
+    normalize_path_string(Path::new(cwd))
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_session_filesystem_path(cwd: &str) -> PathBuf {
+    wsl_path_to_windows_path(cwd).unwrap_or_else(|| PathBuf::from(cwd))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn resolve_session_filesystem_path(cwd: &str) -> PathBuf {
+    PathBuf::from(cwd)
+}
+
+#[cfg(target_os = "windows")]
+fn wsl_path_to_windows_path(value: &str) -> Option<PathBuf> {
+    let remainder = value.strip_prefix("/mnt/")?;
+    let (drive, tail) = remainder.split_once('/')?;
+    if drive.len() != 1 || !drive.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return None;
+    }
+    let drive = drive.chars().next()?.to_ascii_uppercase();
+    let tail = tail.replace('/', "\\");
+    Some(PathBuf::from(format!("{drive}:\\{tail}")))
 }
 
 fn local_date_key(timestamp: &str) -> Result<String> {
@@ -884,7 +939,10 @@ mod tests {
 
         assert_eq!(parsed.kind, "session_meta");
         assert_eq!(parsed.payload.cwd, "/tmp/project");
+<<<<<<< Updated upstream
         assert!(parsed.payload.is_supported_codex_source());
+=======
+>>>>>>> Stashed changes
     }
 
     #[test]
