@@ -4,6 +4,8 @@ use crate::error::Result;
 use crate::features::tasks::git::get_head_branch;
 use crate::features::tasks::worktree::{format_title_from_branch, managed_worktree_root};
 use crate::utils::path::normalize_path_string;
+#[cfg(target_os = "windows")]
+use crate::utils::windows::resolve_wsl_home_dir;
 use anyhow::Context;
 use chrono::{DateTime, Local};
 use parking_lot::Mutex;
@@ -499,10 +501,15 @@ fn load_pricing_catalog(app: &tauri::AppHandle) -> Result<PricingCatalog> {
 }
 
 fn resolve_codex_sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf> {
+    #[cfg(target_os = "windows")]
+    let home_dir = resolve_wsl_home_dir().with_context(|| "failed to resolve WSL home directory")?;
+
+    #[cfg(not(target_os = "windows"))]
     let home_dir = app
         .path()
         .home_dir()
         .with_context(|| "failed to resolve user home directory")?;
+
     Ok(home_dir.join(".codex").join("sessions"))
 }
 
