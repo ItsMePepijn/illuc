@@ -9,6 +9,7 @@ function shellMatcher(segments: UrlSegment[]): UrlMatchResult | null {
         const [first] = segments;
         if (
             first.path === "dashboard" ||
+            first.path === "token-usage" ||
             first.path === "getting-started"
         ) {
             return { consumed: segments };

@@ -1,0 +1,217 @@
+{
+  "version": 3,
+  "currency": "USD",
+  "sourceUrl": "https://developers.openai.com/api/docs/pricing",
+  "publishedAt": "2026-03-30",
+  "models": {
+    "gpt-5.2": {
+      "inputPerMillion": 1.75,
+      "cachedInputPerMillion": 0.175,
+      "outputPerMillion": 14.0
+    },
+    "gpt-5.4": {
+      "inputPerMillion": 2.5,
+      "cachedInputPerMillion": 0.25,
+      "outputPerMillion": 15.0
+    },
+    "gpt-5.4-mini": {
+      "inputPerMillion": 0.75,
+      "cachedInputPerMillion": 0.075,
+      "outputPerMillion": 4.5
+    },
+    "gpt-5.4-nano": {
+      "inputPerMillion": 0.2,
+      "cachedInputPerMillion": 0.02,
+      "outputPerMillion": 1.25
+    },
+    "gpt-5.4-pro": {
+      "inputPerMillion": 30.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 180.0
+    },
+    "gpt-5.2-pro": {
+      "inputPerMillion": 21.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 168.0
+    },
+    "gpt-5.1": {
+      "inputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.125,
+      "outputPerMillion": 10.0
+    },
+    "gpt-5": {
+      "inputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.125,
+      "outputPerMillion": 10.0
+    },
+    "gpt-5-mini": {
+      "inputPerMillion": 0.25,
+      "cachedInputPerMillion": 0.025,
+      "outputPerMillion": 2.0
+    },
+    "gpt-5-nano": {
+      "inputPerMillion": 0.05,
+      "cachedInputPerMillion": 0.005,
+      "outputPerMillion": 0.4
+    },
+    "gpt-5-pro": {
+      "inputPerMillion": 15.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 120.0
+    },
+    "gpt-4.1": {
+      "inputPerMillion": 2.0,
+      "cachedInputPerMillion": 0.5,
+      "outputPerMillion": 8.0
+    },
+    "gpt-4.1-mini": {
+      "inputPerMillion": 0.4,
+      "cachedInputPerMillion": 0.1,
+      "outputPerMillion": 1.6
+    },
+    "gpt-4.1-nano": {
+      "inputPerMillion": 0.1,
+      "cachedInputPerMillion": 0.025,
+      "outputPerMillion": 0.4
+    },
+    "gpt-4o": {
+      "inputPerMillion": 2.5,
+      "cachedInputPerMillion": 1.25,
+      "outputPerMillion": 10.0
+    },
+    "gpt-4o-mini": {
+      "inputPerMillion": 0.15,
+      "cachedInputPerMillion": 0.075,
+      "outputPerMillion": 0.6
+    },
+    "o4-mini": {
+      "inputPerMillion": 1.1,
+      "cachedInputPerMillion": 0.275,
+      "outputPerMillion": 4.4
+    },
+    "o3": {
+      "inputPerMillion": 2.0,
+      "cachedInputPerMillion": 0.5,
+      "outputPerMillion": 8.0
+    },
+    "o3-mini": {
+      "inputPerMillion": 1.1,
+      "cachedInputPerMillion": 0.55,
+      "outputPerMillion": 4.4
+    },
+    "o3-pro": {
+      "inputPerMillion": 20.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 80.0
+    },
+    "o1": {
+      "inputPerMillion": 15.0,
+      "cachedInputPerMillion": 7.5,
+      "outputPerMillion": 60.0
+    },
+    "o1-mini": {
+      "inputPerMillion": 1.1,
+      "cachedInputPerMillion": 0.55,
+      "outputPerMillion": 4.4
+    },
+    "o1-pro": {
+      "inputPerMillion": 150.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 600.0
+    },
+    "gpt-4o-2024-05-13": {
+      "inputPerMillion": 5.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 15.0
+    },
+    "gpt-4-turbo-2024-04-09": {
+      "inputPerMillion": 10.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 30.0
+    },
+    "gpt-4-0125-preview": {
+      "inputPerMillion": 10.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 30.0
+    },
+    "gpt-4-1106-preview": {
+      "inputPerMillion": 10.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 30.0
+    },
+    "gpt-4-1106-vision-preview": {
+      "inputPerMillion": 10.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 30.0
+    },
+    "gpt-4-0613": {
+      "inputPerMillion": 30.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 60.0
+    },
+    "gpt-4-0314": {
+      "inputPerMillion": 30.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 60.0
+    },
+    "gpt-4-32k": {
+      "inputPerMillion": 60.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 120.0
+    },
+    "gpt-3.5-turbo": {
+      "inputPerMillion": 0.5,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 1.5
+    },
+    "gpt-3.5-turbo-0125": {
+      "inputPerMillion": 0.5,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 1.5
+    },
+    "gpt-3.5-turbo-1106": {
+      "inputPerMillion": 1.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 2.0
+    },
+    "gpt-3.5-turbo-0613": {
+      "inputPerMillion": 1.5,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 2.0
+    },
+    "gpt-3.5-0301": {
+      "inputPerMillion": 1.5,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 2.0
+    },
+    "gpt-3.5-turbo-instruct": {
+      "inputPerMillion": 1.5,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 2.0
+    },
+    "gpt-3.5-turbo-16k-0613": {
+      "inputPerMillion": 3.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 4.0
+    },
+    "davinci-002": {
+      "inputPerMillion": 2.0,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 2.0
+    },
+    "babbage-002": {
+      "inputPerMillion": 0.4,
+      "cachedInputPerMillion": null,
+      "outputPerMillion": 0.4
+    }
+  },
+  "aliases": {
+    "gpt-5-codex": "gpt-5",
+    "gpt-5.3-codex": "gpt-5.2",
+    "gpt-5.1-codex": "gpt-5.1",
+    "gpt-5.1-codex-max": "gpt-5.1",
+    "gpt-5.2-codex": "gpt-5.2",
+    "gpt-5-codex-mini": "gpt-5-mini",
+    "gpt-5.1-codex-mini": "gpt-5-mini"
+  }
+}

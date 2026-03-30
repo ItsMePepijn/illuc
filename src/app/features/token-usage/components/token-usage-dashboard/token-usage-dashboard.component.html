@@ -1,0 +1,205 @@
+<section class="token-usage-view">
+    <header class="page-header">
+        <div class="header-main">
+            <div class="header-copy">
+                <p class="header-kicker">Token Usage</p>
+                <h2>Usage and cost windows</h2>
+            </div>
+            <div
+                class="header-month-select"
+                [class.open]="monthMenuOpen()"
+            >
+                <button
+                    type="button"
+                    class="header-month-trigger"
+                    [class.open]="monthMenuOpen()"
+                    aria-label="Selected month"
+                    (click)="toggleMonthMenu($event)"
+                >
+                    <span>{{ selectedMonthLabel() }}</span>
+                    <svg class="header-month-arrow" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </button>
+
+                <div class="header-month-menu" [class.open]="monthMenuOpen()">
+                    <button
+                        type="button"
+                        class="header-month-option"
+                        *ngFor="let option of monthOptions()"
+                        [class.selected]="option.value === selectedMonth()"
+                        (click)="setSelectedMonth(option.value)"
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="binary-toggle" role="group" aria-label="Usage scope">
+            <button
+                type="button"
+                [class.active]="scope() === 'workspace'"
+                (click)="setScope('workspace')"
+            >
+                Workspace
+            </button>
+            <button
+                type="button"
+                [class.active]="scope() === 'global'"
+                (click)="setScope('global')"
+            >
+                Global
+            </button>
+        </div>
+    </header>
+
+    <ng-container *ngIf="!loading(); else loadingState">
+    <section class="summary-strip" aria-label="Usage summary">
+        <article class="summary-tile summary-tile-total">
+            <span class="summary-label">Total usage</span>
+            <strong>{{ metricValue(totals()) }}</strong>
+            <small>{{ totalSessions() }} recorded sessions</small>
+        </article>
+        <article class="summary-tile">
+            <span class="summary-label">Input</span>
+            <strong>{{ formatSegmentValue("input", totals()) }}</strong>
+            <small>Non-cached input tokens</small>
+        </article>
+        <article class="summary-tile">
+            <span class="summary-label">Cached</span>
+            <strong>{{ formatSegmentValue("cached", totals()) }}</strong>
+            <small>Cached input tokens</small>
+        </article>
+        <article class="summary-tile">
+            <span class="summary-label">Output</span>
+            <strong>{{ formatSegmentValue("output", totals()) }}</strong>
+            <small>Generated output tokens</small>
+        </article>
+    </section>
+
+    <section class="info-rail" *ngIf="usage() as payload">
+        <div class="info-note-row">
+            <div class="info-note">
+                <span class="info-label">Cost model</span>
+                <p>
+                    {{ payload.note }}
+                    <a
+                        *ngIf="payload.pricingSourceUrl"
+                        [href]="payload.pricingSourceUrl"
+                        target="_blank"
+                        rel="noreferrer"
+                    >
+                        See OpenAI pricing for more details
+                        <span class="external-link-icon" aria-hidden="true">↗</span>
+                    </a>
+                </p>
+            </div>
+
+            <div class="binary-toggle" role="group" aria-label="Usage measure">
+                <button
+                    type="button"
+                    [class.active]="metric() === 'tokens'"
+                    (click)="setMetric('tokens')"
+                >
+                    Tokens
+                </button>
+                <button
+                    type="button"
+                    [class.active]="metric() === 'costs'"
+                    (click)="setMetric('costs')"
+                >
+                    Costs
+                </button>
+            </div>
+        </div>
+        <p class="info-warning" *ngIf="payload.unknownPricedModels.length">
+            Missing pricing entries for {{ payload.unknownPricedModels.join(", ") }}.
+            Those sessions still appear in token totals but are omitted from cost totals.
+        </p>
+    </section>
+
+    <div class="chart-grid">
+        <app-usage-bar-chart
+            title="Usage By Day"
+            description=""
+            [bars]="dayBars()"
+            [metric]="metric()"
+            [currency]="usage()?.currency ?? 'USD'"
+            [compactBars]="true"
+        ></app-usage-bar-chart>
+
+        <div class="task-chart-panel">
+            <app-usage-bar-chart
+                class="task-chart"
+                title="Usage By Task"
+                description="Across all time in the current workspace."
+                [bars]="taskBars()"
+                [metric]="metric()"
+                [currency]="usage()?.currency ?? 'USD'"
+                orientation="horizontal"
+                [fillAvailableHeight]="true"
+                [scrollContent]="true"
+            ></app-usage-bar-chart>
+        </div>
+    </div>
+    </ng-container>
+
+    <ng-template #loadingState>
+        <div class="skeleton-page" aria-hidden="true">
+            <section class="summary-strip summary-strip-skeleton">
+                <article class="summary-tile" *ngFor="let _ of [1, 2, 3, 4]">
+                    <div class="skeleton-block skeleton-summary-label"></div>
+                    <div class="skeleton-block skeleton-summary-value"></div>
+                    <div class="skeleton-block skeleton-summary-meta"></div>
+                </article>
+            </section>
+
+            <section class="info-rail">
+                <div class="info-note-row">
+                    <div class="info-note">
+                        <div class="skeleton-block skeleton-note-line skeleton-note-line-short"></div>
+                        <div class="skeleton-block skeleton-note-line"></div>
+                    </div>
+                    <div class="skeleton-block skeleton-toggle"></div>
+                </div>
+            </section>
+
+            <div class="chart-grid">
+                <section class="chart-skeleton chart-skeleton-day">
+                    <div class="chart-skeleton-header">
+                        <div class="skeleton-block skeleton-chart-title"></div>
+                    </div>
+                    <div class="chart-skeleton-legend">
+                        <div class="skeleton-block skeleton-legend-chip" *ngFor="let _ of [1, 2, 3]"></div>
+                    </div>
+                    <div class="chart-skeleton-bars">
+                        <div class="chart-skeleton-bar-group" *ngFor="let _ of [1,2,3,4,5,6,7,8,9,10,11,12]">
+                            <div class="skeleton-block skeleton-bar"></div>
+                            <div class="skeleton-block skeleton-bar-label"></div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="chart-skeleton chart-skeleton-task">
+                    <div class="chart-skeleton-header">
+                        <div class="skeleton-block skeleton-chart-title"></div>
+                        <div class="skeleton-block skeleton-chart-note"></div>
+                    </div>
+                    <div class="chart-skeleton-legend">
+                        <div class="skeleton-block skeleton-legend-chip" *ngFor="let _ of [1, 2, 3]"></div>
+                    </div>
+                    <div class="chart-skeleton-rows">
+                        <div class="chart-skeleton-row" *ngFor="let _ of [1,2,3,4,5,6]">
+                            <div class="chart-skeleton-row-copy">
+                                <div class="skeleton-block skeleton-task-label"></div>
+                                <div class="skeleton-block skeleton-task-subtitle"></div>
+                            </div>
+                            <div class="skeleton-block skeleton-task-bar"></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </ng-template>
+</section>

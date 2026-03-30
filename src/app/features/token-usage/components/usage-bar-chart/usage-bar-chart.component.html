@@ -1,0 +1,147 @@
+<section class="chart-card">
+    <header class="chart-header">
+        <div class="chart-copy">
+            <div class="chart-title-row">
+                <h3>{{ title }}</h3>
+                <div
+                    class="chart-inline-select"
+                    [class.open]="headerSelectOpen"
+                    *ngIf="headerSelectOptions.length"
+                >
+                    <button
+                        type="button"
+                        class="chart-inline-select-trigger"
+                        [class.open]="headerSelectOpen"
+                        [attr.aria-label]="headerSelectAriaLabel"
+                        (click)="toggleHeaderSelect($event)"
+                    >
+                        <span class="chart-inline-select-label">
+                            {{ selectedHeaderOptionLabel() }}
+                        </span>
+                        <svg class="chart-inline-select-arrow" viewBox="0 0 24 24" stroke-width="1.8" aria-hidden="true">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                        </svg>
+                    </button>
+
+                    <div class="chart-inline-select-menu" [class.open]="headerSelectOpen">
+                        <button
+                            type="button"
+                            class="chart-inline-select-option"
+                            *ngFor="let option of headerSelectOptions"
+                            [class.selected]="option.value === headerSelectValue"
+                            (click)="selectHeaderOption(option.value, $event)"
+                        >
+                            {{ option.label }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <p *ngIf="description">{{ description }}</p>
+        </div>
+        <div class="chart-max" *ngIf="bars.length">
+            <span class="chart-max-label">Peak</span>
+            <strong>{{ formatValue(maxTotal()) }}</strong>
+        </div>
+    </header>
+
+    <div class="chart-legend">
+        <span class="legend-chip input">Input</span>
+        <span class="legend-chip cached">Cached</span>
+        <span class="legend-chip output">Output</span>
+    </div>
+
+    <div
+        class="chart-scroll"
+        *ngIf="bars.length && orientation === 'vertical'; else nonVerticalState"
+    >
+        <div
+            class="chart-grid"
+            [class.chart-grid-compact]="compactBars"
+            [style.grid-template-columns]="gridTemplateColumns()"
+        >
+            <div class="chart-line line-100"></div>
+            <div class="chart-line line-75"></div>
+            <div class="chart-line line-50"></div>
+            <div class="chart-line line-25"></div>
+
+            <div class="bar-item" *ngFor="let bar of bars">
+                <div class="bar-total" *ngIf="totalValue(bar.usage) > 0">
+                    {{ formatValue(totalValue(bar.usage)) }}
+                </div>
+                <div class="bar-track" [attr.title]="tooltip(bar)">
+                    <div
+                        class="bar-fill"
+                        [style.height.%]="totalHeight(bar.usage)"
+                    >
+                        <div
+                            class="bar-segment input"
+                            [style.height.%]="segmentShare(bar.usage, 'input')"
+                        ></div>
+                        <div
+                            class="bar-segment cached"
+                            [style.height.%]="segmentShare(bar.usage, 'cached')"
+                        ></div>
+                        <div
+                            class="bar-segment output"
+                            [style.height.%]="segmentShare(bar.usage, 'output')"
+                        ></div>
+                    </div>
+                </div>
+                <div class="bar-subtitle" [attr.title]="bar.label">
+                    {{ bar.label }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ng-template #nonVerticalState>
+        <div
+            class="horizontal-chart"
+            [class.horizontal-chart-scrollable]="scrollContent"
+            *ngIf="bars.length; else emptyState"
+        >
+            <div class="horizontal-row" *ngFor="let bar of bars">
+                <div class="horizontal-copy">
+                    <div class="horizontal-label-row">
+                        <div class="horizontal-label" [attr.title]="bar.label">
+                            {{ bar.label }}
+                        </div>
+                        <div
+                            class="horizontal-total"
+                            *ngIf="totalValue(bar.usage) > 0"
+                        >
+                            {{ formatValue(totalValue(bar.usage)) }}
+                        </div>
+                    </div>
+                    <div class="horizontal-subtitle">{{ bar.subtitle }}</div>
+                </div>
+
+                <div class="horizontal-track" [attr.title]="tooltip(bar)">
+                    <div
+                        class="horizontal-fill"
+                        [style.width.%]="totalWidth(bar.usage)"
+                    >
+                        <div
+                            class="horizontal-segment input"
+                            [style.width.%]="segmentShare(bar.usage, 'input')"
+                        ></div>
+                        <div
+                            class="horizontal-segment cached"
+                            [style.width.%]="segmentShare(bar.usage, 'cached')"
+                        ></div>
+                        <div
+                            class="horizontal-segment output"
+                            [style.width.%]="segmentShare(bar.usage, 'output')"
+                        ></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </ng-template>
+
+    <ng-template #emptyState>
+        <div class="empty-chart">
+            No session usage has been recorded for this view yet.
+        </div>
+    </ng-template>
+</section>

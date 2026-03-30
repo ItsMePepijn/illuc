@@ -51,12 +51,23 @@
         <button
             type="button"
             class="nav-item"
-            [class.selected]="homeSelected"
-            (click)="onSelectHome()"
+            [class.selected]="timeTrackingSelected"
+            (click)="onSelectTimeTracking()"
             aria-label="Open time tracking"
         >
             <app-icon-clock-circle></app-icon-clock-circle>
             <span class="nav-label">Time Tracking</span>
+        </button>
+
+        <button
+            type="button"
+            class="nav-item"
+            [class.selected]="tokenUsageSelected"
+            (click)="onSelectTokenUsage()"
+            aria-label="Open token usage and costs"
+        >
+            <app-icon-token-usage></app-icon-token-usage>
+            <span class="nav-label">Token Usage & Costs</span>
         </button>
 
         <div class="section-head">

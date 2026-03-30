@@ -60,6 +60,8 @@ use crate::features::theming::apply_startup_window_background;
 use crate::features::theming::on_page_load as theming_on_page_load;
 use crate::features::time_tracking::commands::task_time_tracking_get::task_time_tracking_get;
 use crate::features::time_tracking::commands::task_time_tracking_record::task_time_tracking_record;
+use crate::features::token_usage::commands::token_usage_get::token_usage_get;
+use crate::features::token_usage::ensure_pricing_file;
 use log::info;
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 use tauri::Manager;
@@ -137,6 +139,10 @@ pub fn run() {
                 log::warn!("failed to install predefined skills: {error}");
             }
 
+            if let Err(error) = ensure_pricing_file(&app.handle()) {
+                log::warn!("failed to initialize token pricing file: {error}");
+            }
+
             // Apply an initial native window + webview background color before showing the window
             // to avoid a white flash during startup. This is driven by the selected theme.
             if let Some(window) = app.get_webview_window("main") {
@@ -196,6 +202,7 @@ pub fn run() {
             task_git_list_branches,
             task_time_tracking_get,
             task_time_tracking_record,
+            token_usage_get,
             task_review_get,
             task_review_add_comment,
             task_review_edit_comment,

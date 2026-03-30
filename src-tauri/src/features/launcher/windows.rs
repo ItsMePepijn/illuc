@@ -1,11 +1,11 @@
 #[cfg(target_os = "windows")]
+use crate::utils::windows::suppress_console_window;
+#[cfg(target_os = "windows")]
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 #[cfg(target_os = "windows")]
 use base64::Engine as _;
 #[cfg(target_os = "windows")]
 use png::{BitDepth, ColorType, Encoder};
-#[cfg(target_os = "windows")]
-use crate::utils::windows::suppress_console_window;
 #[cfg(target_os = "windows")]
 use std::env;
 #[cfg(target_os = "windows")]
@@ -20,13 +20,13 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, CreateDIBSection, DIB_RGB_COLORS, DeleteDC, DeleteObject, GetDC,
-    ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, RGBQUAD, BI_RGB,
+    CreateCompatibleDC, CreateDIBSection, DeleteDC, DeleteObject, GetDC, ReleaseDC, SelectObject,
+    BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, RGBQUAD,
 };
 #[cfg(target_os = "windows")]
 use windows_sys::Win32::UI::Shell::ExtractIconExW;
 #[cfg(target_os = "windows")]
-use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, DrawIconEx, HICON, DI_NORMAL};
+use windows_sys::Win32::UI::WindowsAndMessaging::{DestroyIcon, DrawIconEx, DI_NORMAL, HICON};
 
 #[cfg(target_os = "windows")]
 pub(crate) fn resolve_install_path(paths: &[&str]) -> Option<PathBuf> {

@@ -4,3 +4,4 @@ pub mod shell;
 pub mod tasks;
 pub mod theming;
 pub mod time_tracking;
+pub mod token_usage;

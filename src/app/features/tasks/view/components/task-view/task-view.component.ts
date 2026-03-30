@@ -32,6 +32,7 @@ import { TaskHomeDashboardComponent } from "../../../home/components/task-home-d
 import { TaskGettingStartedComponent } from "../../../home/components/task-getting-started/task-getting-started.component";
 import { TaskStore } from "../../../task.store";
 import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
+import { TokenUsageDashboardComponent } from "../../../../token-usage/components/token-usage-dashboard/token-usage-dashboard.component";
 
 @Component({
     selector: "app-task-view",
@@ -56,6 +57,7 @@ import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
         LoadingButtonComponent,
         TaskHomeDashboardComponent,
         TaskGettingStartedComponent,
+        TokenUsageDashboardComponent,
     ],
     templateUrl: "./task-view.component.html",
     styleUrl: "./task-view.component.css",
@@ -64,6 +66,7 @@ export class TaskViewComponent {
     @Input() task: TaskSummary | null = null;
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() showGettingStarted = false;
+    @Input() homePage: "timeTracking" | "tokenUsage" = "timeTracking";
     @Input() backgroundMode = false;
     @Input() startLoading = false;
     @Input() stopLoading = false;

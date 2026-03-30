@@ -13,6 +13,7 @@ import { TaskStore } from "../../../tasks/task.store";
 import { LauncherService } from "../../../launcher/launcher.service";
 import { LoadingButtonComponent } from "../../../../shared/components/loading-button/loading-button.component";
 import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
+import { TokenUsageService } from "../../../token-usage/token-usage.service";
 import { ThemeService } from "../../theme.service";
 import { wrapPromiseInZone } from "../../../../shared/tauri/tauri-zone";
 
@@ -60,6 +61,7 @@ export class AppComponent {
         public readonly taskStore: TaskStore,
         private readonly launcher: LauncherService,
         private readonly timeTracking: TaskTimeTrackingService,
+        private readonly tokenUsage: TokenUsageService,
         private readonly themeService: ThemeService,
         private readonly zone: NgZone,
         private readonly router: Router,
@@ -80,6 +82,10 @@ export class AppComponent {
                       }
                     : null,
             );
+        });
+        effect(() => {
+            const baseRepoPath = this.taskStore.baseRepo()?.path ?? null;
+            void this.tokenUsage.syncBaseRepo(baseRepoPath);
         });
         effect(() => {
             const tasks = this.taskStore.tasks();
@@ -349,9 +355,15 @@ export class AppComponent {
         }
     }
 
-    selectHome(): void {
+    selectTimeTracking(): void {
         if (this.router.url !== "/dashboard") {
             void this.navigateByUrl("/dashboard");
+        }
+    }
+
+    selectTokenUsage(): void {
+        if (this.router.url !== "/token-usage") {
+            void this.navigateByUrl("/token-usage");
         }
     }
 
@@ -361,6 +373,10 @@ export class AppComponent {
 
     isDashboardRoute(): boolean {
         return this.currentRouteFirstSegment() === "dashboard";
+    }
+
+    isTokenUsageRoute(): boolean {
+        return this.currentRouteFirstSegment() === "token-usage";
     }
 
     cancelDiscardTask(): void {

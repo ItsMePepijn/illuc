@@ -432,16 +432,21 @@
 </div>
 
 <ng-template #emptyState>
-    <app-task-home-dashboard
-        *ngIf="!showGettingStarted || !baseRepo; else gettingStarted"
+    <app-task-getting-started
+        *ngIf="showGettingStarted && baseRepo; else homePageState"
         [baseRepo]="baseRepo"
-        [selectRepoLoading]="selectRepoLoading"
-        [selectRepoError]="selectRepoError"
-        (selectBaseRepo)="onSelectBaseRepo()"
-    ></app-task-home-dashboard>
-    <ng-template #gettingStarted>
-        <app-task-getting-started
-            [baseRepo]="baseRepo"
-        ></app-task-getting-started>
+    ></app-task-getting-started>
+    <ng-template #homePageState>
+        <app-token-usage-dashboard
+            *ngIf="homePage === 'tokenUsage' && baseRepo; else timeTrackingState"
+        ></app-token-usage-dashboard>
+        <ng-template #timeTrackingState>
+            <app-task-home-dashboard
+                [baseRepo]="baseRepo"
+                [selectRepoLoading]="selectRepoLoading"
+                [selectRepoError]="selectRepoError"
+                (selectBaseRepo)="onSelectBaseRepo()"
+            ></app-task-home-dashboard>
+        </ng-template>
     </ng-template>
 </ng-template>

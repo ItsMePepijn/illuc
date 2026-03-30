@@ -7,7 +7,7 @@ pub mod models;
 mod repo;
 pub mod review;
 mod task_manager;
-mod worktree;
+pub(crate) mod worktree;
 
 pub(crate) use diff_watcher::DiffWatcher;
 pub use task_manager::TaskManager;

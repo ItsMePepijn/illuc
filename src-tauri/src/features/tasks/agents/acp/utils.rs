@@ -176,7 +176,9 @@ pub(crate) fn extract_rate_limits_from_meta(meta: Option<&Map<String, Value>>) -
 
 pub(crate) fn rate_limits_log_value(rate_limits: Option<&Value>) -> String {
     rate_limits
-        .map(|value| serde_json::to_string(value).unwrap_or_else(|_| "<serialize-error>".to_string()))
+        .map(|value| {
+            serde_json::to_string(value).unwrap_or_else(|_| "<serialize-error>".to_string())
+        })
         .unwrap_or_else(|| "null".to_string())
 }
 

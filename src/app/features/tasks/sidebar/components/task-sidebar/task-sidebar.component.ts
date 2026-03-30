@@ -6,6 +6,7 @@ import { TaskActionButtonComponent } from "../../../actions/components/task-acti
 import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
 import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
 import { IconClockCircleComponent } from "../icon-clock-circle/icon-clock-circle.component";
+import { IconTokenUsageComponent } from "../icon-token-usage/icon-token-usage.component";
 import { IconPlusComponent } from "../icon-plus/icon-plus.component";
 import { LaunchEditorDropdownComponent } from "../../../workspace/components/launch-editor-dropdown/launch-editor-dropdown.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
@@ -21,6 +22,7 @@ import { LauncherService } from "../../../../launcher/launcher.service";
         IconStopSquareComponent,
         IconTrashBinComponent,
         IconClockCircleComponent,
+        IconTokenUsageComponent,
         IconPlusComponent,
         LaunchEditorDropdownComponent,
         OpenTerminalButtonComponent,
@@ -32,12 +34,14 @@ import { LauncherService } from "../../../../launcher/launcher.service";
 export class TaskSidebarComponent {
     @Input({ required: true }) tasks: TaskSummary[] | null = [];
     @Input() selectedTaskId: string | null = null;
-    @Input() homeSelected = false;
+    @Input() timeTrackingSelected = false;
+    @Input() tokenUsageSelected = false;
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() stopLoadingIds: Set<string> = new Set();
     @Input() discardLoadingIds: Set<string> = new Set();
     @Output() selectTask = new EventEmitter<string>();
-    @Output() selectHome = new EventEmitter<void>();
+    @Output() selectTimeTracking = new EventEmitter<void>();
+    @Output() selectTokenUsage = new EventEmitter<void>();
     @Output() stopTask = new EventEmitter<string>();
     @Output() discardTask = new EventEmitter<string>();
     @Output() createTask = new EventEmitter<void>();
@@ -52,8 +56,12 @@ export class TaskSidebarComponent {
         this.selectTask.emit(taskId);
     }
 
-    onSelectHome(): void {
-        this.selectHome.emit();
+    onSelectTimeTracking(): void {
+        this.selectTimeTracking.emit();
+    }
+
+    onSelectTokenUsage(): void {
+        this.selectTokenUsage.emit();
     }
 
     onStop(taskId: string): void {

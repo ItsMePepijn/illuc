@@ -105,7 +105,9 @@ pub fn resolve_wsl_home_dir() -> Result<std::path::PathBuf> {
     suppress_console_window(&mut command);
     command.args(["--", "bash", "-lc", "wslpath -w \"$HOME\""]);
 
-    let output = command.output().context("failed to query WSL home directory")?;
+    let output = command
+        .output()
+        .context("failed to query WSL home directory")?;
     if !output.status.success() {
         return Err(anyhow!("failed to query WSL home directory"));
     }
