@@ -1,10 +1,20 @@
 {
-  "version": 3,
+  "version": 5,
   "currency": "USD",
   "sourceUrl": "https://developers.openai.com/api/docs/pricing",
   "publishedAt": "2026-03-30",
   "models": {
     "gpt-5.2": {
+      "inputPerMillion": 1.75,
+      "cachedInputPerMillion": 0.175,
+      "outputPerMillion": 14.0
+    },
+    "gpt-5.3-codex": {
+      "inputPerMillion": 1.75,
+      "cachedInputPerMillion": 0.175,
+      "outputPerMillion": 14.0
+    },
+    "gpt-5.2-codex": {
       "inputPerMillion": 1.75,
       "cachedInputPerMillion": 0.175,
       "outputPerMillion": 14.0
@@ -39,7 +49,22 @@
       "cachedInputPerMillion": 0.125,
       "outputPerMillion": 10.0
     },
+    "gpt-5.1-codex-max": {
+      "inputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.125,
+      "outputPerMillion": 10.0
+    },
+    "gpt-5.1-codex": {
+      "inputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.125,
+      "outputPerMillion": 10.0
+    },
     "gpt-5": {
+      "inputPerMillion": 1.25,
+      "cachedInputPerMillion": 0.125,
+      "outputPerMillion": 10.0
+    },
+    "gpt-5-codex": {
       "inputPerMillion": 1.25,
       "cachedInputPerMillion": 0.125,
       "outputPerMillion": 10.0
@@ -48,6 +73,16 @@
       "inputPerMillion": 0.25,
       "cachedInputPerMillion": 0.025,
       "outputPerMillion": 2.0
+    },
+    "gpt-5.1-codex-mini": {
+      "inputPerMillion": 0.25,
+      "cachedInputPerMillion": 0.025,
+      "outputPerMillion": 2.0
+    },
+    "codex-mini-latest": {
+      "inputPerMillion": 1.5,
+      "cachedInputPerMillion": 0.375,
+      "outputPerMillion": 6.0
     },
     "gpt-5-nano": {
       "inputPerMillion": 0.05,
@@ -205,13 +240,5 @@
       "outputPerMillion": 0.4
     }
   },
-  "aliases": {
-    "gpt-5-codex": "gpt-5",
-    "gpt-5.3-codex": "gpt-5.2",
-    "gpt-5.1-codex": "gpt-5.1",
-    "gpt-5.1-codex-max": "gpt-5.1",
-    "gpt-5.2-codex": "gpt-5.2",
-    "gpt-5-codex-mini": "gpt-5-mini",
-    "gpt-5.1-codex-mini": "gpt-5-mini"
-  }
+  "aliases": {}
 }
