@@ -2,6 +2,10 @@
 
 These instructions apply to all work in this repository.
 
+## Design Reference
+
+For frontend and visual design work, read `docs/style.md` and follow it to keep new UI consistent with the application's established design language.
+
 ## Architecture: Vertical Slice First
 
 Organize code by feature (slice), not by technical layer.
