@@ -509,16 +509,19 @@
         <app-task-getting-started
             *ngIf="showGettingStarted && baseRepo; else homePageState"
             [baseRepo]="baseRepo"
+            (frameMouseDown)="onWindowFrameMouseDown($event)"
         ></app-task-getting-started>
         <ng-template #homePageState>
             <app-token-usage-dashboard
                 *ngIf="homePage === 'tokenUsage' && baseRepo; else timeTrackingState"
+                (frameMouseDown)="onWindowFrameMouseDown($event)"
             ></app-token-usage-dashboard>
             <ng-template #timeTrackingState>
                 <app-task-home-dashboard
                     [baseRepo]="baseRepo"
                     [selectRepoLoading]="selectRepoLoading"
                     [selectRepoError]="selectRepoError"
+                    (frameMouseDown)="onWindowFrameMouseDown($event)"
                     (selectBaseRepo)="onSelectBaseRepo()"
                 ></app-task-home-dashboard>
             </ng-template>

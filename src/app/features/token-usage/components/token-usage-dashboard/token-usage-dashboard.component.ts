@@ -2,8 +2,10 @@ import { CommonModule } from "@angular/common";
 import {
     ChangeDetectionStrategy,
     Component,
+    EventEmitter,
     HostListener,
     OnInit,
+    Output,
     computed,
     signal,
 } from "@angular/core";
@@ -44,6 +46,7 @@ const EMPTY_SCOPE = {
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class TokenUsageDashboardComponent implements OnInit {
+    @Output() frameMouseDown = new EventEmitter<MouseEvent>();
     metric = signal<UsageMetric>("costs");
     scope = signal<"global" | "workspace">("workspace");
     selectedMonth = signal(this.currentMonthKey());
@@ -173,6 +176,10 @@ export class TokenUsageDashboardComponent implements OnInit {
         event.preventDefault();
         event.stopPropagation();
         this.monthMenuOpen.update((isOpen) => !isOpen);
+    }
+
+    onFrameMouseDown(event: MouseEvent): void {
+        this.frameMouseDown.emit(event);
     }
 
     selectedMonthLabel(): string {

@@ -1,6 +1,6 @@
 <ng-container *ngIf="baseRepo; else landing">
     <section class="home-view">
-        <header class="home-header">
+        <header class="home-header" (mousedown)="onFrameMouseDown($event)">
             <div>
                 <p class="eyebrow">Time Tracking</p>
                 <h2>Weekly focus</h2>
@@ -73,7 +73,7 @@
 </ng-container>
 
 <ng-template #landing>
-    <div class="empty-view">
+    <div class="empty-view" (mousedown)="onFrameMouseDown($event)">
         <div class="landing-card">
             <div class="compass-logo" aria-hidden="true">
                 <svg viewBox="0 0 200 200" role="presentation" focusable="false">

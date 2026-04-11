@@ -39,6 +39,7 @@ export class TaskHomeDashboardComponent {
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() selectRepoLoading = false;
     @Input() selectRepoError = "";
+    @Output() frameMouseDown = new EventEmitter<MouseEvent>();
     @Output() selectBaseRepo = new EventEmitter<void>();
 
     private readonly weekStartSignal = signal<Date>(
@@ -63,6 +64,10 @@ export class TaskHomeDashboardComponent {
 
     onSelectBaseRepo(): void {
         this.selectBaseRepo.emit();
+    }
+
+    onFrameMouseDown(event: MouseEvent): void {
+        this.frameMouseDown.emit(event);
     }
 
     trackByTaskId(_: number, row: TimeTrackingRow): string {
