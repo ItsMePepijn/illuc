@@ -478,7 +478,8 @@ fn load_pricing_catalog(app: &tauri::AppHandle) -> Result<PricingCatalog> {
 
 fn resolve_codex_sessions_dir(app: &tauri::AppHandle) -> Result<PathBuf> {
     #[cfg(target_os = "windows")]
-    let home_dir = resolve_wsl_home_dir().with_context(|| "failed to resolve WSL home directory")?;
+    let home_dir =
+        resolve_wsl_home_dir().with_context(|| "failed to resolve WSL home directory")?;
 
     #[cfg(not(target_os = "windows"))]
     let home_dir = app

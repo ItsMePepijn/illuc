@@ -37,6 +37,7 @@ use crate::features::tasks::git::commands::task_git_list_branches::task_git_list
 use crate::features::tasks::git::commands::task_git_merge::task_git_merge;
 use crate::features::tasks::git::commands::task_git_push::task_git_push;
 use crate::features::tasks::management::commands::select_base_repo::select_base_repo;
+use crate::features::tasks::management::commands::task_agent_kinds_list::task_agent_kinds_list;
 use crate::features::tasks::management::commands::task_create::task_create;
 use crate::features::tasks::management::commands::task_discard::task_discard;
 use crate::features::tasks::management::commands::task_load_existing::task_load_existing;
@@ -165,6 +166,7 @@ pub fn run() {
         .manage(TaskManager::default())
         .invoke_handler(tauri::generate_handler![
             select_base_repo,
+            task_agent_kinds_list,
             task_create,
             task_agent_gui_compact,
             task_agent_gui_interrupt,

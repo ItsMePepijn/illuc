@@ -1,5 +1,7 @@
 # Light theme
 
+shade = "light"
+
 [surfaces]
 bg = "#f1ece4"
 surface = "#f7f3ec"
@@ -66,4 +68,3 @@ shadow_menu = "rgba(40, 35, 28, 0.14)"
 
 [git.diff]
 syntax_theme = "light"
-

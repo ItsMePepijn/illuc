@@ -1,6 +1,8 @@
 # Dark theme (amber terminal)
 # Inspired by vintage P3 phosphor amber CRT displays
 
+shade = "dark"
+
 [surfaces]
 bg = "#1c1814"           # Near-neutral dark with just a whisper of warmth
 surface = "#222018"      # Slightly lighter, barely warm
@@ -64,6 +66,9 @@ shadow_soft = "rgba(0, 0, 0, 0.50)"
 shadow_subtle = "rgba(0, 0, 0, 0.32)"
 shadow_strong = "rgba(0, 0, 0, 0.68)"
 shadow_menu = "rgba(5, 3, 0, 0.55)"
+
+[launcher]
+brand_override_color = "#ffb000"
 
 [git.diff]
 syntax_theme = "dark"

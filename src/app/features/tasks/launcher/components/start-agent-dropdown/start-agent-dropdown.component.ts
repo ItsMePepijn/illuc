@@ -1,84 +1,114 @@
 import { CommonModule } from "@angular/common";
 import {
     Component,
+    computed,
     EventEmitter,
-    HostListener,
     Input,
     Output,
-    OnChanges,
-    SimpleChanges,
 } from "@angular/core";
-import { AgentKind } from "../../../models";
-import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
+import { AgentKind, AgentKindAvailability } from "../../../models";
+import { TaskStore } from "../../../task.store";
+import { AgentBrandLogoComponent } from "../agent-brand-logo/agent-brand-logo.component";
+
+type AgentTile = {
+    kind: AgentKind;
+    label: string;
+    subtitle: string;
+    brand: "openai" | "copilot" | "opencode";
+    title: string;
+    installed: boolean;
+};
+
+const DEFAULT_UNAVAILABLE_TITLE =
+    "Not installed on this system, but supported by illuc.";
 
 @Component({
     selector: "app-start-agent-dropdown",
     standalone: true,
-    imports: [CommonModule, LoadingButtonComponent],
+    imports: [CommonModule, AgentBrandLogoComponent],
     templateUrl: "./start-agent-dropdown.component.html",
     styleUrl: "./start-agent-dropdown.component.css",
 })
-export class StartAgentDropdownComponent implements OnChanges {
+export class StartAgentDropdownComponent {
     @Input() disabled = false;
     @Input() loading = false;
     @Output() start = new EventEmitter<AgentKind>();
 
-    menuOpen = false;
-    readonly options = [
-        { kind: AgentKind.CodexGui, label: "Codex" },
-        { kind: AgentKind.CopilotGui, label: "Copilot" },
-        { kind: AgentKind.Codex, label: "Codex" },
-        { kind: AgentKind.Copilot, label: "Copilot" },
-        { kind: AgentKind.OpenCode, label: "OpenCode" },
-    ];
+    readonly tiles = computed(() =>
+        this.buildTiles(this.taskStore.agentKinds() ?? []),
+    );
 
-    isGuiAgent(kind: AgentKind): boolean {
-        return kind === AgentKind.CodexGui || kind === AgentKind.CopilotGui;
-    }
+    constructor(private readonly taskStore: TaskStore) {}
 
-    isCodexAgent(kind: AgentKind): boolean {
-        return kind === AgentKind.CodexGui || kind === AgentKind.Codex;
-    }
-
-    isCopilotAgent(kind: AgentKind): boolean {
-        return kind === AgentKind.CopilotGui || kind === AgentKind.Copilot;
-    }
-
-    toggleMenu(event: MouseEvent): void {
-        event.stopPropagation();
-        if (this.disabled || this.loading) {
-            this.menuOpen = false;
+    choose(kind: AgentKind): void {
+        const tile = this.tiles().find((candidate) => candidate.kind === kind);
+        if (!tile || this.disabled || this.loading || !tile.installed) {
             return;
         }
-        this.menuOpen = !this.menuOpen;
-    }
-
-    choose(kind: AgentKind, event: MouseEvent): void {
-        event.stopPropagation();
-        if (this.disabled || this.loading) {
-            return;
-        }
-        this.menuOpen = false;
         this.start.emit(kind);
     }
 
-    ngOnChanges(changes: SimpleChanges): void {
-        if (changes["loading"] && this.loading) {
-            this.menuOpen = false;
-        }
+    private buildTiles(
+        availability: AgentKindAvailability[] = [],
+    ): AgentTile[] {
+        const availabilityByKind = new Map(
+            availability.map((entry) => [entry.kind, entry]),
+        );
+        return [
+            this.buildTile(
+                AgentKind.CodexGui,
+                "Codex",
+                "Graphical Interface",
+                "openai",
+                availabilityByKind,
+            ),
+            this.buildTile(
+                AgentKind.CopilotGui,
+                "Copilot",
+                "Graphical Interface",
+                "copilot",
+                availabilityByKind,
+            ),
+            this.buildTile(
+                AgentKind.Codex,
+                "Codex",
+                "Terminal Interface",
+                "openai",
+                availabilityByKind,
+            ),
+            this.buildTile(
+                AgentKind.Copilot,
+                "Copilot",
+                "Terminal Interface",
+                "copilot",
+                availabilityByKind,
+            ),
+            this.buildTile(
+                AgentKind.OpenCode,
+                "OpenCode",
+                "Terminal Interface",
+                "opencode",
+                availabilityByKind,
+            ),
+        ];
     }
 
-    @HostListener("document:click")
-    handleDocumentClick(): void {
-        this.menuOpen = false;
-    }
-
-    @HostListener("document:keydown.escape", ["$event"])
-    handleEscape(event: Event): void {
-        if (!this.menuOpen) {
-            return;
-        }
-        event.preventDefault();
-        this.menuOpen = false;
+    private buildTile(
+        kind: AgentKind,
+        label: string,
+        subtitle: string,
+        brand: AgentTile["brand"],
+        availabilityByKind: Map<AgentKind, AgentKindAvailability>,
+    ): AgentTile {
+        const availability = availabilityByKind.get(kind);
+        const installed = availability?.installed ?? false;
+        return {
+            kind,
+            label,
+            subtitle,
+            brand,
+            installed,
+            title: installed ? `${label} ${subtitle}` : DEFAULT_UNAVAILABLE_TITLE,
+        };
     }
 }

@@ -18,6 +18,7 @@ export class ThemeService implements OnDestroy {
     private pendingReloadTimer: number | null = null;
     private reloadInFlight = false;
     private reloadQueued = false;
+    private readonly appliedThemeCssKeys = new Set<string>();
     private readonly unloadHandler = () => {
         void this.stopSettingsThemeWatch();
     };
@@ -115,6 +116,8 @@ export class ThemeService implements OnDestroy {
 
     private applyThemeVariables(theme: ThemeSettings): void {
         const rootStyle = document.documentElement.style;
+        const nextCssKeys = new Set<string>();
+
         for (const [key, value] of Object.entries(theme)) {
             if (typeof value !== "string") {
                 continue;
@@ -122,15 +125,27 @@ export class ThemeService implements OnDestroy {
             const normalizedKey = key.trim();
             // Keys come from TOML and become CSS variables. Keep this strict to avoid
             // surprises from arbitrary TOML keys.
-            if (!/^[a-z0-9_-]+(\.[a-z0-9_-]+)+$/i.test(normalizedKey)) {
+            if (!/^[a-z0-9_-]+(\.[a-z0-9_-]+)*$/i.test(normalizedKey)) {
                 continue;
             }
             // Use split/join instead of replaceAll for older WebViews.
             const cssKey = normalizedKey.split(".").join("-");
+            nextCssKeys.add(cssKey);
             rootStyle.setProperty(
                 `--${cssKey}`,
                 value,
             );
+        }
+
+        for (const cssKey of this.appliedThemeCssKeys) {
+            if (!nextCssKeys.has(cssKey)) {
+                rootStyle.removeProperty(`--${cssKey}`);
+            }
+        }
+
+        this.appliedThemeCssKeys.clear();
+        for (const cssKey of nextCssKeys) {
+            this.appliedThemeCssKeys.add(cssKey);
         }
     }
 

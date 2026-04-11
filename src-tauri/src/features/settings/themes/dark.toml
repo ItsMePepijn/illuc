@@ -1,5 +1,7 @@
 # Dracula-inspired theme (JetBrains-like)
 
+shade = "dark"
+
 [surfaces]
 bg = "#282a36"
 surface = "#2f3142"
@@ -66,4 +68,3 @@ shadow_menu = "rgba(0, 0, 0, 0.55)"
 
 [git.diff]
 syntax_theme = "dark"
-

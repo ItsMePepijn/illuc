@@ -1,4 +1,5 @@
 pub mod select_base_repo;
+pub mod task_agent_kinds_list;
 pub mod task_create;
 pub mod task_discard;
 pub mod task_load_existing;

@@ -15,7 +15,9 @@ pub(crate) use task_manager::{TaskRecord, TaskRuntime, TaskRuntimeState};
 
 pub use models::diff_payload::{DiffLine, DiffLineType};
 pub use models::TerminalKind;
-pub use models::{AgentKind, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary};
+pub use models::{
+    AgentKind, AgentKindAvailability, BaseRepoInfo, DiffPayload, TaskStatus, TaskSummary,
+};
 pub use repo::handle_select_base_repo;
 
 use crate::features::tasks::agents::acp::{AcpAgent, CopilotAcpConfig};

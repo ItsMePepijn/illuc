@@ -1,3 +1,4 @@
+export * from "./agent-kind-availability.model";
 export * from "./agent-kind.model";
 export * from "./base-repo-info.model";
 export * from "./task-status.model";

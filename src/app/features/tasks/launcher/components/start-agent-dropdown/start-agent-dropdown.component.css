@@ -1,140 +1,170 @@
-.start-dropdown {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
+:host {
+    display: block;
+    width: 100%;
 }
 
-:host ::ng-deep .start-trigger {
-    min-height: 2.75rem;
-    padding-inline: 1rem;
-    font-size: var(--font-size-md);
+.start-agent-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.7rem;
+    width: min(100%, 33rem);
+    margin-inline: auto;
 }
 
-:host ::ng-deep .start-trigger .button-content {
-    gap: 0.45rem;
-}
-
-.start-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 50%;
-    width: max-content;
-    min-width: 18rem;
+.agent-tile {
+    appearance: none;
+    border: 1px solid color-mix(in srgb, var(--borders-default) 55%, transparent);
     background:
         linear-gradient(
             180deg,
-            color-mix(in srgb, var(--surfaces-surface_alt) 55%, var(--surfaces-surface)) 0%,
-            var(--surfaces-surface) 34%
+            color-mix(in srgb, var(--surfaces-surface) 84%, var(--surfaces-bg)) 0%,
+            color-mix(in srgb, var(--surfaces-surface_alt) 92%, var(--surfaces-surface)) 100%
         );
-    border: 1px solid color-mix(in srgb, var(--borders-default) 82%, var(--brand-accent_soft));
-    border-radius: 16px;
-    box-shadow: 0 18px 42px var(--effects-shadow_menu);
-    padding: 0.45rem;
-    display: grid;
-    gap: 0.35rem;
-    z-index: 5;
-    transform: translateX(-50%);
-    transform-origin: top center;
-    animation: start-agent-menu-in 140ms ease-out;
-}
-
-.start-menu-item {
-    width: 100%;
-    border: 1px solid color-mix(in srgb, var(--borders-default) 90%, transparent);
-    background: color-mix(in srgb, var(--surfaces-surface_strong) 92%, transparent);
-    color: inherit;
-    padding: 0.55rem 0.7rem;
-    border-radius: 12px;
-    text-align: left;
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    white-space: nowrap;
-}
-
-.agent-icon {
-    width: 1.45rem;
-    height: 1.45rem;
-    display: inline-grid;
-    place-items: center;
-    flex-shrink: 0;
-    color: var(--text-muted);
-}
-
-.agent-icon svg {
-    width: 1.05rem;
-    height: 1.05rem;
-}
-
-.agent-icon[data-agent="codex_gui"],
-.agent-icon[data-agent="codex"] {
-    color: color-mix(in srgb, var(--brand-accent) 70%, var(--text-default));
-}
-
-.agent-icon[data-agent="copilot_gui"],
-.agent-icon[data-agent="copilot"] {
-    color: color-mix(in srgb, #8bc4ff 72%, var(--text-default));
-}
-
-.agent-icon[data-agent="open_code"] {
-    color: color-mix(in srgb, #7ee0a0 68%, var(--text-default));
-}
-
-.menu-label {
-    color: var(--text-default);
-    line-height: 1.1;
-}
-
-.menu-copy {
-    flex: 1 1 auto;
-    min-width: 0;
+    border-radius: 4px;
+    min-height: 9.6rem;
+    padding: 0.95rem 0.85rem 0.8rem;
     display: flex;
     flex-direction: column;
-    gap: 0.16rem;
+    justify-content: center;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-default);
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition:
+        border-color 0.18s ease,
+        background 0.18s ease,
+        box-shadow 0.18s ease,
+        opacity 0.18s ease,
+        transform 0.18s ease;
+    position: relative;
+    overflow: hidden;
+    transform: translateY(0) scale(1);
+    will-change: transform;
 }
 
-.menu-description {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    line-height: 1.25;
-}
-
-.menu-meta {
-    font-size: var(--font-size-xs);
-    color: var(--text-subtle);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
-
-.start-menu-item:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--brand-accent) 24%, var(--borders-strong));
+.agent-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0;
     background:
         linear-gradient(
             135deg,
-            color-mix(in srgb, var(--brand-accent_soft) 58%, var(--surfaces-surface_alt)) 0%,
-            var(--surfaces-surface_alt) 100%
+            transparent 0%,
+            rgba(255, 255, 255, 0.08) 0%,
+            transparent 48%,
+            rgba(255, 255, 255, 0.03) 100%
         );
+    pointer-events: none;
 }
 
-.start-menu-item:disabled {
-    opacity: 0.5;
+.agent-tile:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.012);
+    border-color: color-mix(in srgb, var(--brand-accent) 20%, var(--borders-strong));
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--brand-accent_soft) 18%, var(--surfaces-surface)) 0%,
+            color-mix(in srgb, var(--surfaces-surface_strong) 62%, var(--surfaces-surface_alt)) 100%
+        );
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.24),
+        0 8px 18px rgba(96, 90, 82, 0.08);
+}
+
+.agent-tile:active:not(:disabled) {
+    transform: translateY(0) scale(0.996);
+    box-shadow: inset 0 1px 3px rgba(96, 90, 82, 0.12);
+}
+
+.agent-tile:focus-visible {
+    outline: 2px solid var(--interaction-focus);
+    outline-offset: 3px;
+}
+
+.agent-tile:disabled {
     cursor: not-allowed;
 }
 
-.start-menu-item:focus-visible {
-    outline: 2px solid var(--interaction-focus);
-    outline-offset: 2px;
+.agent-tile.unavailable {
+    background: color-mix(in srgb, var(--surfaces-surface_alt) 84%, var(--surfaces-surface_strong));
+    border-color: color-mix(in srgb, var(--borders-default) 72%, transparent);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    opacity: 0.58;
+    filter: grayscale(1);
 }
 
-@keyframes start-agent-menu-in {
-    from {
-        opacity: 0;
-        transform: translateX(-50%) translateY(-4px) scale(0.98);
+.agent-tile.loading {
+    opacity: 0.72;
+}
+
+.agent-logo-shell {
+    width: 100%;
+    min-height: 5.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 0.35rem 0.2rem;
+    position: relative;
+    z-index: 1;
+}
+
+.agent-logo {
+    width: auto;
+    height: 2.95rem;
+    color: var(--launcher-brand_override_color, var(--text-default));
+}
+
+.agent-tile[data-brand="openai"] .agent-logo {
+    height: 4.6rem;
+}
+
+.agent-tile[data-brand="copilot"] .agent-logo {
+    height: 3.15rem;
+}
+
+.agent-name {
+    font-size: var(--font-size-md);
+    font-weight: 650;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--text-default);
+    width: 100%;
+    max-width: none;
+    position: relative;
+    z-index: 1;
+    letter-spacing: 0.015em;
+}
+
+.agent-copy {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    position: relative;
+    z-index: 1;
+}
+
+.agent-subtitle {
+    font-size: var(--font-size-sm);
+    line-height: 1.1;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
+@media (max-width: 640px) {
+    .start-agent-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
-    to {
-        opacity: 1;
-        transform: translateX(-50%) translateY(0) scale(1);
+
+    .agent-tile {
+        min-height: 8.8rem;
+        padding-inline: 0.75rem;
+    }
+
+    .agent-tile[data-brand="openai"] .agent-logo {
+        height: 4.2rem;
     }
 }

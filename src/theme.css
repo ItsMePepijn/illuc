@@ -1,4 +1,6 @@
 :root {
+    --shade: light;
+
     /* Typography */
     --font-size-md: 1rem;
     --font-size-xs: calc(var(--font-size-md) * 0.75);
@@ -69,5 +71,7 @@
     --effects-shadow_subtle: rgba(96, 90, 82, 0.05);
     --effects-shadow_strong: rgba(96, 90, 82, 0.25);
     --effects-shadow_menu: rgba(40, 35, 28, 0.14);
-}
 
+    /* Launcher */
+    --launcher-brand_override_color: var(--text-default);
+}

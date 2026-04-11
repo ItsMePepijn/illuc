@@ -1,7 +1,7 @@
 import { Injectable, NgZone, OnDestroy, computed, signal } from "@angular/core";
 import { type Event as TauriEvent, type UnlistenFn } from "@tauri-apps/api/event";
 import { Observable, Subject } from "rxjs";
-import { AgentKind, BaseRepoInfo, TaskSummary } from "./models";
+import { AgentKind, AgentKindAvailability, BaseRepoInfo, TaskSummary } from "./models";
 import { DiffMode, DiffPayload } from "./git/models";
 import {
     TerminalKind,
@@ -20,6 +20,7 @@ import { readIllucHmrState } from "../../shared/hmr/hmr-state";
 export class TaskStore implements OnDestroy {
     private readonly maxTerminalLines = TERMINAL_SCROLLBACK;
     private readonly tasksSignal = signal<TaskSummary[]>([]);
+    private readonly agentKindsSignal = signal<AgentKindAvailability[] | null>(null);
     private readonly baseRepoSignal = signal<BaseRepoInfo | null>(null);
     private readonly selectedTaskIdSignal = signal<string | null>(null);
     private readonly branchOptionsSignal = signal<string[]>([]);
@@ -55,10 +56,12 @@ export class TaskStore implements OnDestroy {
     private readonly diffJumpStreams = new Map<string, Subject<string>>();
     private readonly unlistenFns: UnlistenFn[] = [];
     private readonly unloadHandler = () => this.teardown();
+    private agentKindsLoadPromise: Promise<AgentKindAvailability[]> | null = null;
 
     private readonly diffRefreshDelayMs = 250;
 
     readonly tasks = this.tasksSignal.asReadonly();
+    readonly agentKinds = this.agentKindsSignal.asReadonly();
     readonly baseRepo = this.baseRepoSignal.asReadonly();
     readonly selectedTaskId = this.selectedTaskIdSignal.asReadonly();
     readonly branchOptions = this.branchOptionsSignal.asReadonly();
@@ -80,6 +83,7 @@ export class TaskStore implements OnDestroy {
         if (snapshot) {
             this.restoreDevState(snapshot);
         }
+        void this.preloadAgentKinds();
         this.registerEventListeners();
         window.addEventListener("unload", this.unloadHandler);
     }
@@ -201,6 +205,28 @@ export class TaskStore implements OnDestroy {
         });
         this.upsertTask(summary);
         return summary;
+    }
+
+    async preloadAgentKinds(): Promise<AgentKindAvailability[]> {
+        const cached = this.agentKindsSignal();
+        if (cached) {
+            return cached;
+        }
+        if (this.agentKindsLoadPromise) {
+            return this.agentKindsLoadPromise;
+        }
+        this.agentKindsLoadPromise = tauriInvoke<AgentKindAvailability[]>(
+            this.zone,
+            "task_agent_kinds_list",
+        )
+            .then((agentKinds) => {
+                this.agentKindsSignal.set(agentKinds);
+                return agentKinds;
+            })
+            .finally(() => {
+                this.agentKindsLoadPromise = null;
+            });
+        return this.agentKindsLoadPromise;
     }
 
     async stopTask(taskId: string): Promise<TaskSummary> {
