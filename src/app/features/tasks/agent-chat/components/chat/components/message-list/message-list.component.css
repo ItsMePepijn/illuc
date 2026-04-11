@@ -68,6 +68,10 @@
     flex: 0 0 auto;
 }
 
+.tail-content {
+    min-height: 0;
+}
+
 .message-row.user-row {
     justify-content: flex-end;
 }

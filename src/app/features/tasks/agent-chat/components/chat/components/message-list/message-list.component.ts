@@ -86,6 +86,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     set scrollHostRef(host: ElementRef<HTMLElement> | undefined) {
         this.scrollHost = host?.nativeElement;
         this.bindScrollHost();
+        this.scheduleTailOffsetSync();
         if (this.pinnedToBottom) {
             this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
         }
@@ -95,6 +96,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     set tailContentRef(host: ElementRef<HTMLElement> | undefined) {
         this.tailContent = host?.nativeElement;
         this.bindTailObserver();
+        this.scheduleTailOffsetSync();
     }
 
     readonly datasource = new Datasource<AgentChatListItem>({
@@ -124,6 +126,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
     private adapterCheckFrameId?: number;
     private adapterInitRetryFrameId?: number;
     private bottomSyncFrameId?: number;
+    private tailOffsetSyncFrameId?: number;
     private bottomSyncFramesRemaining = 0;
     private pinnedToBottom = true;
     private activationTimeoutIds: number[] = [];
@@ -148,6 +151,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         if (contentChanged) {
             this.rebuildItems();
             this.scheduleHistorySync();
+            this.scheduleTailOffsetSync();
             if (this.pinnedToBottom && this.tailItems.length > 0) {
                 this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
             }
@@ -173,6 +177,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.cancelAdapterCheck();
         this.cancelAdapterInitRetry();
         this.cancelBottomSync();
+        this.cancelTailOffsetSync();
     }
 
     onContentClick(event: MouseEvent): void {
@@ -506,6 +511,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
 
         const onScroll = (): void => {
             this.pinnedToBottom = this.isNearBottom(scrollHost);
+            this.scheduleTailOffsetSync();
         };
 
         this.zone.runOutsideAngular(() => {
@@ -540,6 +546,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                             return;
                         }
                         await this.datasource.adapter.check();
+                        this.scheduleTailOffsetSync();
                         if (this.pinnedToBottom && this.tailItems.length === 0) {
                             this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
                         }
@@ -570,6 +577,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                     if (!this.isActive || !this.pinnedToBottom) {
                         return;
                     }
+                    this.scheduleTailOffsetSync();
                     this.requestBottomSync(CHAT_SETTLE_BOTTOM_SYNC_FRAMES);
                 });
             });
@@ -649,6 +657,18 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.scheduleBottomSync(frames);
     }
 
+    private scheduleTailOffsetSync(): void {
+        if (this.tailOffsetSyncFrameId !== undefined) {
+            return;
+        }
+        this.zone.runOutsideAngular(() => {
+            this.tailOffsetSyncFrameId = requestAnimationFrame(() => {
+                this.tailOffsetSyncFrameId = undefined;
+                this.syncTailOffset();
+            });
+        });
+    }
+
     private scheduleBottomSync(frames: number): void {
         if (!this.scrollHost) {
             return;
@@ -670,6 +690,7 @@ export class MessageListComponent implements OnChanges, OnDestroy {
                 }
                 scrollHost.scrollTop = scrollHost.scrollHeight;
                 this.pinnedToBottom = true;
+                this.syncTailOffset();
                 this.bottomSyncFramesRemaining = Math.max(
                     0,
                     this.bottomSyncFramesRemaining - 1,
@@ -690,12 +711,50 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         this.bottomSyncFrameId = undefined;
     }
 
+    private cancelTailOffsetSync(): void {
+        if (this.tailOffsetSyncFrameId === undefined) {
+            return;
+        }
+        cancelAnimationFrame(this.tailOffsetSyncFrameId);
+        this.tailOffsetSyncFrameId = undefined;
+    }
+
     private isNearBottom(scrollHost: HTMLElement): boolean {
         const distanceFromBottom =
             scrollHost.scrollHeight -
             scrollHost.scrollTop -
             scrollHost.clientHeight;
         return distanceFromBottom <= STICK_THRESHOLD_PX;
+    }
+
+    private syncTailOffset(): void {
+        const tailContent = this.tailContent;
+        if (!tailContent) {
+            return;
+        }
+
+        const offset =
+            this.pinnedToBottom && this.tailItems.length > 0
+                ? this.getForwardPaddingHeight()
+                : 0;
+        tailContent.style.marginTop = offset > 0 ? `${-offset}px` : "0px";
+    }
+
+    private getForwardPaddingHeight(): number {
+        const scrollHost = this.scrollHost;
+        if (!scrollHost) {
+            return 0;
+        }
+
+        const forwardPadding = scrollHost.querySelector<HTMLElement>(
+            "[data-padding-forward]",
+        );
+        if (!forwardPadding) {
+            return 0;
+        }
+
+        const height = forwardPadding.getBoundingClientRect().height;
+        return Number.isFinite(height) ? Math.max(0, Math.round(height)) : 0;
     }
 
     private scheduleActivationSync(): void {
