@@ -3,6 +3,8 @@
     [class.open]="menuOpen"
     [class.compact]="compact"
     (click)="$event.stopPropagation()"
+    cdkOverlayOrigin
+    #triggerOrigin="cdkOverlayOrigin"
 >
     <app-rail-button
         [buttonClass]="buttonClass"
@@ -12,25 +14,30 @@
         [ariaExpanded]="menuOpen"
         ariaHaspopup="menu"
         [title]="title"
-        [icon]="icon"
-        (action)="toggleMenu($event)"
+        [stopPropagation]="true"
+        (action)="toggleMenu()"
     >
-        <ng-template #icon>
-            <app-icon-code-brackets
-                class="trigger-icon"
-                aria-hidden="true"
-            ></app-icon-code-brackets>
-        </ng-template>
-
+        <app-icon-code-brackets
+            class="trigger-icon"
+            aria-hidden="true"
+        ></app-icon-code-brackets>
         <span *ngIf="!compact" class="trigger-label">Open</span>
         <span class="caret" aria-hidden="true">▾</span>
     </app-rail-button>
+</div>
 
+<ng-template
+    cdkConnectedOverlay
+    [cdkConnectedOverlayOrigin]="triggerOrigin"
+    [cdkConnectedOverlayOpen]="menuOpen"
+    [cdkConnectedOverlayPositions]="menuPositions"
+    [cdkConnectedOverlayPush]="true"
+>
     <div
         class="launch-menu"
-        *ngIf="menuOpen"
         role="menu"
         [attr.aria-label]="ariaLabel"
+        (click)="$event.stopPropagation()"
     >
         <button
             type="button"
@@ -61,4 +68,4 @@
             <span class="editor-name">{{ explorerLabel }}</span>
         </button>
     </div>
-</div>
+</ng-template>

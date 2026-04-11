@@ -9,8 +9,10 @@
                         title="Launch repository in editor"
                         ariaLabel="Launch repository in editor"
                         buttonClass="repo-action-btn repo-editor-action-btn"
+                        [compact]="true"
                     ></app-launch-editor-dropdown>
                     <app-open-terminal-button
+                        variant="icon"
                         [path]="baseRepo.canonicalPath"
                         title="Open repository terminal"
                         ariaLabel="Open repository terminal"

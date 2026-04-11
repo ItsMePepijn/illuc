@@ -416,9 +416,6 @@
 }
 
 .agent-actions-popover {
-    position: absolute;
-    top: calc(100% + 6px);
-    right: 0;
     min-width: 200px;
     padding: 6px;
     border: 1px solid var(--borders-default);

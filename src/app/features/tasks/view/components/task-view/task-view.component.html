@@ -147,6 +147,8 @@
                                 class="agent-actions-menu"
                                 [class.is-open]="agentActionsMenuOpen"
                                 *ngIf="isRunning() && current && hasAgentChatActionsMenu(current)"
+                                cdkOverlayOrigin
+                                #agentActionsTrigger="cdkOverlayOrigin"
                             >
                                 <app-icon-loading-button
                                     title="More chat actions"
@@ -155,72 +157,71 @@
                                     [stopPropagation]="true"
                                     (action)="toggleAgentActionsMenu($event)"
                                 >
-                                    <svg
-                                        class="terminal-toolbar-icon agent-actions-trigger-icon"
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                        aria-hidden="true"
-                                    >
-                                        <circle cx="6" cy="12" r="1.75" />
-                                        <circle cx="12" cy="12" r="1.75" />
-                                        <circle cx="18" cy="12" r="1.75" />
-                                    </svg>
+                                    <app-icon-more-horizontal
+                                        class="agent-actions-trigger-icon"
+                                    ></app-icon-more-horizontal>
                                 </app-icon-loading-button>
-
-                                <div
-                                    class="agent-actions-popover"
-                                    *ngIf="agentActionsMenuOpen"
-                                    (click)="$event.stopPropagation()"
+                                <ng-template
+                                    cdkConnectedOverlay
+                                    [cdkConnectedOverlayOrigin]="agentActionsTrigger"
+                                    [cdkConnectedOverlayOpen]="agentActionsMenuOpen"
+                                    [cdkConnectedOverlayPositions]="agentActionsPositions"
+                                    [cdkConnectedOverlayPush]="true"
                                 >
-                                    <button
-                                        *ngIf="supportsNewChatAction(current)"
-                                        type="button"
-                                        class="agent-actions-item"
-                                        [disabled]="startingNewChat"
-                                        (click)="startNewAgentChat()"
+                                    <div
+                                        class="agent-actions-popover"
+                                        (click)="$event.stopPropagation()"
                                     >
-                                        <span class="agent-actions-item-icon" aria-hidden="true">
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="1.8"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                            >
-                                                <path d="M12 5v14" />
-                                                <path d="M5 12h14" />
-                                            </svg>
-                                        </span>
-                                        <span class="agent-actions-item-label">
-                                            {{ startingNewChat ? "Starting..." : "New chat" }}
-                                        </span>
-                                    </button>
-                                    <button
-                                        *ngIf="supportsThreadHistoryActions(current)"
-                                        type="button"
-                                        class="agent-actions-item"
-                                        [disabled]="compacting"
-                                        (click)="compactAgentChat()"
-                                    >
-                                        <span class="agent-actions-item-icon" aria-hidden="true">
-                                            <svg
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                stroke-width="1.8"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                            >
-                                                <path d="M20 12a8 8 0 1 1-2.34-5.66" />
-                                                <path d="M20 4v6h-6" />
-                                            </svg>
-                                        </span>
-                                        <span class="agent-actions-item-label">
-                                            {{ compacting ? "Compacting..." : "Compact chat" }}
-                                        </span>
-                                    </button>
-                                </div>
+                                        <button
+                                            *ngIf="supportsNewChatAction(current)"
+                                            type="button"
+                                            class="agent-actions-item"
+                                            [disabled]="startingNewChat"
+                                            (click)="startNewAgentChat()"
+                                        >
+                                            <span class="agent-actions-item-icon" aria-hidden="true">
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.8"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path d="M12 5v14" />
+                                                    <path d="M5 12h14" />
+                                                </svg>
+                                            </span>
+                                            <span class="agent-actions-item-label">
+                                                {{ startingNewChat ? "Starting..." : "New chat" }}
+                                            </span>
+                                        </button>
+                                        <button
+                                            *ngIf="supportsThreadHistoryActions(current)"
+                                            type="button"
+                                            class="agent-actions-item"
+                                            [disabled]="compacting"
+                                            (click)="compactAgentChat()"
+                                        >
+                                            <span class="agent-actions-item-icon" aria-hidden="true">
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    stroke-width="1.8"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                >
+                                                    <path d="M20 12a8 8 0 1 1-2.34-5.66" />
+                                                    <path d="M20 4v6h-6" />
+                                                </svg>
+                                            </span>
+                                            <span class="agent-actions-item-label">
+                                                {{ compacting ? "Compacting..." : "Compact chat" }}
+                                            </span>
+                                        </button>
+                                    </div>
+                                </ng-template>
                             </div>
                         </div>
                     </header>

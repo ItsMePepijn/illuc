@@ -1,5 +1,4 @@
 .launch-dropdown {
-    position: relative;
     display: inline-flex;
     align-items: center;
 }
@@ -24,9 +23,6 @@
 }
 
 .launch-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
     min-width: 13rem;
     background: var(--surfaces-surface);
     border: 1px solid var(--borders-default);
@@ -38,11 +34,6 @@
     z-index: 40;
     transform-origin: top left;
     animation: launch-editor-menu-in 140ms ease-out;
-}
-
-.launch-dropdown.compact .launch-menu {
-    right: 0;
-    left: auto;
 }
 
 .launch-menu-item {

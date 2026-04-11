@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common";
+import { ConnectedPosition, OverlayModule } from "@angular/cdk/overlay";
 import {
     ChangeDetectorRef,
     Component,
@@ -26,6 +27,7 @@ import { OpenTerminalButtonComponent } from "../../../workspace/components/open-
 import { StartAgentDropdownComponent } from "../../../launcher/components/start-agent-dropdown/start-agent-dropdown.component";
 import { AgentChatComponent } from "../../../agent-chat/components/chat/chat.component";
 import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
+import { IconMoreHorizontalComponent } from "../../../../../shared/components/icon-more-horizontal/icon-more-horizontal.component";
 import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 import { TaskHomeDashboardComponent } from "../../../home/components/task-home-dashboard/task-home-dashboard.component";
 import { TaskGettingStartedComponent } from "../../../home/components/task-getting-started/task-getting-started.component";
@@ -53,16 +55,35 @@ import { RailButtonComponent } from "../rail-button/rail-button.component";
         StartAgentDropdownComponent,
         AgentChatComponent,
         IconLoadingButtonComponent,
+        IconMoreHorizontalComponent,
         LoadingButtonComponent,
         TaskHomeDashboardComponent,
         TaskGettingStartedComponent,
         TokenUsageDashboardComponent,
         RailButtonComponent,
+        OverlayModule,
     ],
     templateUrl: "./task-view.component.html",
     styleUrl: "./task-view.component.css",
 })
 export class TaskViewComponent {
+    private static readonly AGENT_ACTIONS_POSITIONS: ConnectedPosition[] = [
+        {
+            originX: "end",
+            originY: "bottom",
+            overlayX: "end",
+            overlayY: "top",
+            offsetY: 6,
+        },
+        {
+            originX: "start",
+            originY: "bottom",
+            overlayX: "start",
+            overlayY: "top",
+            offsetY: 6,
+        },
+    ];
+
     @Input() task: TaskSummary | null = null;
     @Input() baseRepo: BaseRepoInfo | null = null;
     @Input() showGettingStarted = false;
@@ -116,6 +137,10 @@ export class TaskViewComponent {
     mergePushAfter = true;
     mergeRequiresAcknowledgement = false;
     readonly agentKind = AgentKind;
+
+    get agentActionsPositions(): ConnectedPosition[] {
+        return TaskViewComponent.AGENT_ACTIONS_POSITIONS;
+    }
 
     constructor(
         private readonly taskStore: TaskStore,

@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common";
+import { ConnectedPosition, OverlayModule } from "@angular/cdk/overlay";
 import {
     ChangeDetectorRef,
     Component,
@@ -20,6 +21,7 @@ import { RailButtonComponent } from "../../../view/components/rail-button/rail-b
     standalone: true,
     imports: [
         CommonModule,
+        OverlayModule,
         IconCodeBracketsComponent,
         EditorAppIconComponent,
         IconFolderOpenComponent,
@@ -29,6 +31,40 @@ import { RailButtonComponent } from "../../../view/components/rail-button/rail-b
     styleUrl: "./launch-editor-dropdown.component.css",
 })
 export class LaunchEditorDropdownComponent implements OnInit {
+    private static readonly DEFAULT_MENU_POSITIONS: ConnectedPosition[] = [
+        {
+            originX: "start",
+            originY: "bottom",
+            overlayX: "start",
+            overlayY: "top",
+            offsetY: 6,
+        },
+        {
+            originX: "end",
+            originY: "bottom",
+            overlayX: "end",
+            overlayY: "top",
+            offsetY: 6,
+        },
+    ];
+
+    private static readonly COMPACT_MENU_POSITIONS: ConnectedPosition[] = [
+        {
+            originX: "end",
+            originY: "bottom",
+            overlayX: "end",
+            overlayY: "top",
+            offsetY: 6,
+        },
+        {
+            originX: "start",
+            originY: "bottom",
+            overlayX: "start",
+            overlayY: "top",
+            offsetY: 6,
+        },
+    ];
+
     private readonly isWindows = navigator.userAgent
         .toLowerCase()
         .includes("windows");
@@ -64,6 +100,12 @@ export class LaunchEditorDropdownComponent implements OnInit {
         return this.isWindows ? "Open in Explorer" : "Open in File Manager";
     }
 
+    get menuPositions(): ConnectedPosition[] {
+        return this.compact
+            ? LaunchEditorDropdownComponent.COMPACT_MENU_POSITIONS
+            : LaunchEditorDropdownComponent.DEFAULT_MENU_POSITIONS;
+    }
+
     ngOnInit(): void {
         void this.loadEditors();
     }
@@ -83,8 +125,7 @@ export class LaunchEditorDropdownComponent implements OnInit {
         }
     }
 
-    toggleMenu(event: MouseEvent): void {
-        event.stopPropagation();
+    toggleMenu(): void {
         if (this.isDisabled) {
             this.menuOpen = false;
             return;

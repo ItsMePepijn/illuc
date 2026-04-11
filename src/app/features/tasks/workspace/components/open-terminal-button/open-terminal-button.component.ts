@@ -1,17 +1,24 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, Input, NgZone } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
+import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { IconTerminalPanelComponent } from "../icon-terminal-panel/icon-terminal-panel.component";
 import { RailButtonComponent } from "../../../view/components/rail-button/rail-button.component";
 
 @Component({
     selector: "app-open-terminal-button",
     standalone: true,
-    imports: [CommonModule, IconTerminalPanelComponent, RailButtonComponent],
+    imports: [
+        CommonModule,
+        IconLoadingButtonComponent,
+        IconTerminalPanelComponent,
+        RailButtonComponent,
+    ],
     templateUrl: "./open-terminal-button.component.html",
     styleUrl: "./open-terminal-button.component.css",
 })
 export class OpenTerminalButtonComponent {
+    @Input() variant: "rail" | "icon" = "rail";
     @Input() path: string | null = null;
     @Input() title = "Open terminal";
     @Input() ariaLabel = "Open terminal";
@@ -24,7 +31,7 @@ export class OpenTerminalButtonComponent {
         private readonly cdr: ChangeDetectorRef,
     ) {}
 
-    async handleClick(): Promise<void> {
+    async handleClick(_event?: MouseEvent): Promise<void> {
         if (!this.path || this.isLoading) {
             return;
         }

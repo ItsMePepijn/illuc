@@ -1,14 +1,27 @@
-<app-rail-button
-    variant="icon"
-    [loading]="isLoading"
-    [disabled]="!path"
-    [title]="title"
-    [icon]="icon"
-    [ariaLabel]="ariaLabel"
-    [buttonClass]="buttonClass"
-    (action)="handleClick()"
->
-    <ng-template #icon>
-       <app-icon-terminal-panel></app-icon-terminal-panel>
-    </ng-template>
-</app-rail-button>
+@if (variant === "icon") {
+    <app-icon-loading-button
+        [loading]="isLoading"
+        [disabled]="!path"
+        [title]="title"
+        [ariaLabel]="ariaLabel"
+        [buttonClass]="buttonClass"
+        (action)="handleClick()"
+    >
+        <app-icon-terminal-panel></app-icon-terminal-panel>
+    </app-icon-loading-button>
+} @else {
+    <app-rail-button
+        variant="icon"
+        [loading]="isLoading"
+        [disabled]="!path"
+        [title]="title"
+        [ariaLabel]="ariaLabel"
+        [icon]="icon"
+        [buttonClass]="buttonClass"
+        (action)="handleClick($event)"
+    >
+        <ng-template #icon>
+            <app-icon-terminal-panel></app-icon-terminal-panel>
+        </ng-template>
+    </app-rail-button>
+}

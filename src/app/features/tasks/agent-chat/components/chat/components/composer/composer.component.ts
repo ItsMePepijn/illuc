@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common";
+import { ConnectedPosition, OverlayModule } from "@angular/cdk/overlay";
 import {
     ChangeDetectionStrategy,
     Component,
@@ -21,12 +22,35 @@ export type AgentChatModelOption = { value: string; label: string };
 @Component({
     selector: "app-agent-chat-composer",
     standalone: true,
-    imports: [CommonModule, FormsModule, ContextStatusComponent, SlashMenuComponent],
+    imports: [
+        CommonModule,
+        FormsModule,
+        OverlayModule,
+        ContextStatusComponent,
+        SlashMenuComponent,
+    ],
     templateUrl: "./composer.component.html",
     styleUrl: "./composer.component.css",
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ComposerComponent implements OnChanges {
+    private static readonly DROPDOWN_POSITIONS: ConnectedPosition[] = [
+        {
+            originX: "end",
+            originY: "top",
+            overlayX: "end",
+            overlayY: "bottom",
+            offsetY: -8,
+        },
+        {
+            originX: "start",
+            originY: "top",
+            overlayX: "start",
+            overlayY: "bottom",
+            offsetY: -8,
+        },
+    ];
+
     @Input() prompt = "";
     @Input() sending = false;
     @Input() isWorking = false;
@@ -55,6 +79,10 @@ export class ComposerComponent implements OnChanges {
     effortMenuOpen = false;
     slashMenuIndex = 0;
     private dismissedSlashPrompt = "";
+
+    get dropdownPositions(): ConnectedPosition[] {
+        return ComposerComponent.DROPDOWN_POSITIONS;
+    }
 
     ngOnChanges(changes: SimpleChanges): void {
         if (changes["prompt"]) {

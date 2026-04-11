@@ -48,6 +48,8 @@
                         *ngIf="modelOptions.length > 0"
                         class="model-selector"
                         [class.open]="modelMenuOpen"
+                        cdkOverlayOrigin
+                        #modelTrigger="cdkOverlayOrigin"
                     >
                         <button
                             type="button"
@@ -61,28 +63,42 @@
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
-
-                        <div class="model-dropdown" [class.open]="modelMenuOpen">
-                            <div class="dropdown-section-label">Models</div>
-                            <button
-                                type="button"
-                                class="model-option"
-                                *ngFor="let option of modelOptions"
-                                [class.selected]="option.value === selectedModel"
-                                (click)="selectModelOption(option.value, $event)"
+                        <ng-template
+                            cdkConnectedOverlay
+                            [cdkConnectedOverlayOrigin]="modelTrigger"
+                            [cdkConnectedOverlayOpen]="modelMenuOpen"
+                            [cdkConnectedOverlayPositions]="dropdownPositions"
+                            [cdkConnectedOverlayPush]="true"
+                        >
+                            <div
+                                class="model-dropdown"
+                                role="menu"
+                                aria-label="Models"
+                                (click)="$event.stopPropagation()"
                             >
-                                <span class="model-option-info">
-                                    <span class="model-option-name">{{ modelLabel(option.value) }}</span>
-                                </span>
-                                <span class="model-option-check">✓</span>
-                            </button>
-                        </div>
+                                <div class="dropdown-section-label">Models</div>
+                                <button
+                                    type="button"
+                                    class="model-option"
+                                    *ngFor="let option of modelOptions"
+                                    [class.selected]="option.value === selectedModel"
+                                    (click)="selectModelOption(option.value, $event)"
+                                >
+                                    <span class="model-option-info">
+                                        <span class="model-option-name">{{ modelLabel(option.value) }}</span>
+                                    </span>
+                                    <span class="model-option-check">✓</span>
+                                </button>
+                            </div>
+                        </ng-template>
                     </div>
 
                     <div
                         *ngIf="effortOptions.length > 0"
                         class="model-selector"
                         [class.open]="effortMenuOpen"
+                        cdkOverlayOrigin
+                        #effortTrigger="cdkOverlayOrigin"
                     >
                         <button
                             type="button"
@@ -96,22 +112,34 @@
                                 <polyline points="6 9 12 15 18 9"></polyline>
                             </svg>
                         </button>
-
-                        <div class="model-dropdown" [class.open]="effortMenuOpen">
-                            <div class="dropdown-section-label">Reasoning</div>
-                            <button
-                                type="button"
-                                class="model-option"
-                                *ngFor="let option of effortOptions"
-                                [class.selected]="option.value === selectedEffort"
-                                (click)="selectEffortOption(option.value, $event)"
+                        <ng-template
+                            cdkConnectedOverlay
+                            [cdkConnectedOverlayOrigin]="effortTrigger"
+                            [cdkConnectedOverlayOpen]="effortMenuOpen"
+                            [cdkConnectedOverlayPositions]="dropdownPositions"
+                            [cdkConnectedOverlayPush]="true"
+                        >
+                            <div
+                                class="model-dropdown"
+                                role="menu"
+                                aria-label="Reasoning"
+                                (click)="$event.stopPropagation()"
                             >
-                                <span class="model-option-info">
-                                    <span class="model-option-name">{{ effortLabel(option.value) }}</span>
-                                </span>
-                                <span class="model-option-check">✓</span>
-                            </button>
-                        </div>
+                                <div class="dropdown-section-label">Reasoning</div>
+                                <button
+                                    type="button"
+                                    class="model-option"
+                                    *ngFor="let option of effortOptions"
+                                    [class.selected]="option.value === selectedEffort"
+                                    (click)="selectEffortOption(option.value, $event)"
+                                >
+                                    <span class="model-option-info">
+                                        <span class="model-option-name">{{ effortLabel(option.value) }}</span>
+                                    </span>
+                                    <span class="model-option-check">✓</span>
+                                </button>
+                            </div>
+                        </ng-template>
                     </div>
 
                     <button
