@@ -4,7 +4,7 @@
         [class.shell-collapsed]="!isShellTerminalOpen"
         #taskDetail
     >
-        <header class="task-header">
+        <header class="task-header" (mousedown)="onWindowFrameMouseDown($event)">
             <div class="task-title" *ngIf="titleParts() as parts">
                 <h2>
                     <span *ngIf="parts.taskId" class="task-pill"
@@ -64,6 +64,42 @@
                 >
                     <app-icon-trash-bin></app-icon-trash-bin>
                 </app-task-action-button>
+                <div class="window-controls" *ngIf="showWindowControls">
+                    <button
+                        type="button"
+                        class="window-control"
+                        aria-label="Minimize window"
+                        data-window-control
+                        (click)="onWindowMinimize()"
+                    >
+                        <span class="window-control-icon minimize" aria-hidden="true"></span>
+                    </button>
+                    <button
+                        type="button"
+                        class="window-control"
+                        [attr.aria-label]="
+                            isWindowMaximized ? 'Restore window' : 'Maximize window'
+                        "
+                        data-window-control
+                        (click)="onWindowToggleMaximize()"
+                    >
+                        <span
+                            class="window-control-icon"
+                            [class.maximize]="!isWindowMaximized"
+                            [class.restore]="isWindowMaximized"
+                            aria-hidden="true"
+                        ></span>
+                    </button>
+                    <button
+                        type="button"
+                        class="window-control window-control-close"
+                        aria-label="Close window"
+                        data-window-control
+                        (click)="onWindowClose()"
+                    >
+                        <span class="window-control-icon close" aria-hidden="true"></span>
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -432,21 +468,65 @@
 </div>
 
 <ng-template #emptyState>
-    <app-task-getting-started
-        *ngIf="showGettingStarted && baseRepo; else homePageState"
-        [baseRepo]="baseRepo"
-    ></app-task-getting-started>
-    <ng-template #homePageState>
-        <app-token-usage-dashboard
-            *ngIf="homePage === 'tokenUsage' && baseRepo; else timeTrackingState"
-        ></app-token-usage-dashboard>
-        <ng-template #timeTrackingState>
-            <app-task-home-dashboard
-                [baseRepo]="baseRepo"
-                [selectRepoLoading]="selectRepoLoading"
-                [selectRepoError]="selectRepoError"
-                (selectBaseRepo)="onSelectBaseRepo()"
-            ></app-task-home-dashboard>
+    <section class="empty-state-frame">
+        <div
+            class="empty-state-window-controls"
+            *ngIf="showWindowControls"
+            (mousedown)="onWindowFrameMouseDown($event)"
+        >
+            <div class="window-controls">
+                <button
+                    type="button"
+                    class="window-control"
+                    aria-label="Minimize window"
+                    data-window-control
+                    (click)="onWindowMinimize()"
+                >
+                    <span class="window-control-icon minimize" aria-hidden="true"></span>
+                </button>
+                <button
+                    type="button"
+                    class="window-control"
+                    [attr.aria-label]="
+                        isWindowMaximized ? 'Restore window' : 'Maximize window'
+                    "
+                    data-window-control
+                    (click)="onWindowToggleMaximize()"
+                >
+                    <span
+                        class="window-control-icon"
+                        [class.maximize]="!isWindowMaximized"
+                        [class.restore]="isWindowMaximized"
+                        aria-hidden="true"
+                    ></span>
+                </button>
+                <button
+                    type="button"
+                    class="window-control window-control-close"
+                    aria-label="Close window"
+                    data-window-control
+                    (click)="onWindowClose()"
+                >
+                    <span class="window-control-icon close" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+        <app-task-getting-started
+            *ngIf="showGettingStarted && baseRepo; else homePageState"
+            [baseRepo]="baseRepo"
+        ></app-task-getting-started>
+        <ng-template #homePageState>
+            <app-token-usage-dashboard
+                *ngIf="homePage === 'tokenUsage' && baseRepo; else timeTrackingState"
+            ></app-token-usage-dashboard>
+            <ng-template #timeTrackingState>
+                <app-task-home-dashboard
+                    [baseRepo]="baseRepo"
+                    [selectRepoLoading]="selectRepoLoading"
+                    [selectRepoError]="selectRepoError"
+                    (selectBaseRepo)="onSelectBaseRepo()"
+                ></app-task-home-dashboard>
+            </ng-template>
         </ng-template>
-    </ng-template>
+    </section>
 </ng-template>

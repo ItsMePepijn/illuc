@@ -73,6 +73,129 @@
     gap: 0.45rem;
 }
 
+.window-controls {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.15rem;
+    align-self: flex-start;
+}
+
+.header-actions > .window-controls {
+    margin-top: -0.75rem;
+    margin-right: -1rem;
+}
+
+.window-control {
+    width: 46px;
+    height: 32px;
+    border: 0;
+    border-left: 1px solid rgba(96, 90, 82, 0.08);
+    background: transparent;
+    color: var(--text-default);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.window-control:hover {
+    background: var(--interaction-hover);
+}
+
+.window-control:focus-visible {
+    outline: 2px solid var(--interaction-focus);
+    outline-offset: -2px;
+}
+
+.window-control.window-control-close:hover {
+    background: var(--status-danger);
+    color: #fff7f2;
+}
+
+.window-control-icon {
+    position: relative;
+    display: block;
+    width: 12px;
+    height: 12px;
+}
+
+.window-control-icon::before,
+.window-control-icon::after {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.window-control-icon.minimize::before {
+    left: 1px;
+    right: 1px;
+    top: 7px;
+    border-top: 1.5px solid currentColor;
+}
+
+.window-control-icon.maximize::before {
+    inset: 1px;
+    border: 1.5px solid currentColor;
+}
+
+.window-control-icon.restore::before {
+    top: 1px;
+    right: 1px;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+    background: var(--surfaces-surface);
+}
+
+.window-control-icon.restore::after {
+    left: 1px;
+    bottom: 1px;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+}
+
+.window-control-icon.close::before,
+.window-control-icon.close::after {
+    left: 5px;
+    top: 0;
+    width: 1.5px;
+    height: 12px;
+    background: currentColor;
+    transform-origin: center;
+}
+
+.window-control-icon.close::before {
+    transform: rotate(45deg);
+}
+
+.window-control-icon.close::after {
+    transform: rotate(-45deg);
+}
+
+.empty-state-frame {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+.empty-state-window-controls {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    justify-content: flex-end;
+    pointer-events: none;
+}
+
+.empty-state-window-controls .window-controls {
+    pointer-events: auto;
+}
+
 .checkbox {
     display: flex;
     align-items: center;

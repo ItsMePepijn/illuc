@@ -73,6 +73,8 @@ export class TaskViewComponent {
     @Input() discardLoading = false;
     @Input() selectRepoLoading = false;
     @Input() selectRepoError = "";
+    @Input() showWindowControls = false;
+    @Input() isWindowMaximized = false;
     activePane: "terminal" | "diff" = "terminal";
     agentActionsMenuOpen = false;
     startingNewChat = false;
@@ -92,6 +94,10 @@ export class TaskViewComponent {
     @Output() stopTask = new EventEmitter<string>();
     @Output() discardTask = new EventEmitter<string>();
     @Output() selectBaseRepo = new EventEmitter<void>();
+    @Output() windowFrameMouseDown = new EventEmitter<MouseEvent>();
+    @Output() windowMinimize = new EventEmitter<void>();
+    @Output() windowToggleMaximize = new EventEmitter<void>();
+    @Output() windowClose = new EventEmitter<void>();
     showCommitModal = false;
     showPushModal = false;
     showMergeModal = false;
@@ -179,6 +185,22 @@ export class TaskViewComponent {
         if (this.task) {
             this.stopTask.emit(this.task.taskId);
         }
+    }
+
+    onWindowFrameMouseDown(event: MouseEvent): void {
+        this.windowFrameMouseDown.emit(event);
+    }
+
+    onWindowMinimize(): void {
+        this.windowMinimize.emit();
+    }
+
+    onWindowToggleMaximize(): void {
+        this.windowToggleMaximize.emit();
+    }
+
+    onWindowClose(): void {
+        this.windowClose.emit();
     }
 
     async compactAgentChat(): Promise<void> {

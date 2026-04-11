@@ -1,54 +1,4 @@
 <div class="app-shell">
-    <header
-        class="titlebar"
-        [class.is-inactive]="!isWindowFocused()"
-        [class.is-maximized]="isWindowMaximized()"
-        (mousedown)="onTitlebarMouseDown($event)"
-    >
-        <div class="titlebar-leading">
-            <div class="titlebar-brand">
-                <span class="titlebar-brand-dot" aria-hidden="true"></span>
-                <span class="titlebar-brand-name">illuc</span>
-            </div>
-        </div>
-        <div class="titlebar-actions">
-            <button
-                type="button"
-                class="window-control"
-                aria-label="Minimize window"
-                data-window-control
-                (click)="minimizeWindow()"
-            >
-                <span class="window-control-icon minimize" aria-hidden="true"></span>
-            </button>
-            <button
-                type="button"
-                class="window-control"
-                [attr.aria-label]="
-                    isWindowMaximized() ? 'Restore window' : 'Maximize window'
-                "
-                data-window-control
-                (click)="toggleWindowMaximize()"
-            >
-                <span
-                    class="window-control-icon"
-                    [class.maximize]="!isWindowMaximized()"
-                    [class.restore]="isWindowMaximized()"
-                    aria-hidden="true"
-                ></span>
-            </button>
-            <button
-                type="button"
-                class="window-control window-control-close"
-                aria-label="Close window"
-                data-window-control
-                (click)="closeWindow()"
-            >
-                <span class="window-control-icon close" aria-hidden="true"></span>
-            </button>
-        </div>
-    </header>
-
     <main class="content">
         <app-task-sidebar
             *ngIf="baseRepo() as repo"
@@ -80,10 +30,16 @@
                 [selectRepoLoading]="isSelectingRepo"
                 [selectRepoError]="repoSelectionError()"
                 [homePage]="isTokenUsageRoute() ? 'tokenUsage' : 'timeTracking'"
+                [showWindowControls]="true"
+                [isWindowMaximized]="isWindowMaximized()"
                 (startTask)="startTask($event)"
                 (stopTask)="stopTask($event)"
                 (discardTask)="discardTask($event)"
                 (selectBaseRepo)="browseForRepo()"
+                (windowFrameMouseDown)="onWindowFrameMouseDown($event)"
+                (windowMinimize)="minimizeWindow()"
+                (windowToggleMaximize)="toggleWindowMaximize()"
+                (windowClose)="closeWindow()"
             ></app-task-view>
 
             <app-task-view
@@ -99,10 +55,16 @@
                 [discardLoading]="isDiscardingTaskFor(entry.taskId)"
                 [selectRepoLoading]="isSelectingRepo"
                 [homePage]="isTokenUsageRoute() ? 'tokenUsage' : 'timeTracking'"
+                [showWindowControls]="entry.taskId === selectedTaskId()"
+                [isWindowMaximized]="isWindowMaximized()"
                 (startTask)="startTask($event)"
                 (stopTask)="stopTask($event)"
                 (discardTask)="discardTask($event)"
                 (selectBaseRepo)="browseForRepo()"
+                (windowFrameMouseDown)="onWindowFrameMouseDown($event)"
+                (windowMinimize)="minimizeWindow()"
+                (windowToggleMaximize)="toggleWindowMaximize()"
+                (windowClose)="closeWindow()"
             ></app-task-view>
         </div>
     </main>

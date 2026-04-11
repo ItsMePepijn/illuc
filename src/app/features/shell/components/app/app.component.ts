@@ -43,8 +43,6 @@ type CreateTaskTab = "create" | "continue";
     styleUrl: "./app.component.css",
 })
 export class AppComponent {
-    readonly windowTitle = signal("illuc");
-    readonly isWindowFocused = signal(true);
     readonly isWindowMaximized = signal(false);
     showCreateModal = false;
     createTaskTab: CreateTaskTab = "create";
@@ -127,9 +125,6 @@ export class AppComponent {
                     (event as NavigationEnd).urlAfterRedirects,
                 );
             });
-        effect(() => {
-            this.windowTitle.set(this.buildWindowTitle());
-        });
         void this.initializeWindowControls();
     }
 
@@ -454,7 +449,7 @@ export class AppComponent {
         }
     }
 
-    async onTitlebarMouseDown(event: MouseEvent): Promise<void> {
+    async onWindowFrameMouseDown(event: MouseEvent): Promise<void> {
         if (event.buttons !== 1) {
             return;
         }
@@ -623,9 +618,7 @@ export class AppComponent {
                 void this.refreshWindowState();
             });
             this.windowFocusUnlisten =
-                await this.currentWindow.onFocusChanged(({ payload }) => {
-                    this.isWindowFocused.set(payload);
-                });
+                await this.currentWindow.onFocusChanged(() => undefined);
         } catch (error) {
             console.error("Failed to initialize custom window controls.", error);
         }
@@ -633,37 +626,13 @@ export class AppComponent {
 
     private async refreshWindowState(): Promise<void> {
         try {
-            const [isMaximized, isFocused] = await Promise.all([
+            const [isMaximized] = await Promise.all([
                 this.currentWindow.isMaximized(),
-                this.currentWindow.isFocused(),
             ]);
             this.isWindowMaximized.set(isMaximized);
-            this.isWindowFocused.set(isFocused);
         } catch (error) {
             console.error("Failed to refresh window state.", error);
         }
-    }
-
-    private buildWindowTitle(): string {
-        const selectedTask = this.selectedTask();
-        if (selectedTask) {
-            return `${selectedTask.title} • ${selectedTask.branchName} • illuc`;
-        }
-        const baseRepo = this.baseRepo();
-        if (baseRepo) {
-            const repoName = baseRepo.path.split(/[\\/]/).pop();
-            return repoName ? `${repoName} • illuc` : "illuc";
-        }
-        if (this.isGettingStartedRoute()) {
-            return "Getting Started • illuc";
-        }
-        if (this.isTokenUsageRoute()) {
-            return "Token Usage • illuc";
-        }
-        if (this.isDashboardRoute()) {
-            return "Dashboard • illuc";
-        }
-        return "illuc";
     }
 
     private isInteractiveTitlebarTarget(target: EventTarget | null): boolean {
