@@ -23,6 +23,21 @@
     border-bottom: 1px solid var(--borders-default);
 }
 
+.diff-header-title {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.diff-branch-name {
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+    font-weight: 650;
+    white-space: nowrap;
+}
+
 .diff-content {
     display: flex;
     flex: 1;

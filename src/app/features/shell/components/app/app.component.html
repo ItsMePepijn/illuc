@@ -65,30 +65,6 @@
         </div>
     </main>
 
-    <footer class="status-bar" *ngIf="baseRepo()">
-        <ng-container
-            *ngIf="selectedTask() as currentTask; else statusPlaceholder"
-        >
-            <span class="status-meta">
-                Branch: <strong>{{ currentTask.branchName }}</strong> •
-                Worktree:
-                <a
-                    href="#"
-                    class="path-link"
-                    (click)="openInExplorer($event, currentTask.worktreePath)"
-                    [attr.title]="currentTask.worktreePath"
-                >
-                    {{ currentTask.worktreePath }}
-                </a>
-            </span>
-        </ng-container>
-        <ng-template #statusPlaceholder>
-            <span class="status-meta status-placeholder"
-                >Select a task to see branch and worktree details.</span
-            >
-        </ng-template>
-    </footer>
-
     <div class="modal-backdrop" *ngIf="showCreateModal">
         <div class="modal">
             <h3>Create Task</h3>

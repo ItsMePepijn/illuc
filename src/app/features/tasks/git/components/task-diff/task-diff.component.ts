@@ -132,6 +132,7 @@ function diffScrollStrategyFactory() {
 })
 export class TaskDiffComponent implements OnChanges, OnDestroy {
     @Input() taskId: string | null = null;
+    @Input() branchName: string | null = null;
     @Input() baseBranch: string | null = null;
     @Input() worktreePath: string | null = null;
     @ViewChild(CdkVirtualScrollViewport)

@@ -1,70 +1,70 @@
-# Dracula-inspired theme (JetBrains-like)
+# Dark theme
 
 shade = "dark"
 
 [surfaces]
-bg = "#282a36"
-surface = "#2f3142"
-surface_alt = "#343746"
-surface_strong = "#3b3f54"
-code_bg = "#21222c"
+bg             = "#1f1f1e"
+surface        = "#2c2c2a"
+surface_alt    = "#252523"
+surface_strong = "#333330"
+code_bg        = "#262625"
 
 [text]
-default = "#f8f8f2"
-muted = "rgba(248, 248, 242, 0.72)"
-subtle = "rgba(248, 248, 242, 0.52)"
-link = "#8be9fd"
-link_hover = "#bd93f9"
+default    = "rgb(248, 248, 246)"
+muted      = "rgba(248, 248, 246, 0.65)"
+subtle     = "rgba(248, 248, 246, 0.45)"
+link       = "rgba(248, 248, 246, 0.60)"
+link_hover = "rgba(248, 248, 246, 0.95)"
 
 [borders]
-default = "rgba(68, 71, 90, 0.75)"
-strong = "rgba(248, 248, 242, 0.18)"
+default = "rgba(248, 248, 246, 0.20)"
+strong  = "rgba(248, 248, 246, 0.35)"
 
 [brand]
-accent = "#bd93f9"
-accent_strong = "#ff79c6"
-accent_soft = "rgba(189, 147, 249, 0.24)"
+accent        = "#c47d55"
+accent_strong = "#d99070"
+accent_soft   = "rgba(196, 125, 85, 0.20)"
 
 [actions]
-primary = "#ff79c6"
-primary_hover = "#ff92d0"
-primary_active = "#ff5dbb"
-primary_contrast = "#1b1c25"
+primary          = "#e08840"
+primary_hover    = "#e89555"
+primary_active   = "#d47a30"
+primary_contrast = "#1f1300"
 
 [status]
-success = "#50fa7b"
-success_soft = "rgba(80, 250, 123, 0.22)"
-warning = "#f1fa8c"
-warning_soft = "rgba(241, 250, 140, 0.2)"
-danger = "#ff5555"
-danger_soft = "rgba(255, 85, 85, 0.2)"
-info = "#8be9fd"
-info_soft = "rgba(139, 233, 253, 0.18)"
+success      = "#7aa077"
+success_soft = "rgba(122, 160, 119, 0.20)"
+warning      = "#c09550"
+warning_soft = "rgba(192, 149, 80, 0.20)"
+danger       = "#c47062"
+danger_soft  = "rgba(196, 112, 98, 0.20)"
+info         = "#7896ae"
+info_soft    = "rgba(120, 150, 174, 0.20)"
 
 [interaction]
-hover = "rgba(248, 248, 242, 0.08)"
-focus = "rgba(189, 147, 249, 0.62)"
-selection_bg = "rgba(68, 71, 90, 0.72)"
+hover        = "rgba(248, 248, 246, 0.07)"
+focus        = "rgba(196, 125, 85, 0.30)"
+selection_bg = "rgba(196, 125, 85, 0.18)"
 
 [components]
-chip_bg = "rgba(68, 71, 90, 0.6)"
-chip_text = "#f8f8f2"
-segmented_active_bg = "rgba(68, 71, 90, 0.9)"
-segmented_active_text = "#f8f8f2"
+chip_bg               = "rgba(248, 248, 246, 0.10)"
+chip_text             = "rgb(248, 248, 246)"
+segmented_active_bg   = "#333330"
+segmented_active_text = "rgb(248, 248, 246)"
 
 [scrollbar]
-track = "rgba(68, 71, 90, 0.35)"
-thumb = "rgba(248, 248, 242, 0.16)"
-thumb_hover = "rgba(248, 248, 242, 0.32)"
-thumb_active = "rgba(248, 248, 242, 0.42)"
-size = "6px"
+track        = "rgba(248, 248, 246, 0.06)"
+thumb        = "rgba(248, 248, 246, 0.18)"
+thumb_hover  = "rgba(248, 248, 246, 0.35)"
+thumb_active = "rgba(248, 248, 246, 0.50)"
+size         = "6px"
 
 [effects]
-overlay_backdrop = "rgba(0, 0, 0, 0.56)"
-shadow_soft = "rgba(0, 0, 0, 0.4)"
-shadow_subtle = "rgba(0, 0, 0, 0.24)"
-shadow_strong = "rgba(0, 0, 0, 0.62)"
-shadow_menu = "rgba(0, 0, 0, 0.55)"
+overlay_backdrop = "rgba(10, 10, 9, 0.45)"
+shadow_soft      = "rgba(0, 0, 0, 0.30)"
+shadow_subtle    = "rgba(0, 0, 0, 0.12)"
+shadow_strong    = "rgba(0, 0, 0, 0.45)"
+shadow_menu      = "rgba(0, 0, 0, 0.40)"
 
 [git.diff]
 syntax_theme = "dark"

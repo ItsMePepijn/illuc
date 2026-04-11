@@ -50,31 +50,6 @@
     pointer-events: auto;
 }
 
-.status-bar {
-    padding: 0.4rem 0.9rem;
-    border-top: 1px solid var(--borders-default);
-    background: var(--surfaces-surface_alt);
-    font-size: var(--font-size-sm);
-    color: var(--text-muted);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex-wrap: wrap;
-}
-
-.status-meta {
-    color: var(--text-muted);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    flex-wrap: wrap;
-}
-
-.status-placeholder {
-    font-style: italic;
-    color: var(--text-subtle);
-}
-
 .modal-backdrop {
     position: fixed;
     inset: 0;

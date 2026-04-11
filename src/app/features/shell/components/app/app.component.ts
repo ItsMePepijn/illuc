@@ -12,7 +12,6 @@ import { TaskViewComponent } from "../../../tasks/view/components/task-view/task
 import { AgentKind, TaskSummary } from "../../../tasks/models";
 import { deriveTitleFromBranch } from "../../../tasks/title.utils";
 import { TaskStore } from "../../../tasks/task.store";
-import { LauncherService } from "../../../launcher/launcher.service";
 import { LoadingButtonComponent } from "../../../../shared/components/loading-button/loading-button.component";
 import { TaskTimeTrackingService } from "../../../time-tracking/task-time-tracking.service";
 import { TokenUsageService } from "../../../token-usage/token-usage.service";
@@ -65,7 +64,6 @@ export class AppComponent {
 
     constructor(
         public readonly taskStore: TaskStore,
-        private readonly launcher: LauncherService,
         private readonly timeTracking: TaskTimeTrackingService,
         private readonly tokenUsage: TokenUsageService,
         private readonly themeService: ThemeService,
@@ -430,15 +428,6 @@ export class AppComponent {
                 });
             }
         })();
-    }
-
-    async openInExplorer(event: Event, path: string): Promise<void> {
-        event.preventDefault();
-        try {
-            await this.launcher.openInExplorer(path);
-        } catch (error) {
-            console.error("Failed to open explorer", error);
-        }
     }
 
     async minimizeWindow(): Promise<void> {

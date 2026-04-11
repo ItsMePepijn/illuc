@@ -1,12 +1,15 @@
 <section class="diff-panel">
     <header class="diff-header">
-        <div>
+        <div class="diff-header-title">
             <strong>Live Diff</strong>
             <small *ngIf="lastUpdated">
                 Updated {{ lastUpdated | date: "shortTime" }}
             </small>
         </div>
         <div class="controls">
+            <small *ngIf="branchName" class="diff-branch-name">
+                {{ branchName }}
+            </small>
             <div class="mode-toggle" role="group" aria-label="Diff mode">
                 <button
                     type="button"
