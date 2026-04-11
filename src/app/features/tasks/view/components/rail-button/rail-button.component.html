@@ -1,0 +1,27 @@
+<button
+    [attr.type]="buttonType"
+    [disabled]="disabled || loading"
+    [class.loading]="loading"
+    [attr.aria-busy]="loading ? true : null"
+    [attr.aria-label]="ariaLabel"
+    [attr.aria-expanded]="ariaExpanded"
+    [attr.aria-haspopup]="ariaHaspopup"
+    [attr.title]="title"
+    [attr.data-action]="dataAction"
+    [ngClass]="resolvedButtonClass"
+    (mousedown)="$event.stopPropagation()"
+    (click)="handleClick($event)"
+>
+    @if (loading) {
+         <app-loading-spinner
+            class="button-spinner"
+            [size]="14"
+            [thickness]="2"
+            [speedMs]="800"
+        ></app-loading-spinner>
+    } @else {
+        <ng-container *ngTemplateOutlet="icon"></ng-container>
+    }
+
+    <span class="button-content"><ng-content></ng-content></span>
+</button>

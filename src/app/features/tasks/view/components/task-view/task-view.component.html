@@ -22,48 +22,41 @@
                         [taskId]="current.taskId"
                         [path]="current.worktreePath"
                     ></app-launch-editor-dropdown>
+                    <app-rail-button
+                        title="Commit changes"
+                        [icon]="commitIcon"
+                        [disabled]="!current"
+                        (action)="openCommitModal()"
+                    >
+                        <ng-template #commitIcon>
+                            <app-icon-git-commit></app-icon-git-commit>
+                        </ng-template>
+                        <span class="action-label">Commit</span>
+                    </app-rail-button>
+                    <app-rail-button
+                        title="Push changes"
+                        [icon]="pushIcon"
+                        [disabled]="!current"
+                        (action)="openPushModal()"
+                    >
+                        <ng-template #pushIcon>
+                            <app-icon-git-push></app-icon-git-push>
+                        </ng-template>
+                        <span class="action-label">Push</span>
+                    </app-rail-button>
+                    <app-rail-button
+                        title="Merge this branch into the main branch"
+                        [icon]="mergeIcon"
+                        [disabled]="!canMerge(current)"
+                        [loading]="isPreparingMerge || isMerging"
+                        (action)="openMergeFlow()"
+                    >
+                        <ng-template #mergeIcon>
+                            <app-icon-git-merge></app-icon-git-merge>
+                        </ng-template>
+                        <span class="action-label">Merge</span>
+                    </app-rail-button>
                 </div>
-                <app-task-action-button
-                    type="commit"
-                    variant="text"
-                    title="Commit changes"
-                    [disabled]="!current"
-                    (action)="openCommitModal()"
-                >
-                    <app-icon-git-commit></app-icon-git-commit>
-                    <span class="action-label">Commit</span>
-                </app-task-action-button>
-                <app-task-action-button
-                    type="push"
-                    variant="text"
-                    title="Push changes"
-                    [disabled]="!current"
-                    (action)="openPushModal()"
-                >
-                    <app-icon-git-push></app-icon-git-push>
-                    <span class="action-label">Push</span>
-                </app-task-action-button>
-                <app-task-action-button
-                    type="merge"
-                    variant="text"
-                    title="Merge this branch into the main branch"
-                    [disabled]="!canMerge(current)"
-                    [loading]="isPreparingMerge || isMerging"
-                    (action)="openMergeFlow()"
-                >
-                    <app-icon-git-merge></app-icon-git-merge>
-                    <span class="action-label">Merge</span>
-                </app-task-action-button>
-                <app-task-action-button
-                    type="discard"
-                    variant="icon"
-                    title="Discard task"
-                    [disabled]="!current"
-                    [loading]="discardLoading"
-                    (action)="onDiscard()"
-                >
-                    <app-icon-trash-bin></app-icon-trash-bin>
-                </app-task-action-button>
                 <div class="window-controls" *ngIf="showWindowControls">
                     <button
                         type="button"

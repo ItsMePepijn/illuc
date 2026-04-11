@@ -20,7 +20,6 @@ import { TaskActionButtonComponent } from "../../../actions/components/task-acti
 import { IconGitCommitComponent } from "../../../actions/components/icon-git-commit/icon-git-commit.component";
 import { IconGitMergeComponent } from "../../../actions/components/icon-git-merge/icon-git-merge.component";
 import { IconGitPushComponent } from "../../../actions/components/icon-git-push/icon-git-push.component";
-import { IconTrashBinComponent } from "../../../actions/components/icon-trash-bin/icon-trash-bin.component";
 import { IconStopSquareComponent } from "../../../actions/components/icon-stop-square/icon-stop-square.component";
 import { LaunchEditorDropdownComponent } from "../../../workspace/components/launch-editor-dropdown/launch-editor-dropdown.component";
 import { OpenTerminalButtonComponent } from "../../../workspace/components/open-terminal-button/open-terminal-button.component";
@@ -33,6 +32,7 @@ import { TaskGettingStartedComponent } from "../../../home/components/task-getti
 import { TaskStore } from "../../../task.store";
 import { AgentChatStore } from "../../../agent-chat/agent-chat.store";
 import { TokenUsageDashboardComponent } from "../../../../token-usage/components/token-usage-dashboard/token-usage-dashboard.component";
+import { RailButtonComponent } from "../rail-button/rail-button.component";
 
 @Component({
     selector: "app-task-view",
@@ -47,7 +47,6 @@ import { TokenUsageDashboardComponent } from "../../../../token-usage/components
         IconGitCommitComponent,
         IconGitMergeComponent,
         IconGitPushComponent,
-        IconTrashBinComponent,
         IconStopSquareComponent,
         LaunchEditorDropdownComponent,
         OpenTerminalButtonComponent,
@@ -58,6 +57,7 @@ import { TokenUsageDashboardComponent } from "../../../../token-usage/components
         TaskHomeDashboardComponent,
         TaskGettingStartedComponent,
         TokenUsageDashboardComponent,
+        RailButtonComponent,
     ],
     templateUrl: "./task-view.component.html",
     styleUrl: "./task-view.component.css",
@@ -70,7 +70,6 @@ export class TaskViewComponent {
     @Input() backgroundMode = false;
     @Input() startLoading = false;
     @Input() stopLoading = false;
-    @Input() discardLoading = false;
     @Input() selectRepoLoading = false;
     @Input() selectRepoError = "";
     @Input() showWindowControls = false;
@@ -92,7 +91,6 @@ export class TaskViewComponent {
         agent: AgentKind;
     }>();
     @Output() stopTask = new EventEmitter<string>();
-    @Output() discardTask = new EventEmitter<string>();
     @Output() selectBaseRepo = new EventEmitter<void>();
     @Output() windowFrameMouseDown = new EventEmitter<MouseEvent>();
     @Output() windowMinimize = new EventEmitter<void>();
@@ -306,12 +304,6 @@ export class TaskViewComponent {
         }
         if (this.pendingAgentChatAction === "rollback") {
             await this.confirmRollbackAgentChatTurn();
-        }
-    }
-
-    onDiscard(): void {
-        if (this.task) {
-            this.discardTask.emit(this.task.taskId);
         }
     }
 

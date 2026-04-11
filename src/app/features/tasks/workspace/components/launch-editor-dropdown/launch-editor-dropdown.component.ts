@@ -9,21 +9,21 @@ import {
 } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
 import { EditorApp } from "../../../../launcher/models";
-import { LoadingButtonComponent } from "../../../../../shared/components/loading-button/loading-button.component";
 import { TaskStore } from "../../../task.store";
 import { IconCodeBracketsComponent } from "../icon-code-brackets/icon-code-brackets.component";
 import { EditorAppIconComponent } from "../editor-app-icon/editor-app-icon.component";
 import { IconFolderOpenComponent } from "../icon-folder-open/icon-folder-open.component";
+import { RailButtonComponent } from "../../../view/components/rail-button/rail-button.component";
 
 @Component({
     selector: "app-launch-editor-dropdown",
     standalone: true,
     imports: [
         CommonModule,
-        LoadingButtonComponent,
         IconCodeBracketsComponent,
         EditorAppIconComponent,
         IconFolderOpenComponent,
+        RailButtonComponent,
     ],
     templateUrl: "./launch-editor-dropdown.component.html",
     styleUrl: "./launch-editor-dropdown.component.css",
@@ -58,15 +58,6 @@ export class LaunchEditorDropdownComponent implements OnInit {
 
     get isDisabled(): boolean {
         return !this.path || this.isBusy;
-    }
-
-    get resolvedButtonClass(): string {
-        return [
-            this.compact ? "" : "action-btn action-text-btn",
-            this.buttonClass,
-        ]
-            .filter(Boolean)
-            .join(" ");
     }
 
     get explorerLabel(): string {

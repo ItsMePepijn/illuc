@@ -1,13 +1,13 @@
 import { CommonModule } from "@angular/common";
 import { ChangeDetectorRef, Component, Input, NgZone } from "@angular/core";
 import { LauncherService } from "../../../../launcher/launcher.service";
-import { IconLoadingButtonComponent } from "../../../../../shared/components/icon-loading-button/icon-loading-button.component";
 import { IconTerminalPanelComponent } from "../icon-terminal-panel/icon-terminal-panel.component";
+import { RailButtonComponent } from "../../../view/components/rail-button/rail-button.component";
 
 @Component({
     selector: "app-open-terminal-button",
     standalone: true,
-    imports: [CommonModule, IconLoadingButtonComponent, IconTerminalPanelComponent],
+    imports: [CommonModule, IconTerminalPanelComponent, RailButtonComponent],
     templateUrl: "./open-terminal-button.component.html",
     styleUrl: "./open-terminal-button.component.css",
 })

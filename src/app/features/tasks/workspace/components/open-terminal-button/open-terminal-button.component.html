@@ -1,10 +1,14 @@
-<app-icon-loading-button
+<app-rail-button
+    variant="icon"
     [loading]="isLoading"
     [disabled]="!path"
     [title]="title"
+    [icon]="icon"
     [ariaLabel]="ariaLabel"
     [buttonClass]="buttonClass"
     (action)="handleClick()"
 >
-    <app-icon-terminal-panel></app-icon-terminal-panel>
-</app-icon-loading-button>
+    <ng-template #icon>
+       <app-icon-terminal-panel></app-icon-terminal-panel>
+    </ng-template>
+</app-rail-button>

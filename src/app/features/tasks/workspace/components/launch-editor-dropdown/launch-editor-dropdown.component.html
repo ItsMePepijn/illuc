@@ -4,23 +4,27 @@
     [class.compact]="compact"
     (click)="$event.stopPropagation()"
 >
-    <app-loading-button
-        [buttonClass]="resolvedButtonClass"
+    <app-rail-button
+        [buttonClass]="buttonClass"
         [loading]="isBusy"
         [disabled]="isDisabled"
         [ariaLabel]="ariaLabel"
         [ariaExpanded]="menuOpen"
         ariaHaspopup="menu"
         [title]="title"
+        [icon]="icon"
         (action)="toggleMenu($event)"
     >
-        <app-icon-code-brackets
-            class="trigger-icon"
-            aria-hidden="true"
-        ></app-icon-code-brackets>
+        <ng-template #icon>
+            <app-icon-code-brackets
+                class="trigger-icon"
+                aria-hidden="true"
+            ></app-icon-code-brackets>
+        </ng-template>
+
         <span *ngIf="!compact" class="trigger-label">Open</span>
         <span class="caret" aria-hidden="true">▾</span>
-    </app-loading-button>
+    </app-rail-button>
 
     <div
         class="launch-menu"

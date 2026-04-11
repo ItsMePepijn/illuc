@@ -35,7 +35,7 @@
     padding: 0.4rem;
     display: grid;
     gap: 0.25rem;
-    z-index: 20;
+    z-index: 40;
     transform-origin: top left;
     animation: launch-editor-menu-in 140ms ease-out;
 }
