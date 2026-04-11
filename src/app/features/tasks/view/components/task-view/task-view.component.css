@@ -16,25 +16,28 @@
 
 .task-header {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: flex-start;
     gap: 0.2rem 0.75rem;
     padding: 0.5rem 1rem 0.45rem;
     border-bottom: 1px solid var(--borders-default);
     position: relative;
-    padding-right: 28rem;
 }
 
 .task-title {
     display: block;
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
     order: 1;
+    overflow: hidden;
 }
 
 .task-header h2 {
     margin: 0 0 0.1rem 0;
     line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .meta {
@@ -70,15 +73,17 @@
     flex-wrap: nowrap;
     height: 32px;
     margin: 0;
-    order: 1;
     flex: 0 0 auto;
     align-self: stretch;
     z-index: 10;
+    max-width: 100%;
 }
 
 .workspace-actions {
     display: flex;
     gap: 0;
+    min-width: 0;
+    overflow: hidden;
 }
 
 :host ::ng-deep .header-actions .rail-btn .trigger-icon,
@@ -106,6 +111,7 @@
     margin-left: 0;
     align-self: stretch;
     padding-left: 0;
+    flex: 0 0 auto;
 }
 
 .window-control {
@@ -119,6 +125,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    flex: 0 0 auto;
     transition:
         background 0.18s ease,
         color 0.18s ease;
@@ -128,25 +135,6 @@
 :host ::ng-deep .header-actions > app-rail-button:first-of-type .rail-btn,
 :host ::ng-deep .header-actions > app-launch-editor-dropdown:first-of-type .rail-btn {
     border-left: 0;
-}
-
-@media (max-width: 1280px) {
-    .task-header {
-        padding-right: 23rem;
-    }
-}
-
-@media (max-width: 1080px) {
-    .task-header {
-        padding-right: 1rem;
-        padding-top: 2.7rem;
-    }
-
-    .header-actions {
-        left: 0;
-        right: 0;
-        justify-content: flex-end;
-    }
 }
 
 .window-control:hover {
@@ -231,9 +219,8 @@
 }
 
 .empty-state-window-controls {
-    position: absolute;
+    position: fixed;
     top: 0;
-    left: 0;
     right: 0;
     z-index: 5;
     display: flex;

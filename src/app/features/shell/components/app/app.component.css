@@ -113,9 +113,3 @@
     color: var(--status-danger);
     font-size: var(--font-size-sm);
 }
-
-@media (max-width: 960px) {
-    .content {
-        flex-direction: column;
-    }
-}
