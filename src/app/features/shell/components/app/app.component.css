@@ -17,6 +17,169 @@
     background: var(--surfaces-bg);
 }
 
+.titlebar {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    min-height: 40px;
+    border-bottom: 1px solid var(--borders-default);
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--surfaces-surface) 92%, white 8%) 0%,
+            var(--surfaces-surface) 100%
+        );
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.titlebar.is-maximized {
+    padding-top: 0;
+}
+
+.titlebar.is-inactive {
+    opacity: 0.72;
+}
+
+.titlebar-leading,
+.titlebar-actions {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+}
+
+.titlebar-leading {
+    display: flex;
+    align-items: center;
+    padding-left: 0.75rem;
+}
+
+.titlebar-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-width: 0;
+    padding: 0 0.35rem;
+    height: 100%;
+}
+
+.titlebar-brand-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    background: linear-gradient(
+        180deg,
+        var(--actions-primary_hover) 0%,
+        var(--brand-accent) 100%
+    );
+    box-shadow: 0 0 0 1px rgba(143, 90, 58, 0.18);
+}
+
+.titlebar-brand-name {
+    font-size: var(--font-size-sm);
+    font-weight: 650;
+    letter-spacing: 0.06rem;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+
+.titlebar-actions {
+    display: flex;
+    align-items: stretch;
+}
+
+.window-control {
+    width: 46px;
+    border: 0;
+    border-left: 1px solid rgba(96, 90, 82, 0.08);
+    background: transparent;
+    color: var(--text-default);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: default;
+    transition:
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+.window-control:hover {
+    background: var(--interaction-hover);
+}
+
+.window-control:focus-visible {
+    outline: 2px solid var(--interaction-focus);
+    outline-offset: -2px;
+}
+
+.window-control.window-control-close:hover {
+    background: var(--status-danger);
+    color: #fff7f2;
+}
+
+.window-control-icon {
+    position: relative;
+    display: block;
+    width: 12px;
+    height: 12px;
+}
+
+.window-control-icon::before,
+.window-control-icon::after {
+    content: "";
+    position: absolute;
+    box-sizing: border-box;
+}
+
+.window-control-icon.minimize::before {
+    left: 1px;
+    right: 1px;
+    top: 7px;
+    border-top: 1.5px solid currentColor;
+}
+
+.window-control-icon.maximize::before {
+    inset: 1px;
+    border: 1.5px solid currentColor;
+}
+
+.window-control-icon.restore::before {
+    top: 1px;
+    right: 1px;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+    background: var(--surfaces-surface);
+}
+
+.window-control-icon.restore::after {
+    left: 1px;
+    bottom: 1px;
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid currentColor;
+}
+
+.window-control-icon.close::before,
+.window-control-icon.close::after {
+    left: 5px;
+    top: 0;
+    width: 1.5px;
+    height: 12px;
+    background: currentColor;
+    transform-origin: center;
+}
+
+.window-control-icon.close::before {
+    transform: rotate(45deg);
+}
+
+.window-control-icon.close::after {
+    transform: rotate(-45deg);
+}
+
 .content {
     flex: 1;
     display: flex;

@@ -3,6 +3,8 @@ import { Component, DestroyRef, NgZone, effect, inject, signal } from "@angular/
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop";
 import { FormsModule } from "@angular/forms";
 import { NavigationEnd, Router } from "@angular/router";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import { filter } from "rxjs/operators";
 import { TaskSidebarComponent } from "../../../tasks/sidebar/components/task-sidebar/task-sidebar.component";
@@ -41,6 +43,9 @@ type CreateTaskTab = "create" | "continue";
     styleUrl: "./app.component.css",
 })
 export class AppComponent {
+    readonly windowTitle = signal("illuc");
+    readonly isWindowFocused = signal(true);
+    readonly isWindowMaximized = signal(false);
     showCreateModal = false;
     createTaskTab: CreateTaskTab = "create";
     branchNameInput = "";
@@ -56,6 +61,9 @@ export class AppComponent {
     private readonly stoppingTaskIds = new Set<string>();
     private readonly discardingTaskIds = new Set<string>();
     private readonly destroyRef = inject(DestroyRef);
+    private readonly currentWindow = getCurrentWindow();
+    private windowResizeUnlisten?: UnlistenFn;
+    private windowFocusUnlisten?: UnlistenFn;
 
     constructor(
         public readonly taskStore: TaskStore,
@@ -119,6 +127,10 @@ export class AppComponent {
                     (event as NavigationEnd).urlAfterRedirects,
                 );
             });
+        effect(() => {
+            this.windowTitle.set(this.buildWindowTitle());
+        });
+        void this.initializeWindowControls();
     }
 
     tasks() {
@@ -434,6 +446,49 @@ export class AppComponent {
         }
     }
 
+    async minimizeWindow(): Promise<void> {
+        try {
+            await this.currentWindow.minimize();
+        } catch (error) {
+            console.error("Failed to minimize window.", error);
+        }
+    }
+
+    async onTitlebarMouseDown(event: MouseEvent): Promise<void> {
+        if (event.buttons !== 1) {
+            return;
+        }
+        if (this.isInteractiveTitlebarTarget(event.target)) {
+            return;
+        }
+        if (event.detail === 2) {
+            await this.toggleWindowMaximize();
+            return;
+        }
+        try {
+            await this.currentWindow.startDragging();
+        } catch (error) {
+            console.error("Failed to start window drag.", error);
+        }
+    }
+
+    async toggleWindowMaximize(): Promise<void> {
+        try {
+            await this.currentWindow.toggleMaximize();
+            await this.refreshWindowState();
+        } catch (error) {
+            console.error("Failed to toggle window maximize.", error);
+        }
+    }
+
+    async closeWindow(): Promise<void> {
+        try {
+            await this.currentWindow.close();
+        } catch (error) {
+            console.error("Failed to close window.", error);
+        }
+    }
+
     private async navigateToGettingStartedIfNoTasks(): Promise<void> {
         if (!this.baseRepo() || this.taskStore.tasks().length > 0) {
             return;
@@ -555,5 +610,68 @@ export class AppComponent {
 
     private isTaskRunning(task: TaskSummary): boolean {
         return ["IDLE", "AWAITING_APPROVAL", "WORKING"].includes(task.status);
+    }
+
+    private async initializeWindowControls(): Promise<void> {
+        this.destroyRef.onDestroy(() => {
+            void this.windowResizeUnlisten?.();
+            void this.windowFocusUnlisten?.();
+        });
+        try {
+            await this.refreshWindowState();
+            this.windowResizeUnlisten = await this.currentWindow.onResized(() => {
+                void this.refreshWindowState();
+            });
+            this.windowFocusUnlisten =
+                await this.currentWindow.onFocusChanged(({ payload }) => {
+                    this.isWindowFocused.set(payload);
+                });
+        } catch (error) {
+            console.error("Failed to initialize custom window controls.", error);
+        }
+    }
+
+    private async refreshWindowState(): Promise<void> {
+        try {
+            const [isMaximized, isFocused] = await Promise.all([
+                this.currentWindow.isMaximized(),
+                this.currentWindow.isFocused(),
+            ]);
+            this.isWindowMaximized.set(isMaximized);
+            this.isWindowFocused.set(isFocused);
+        } catch (error) {
+            console.error("Failed to refresh window state.", error);
+        }
+    }
+
+    private buildWindowTitle(): string {
+        const selectedTask = this.selectedTask();
+        if (selectedTask) {
+            return `${selectedTask.title} • ${selectedTask.branchName} • illuc`;
+        }
+        const baseRepo = this.baseRepo();
+        if (baseRepo) {
+            const repoName = baseRepo.path.split(/[\\/]/).pop();
+            return repoName ? `${repoName} • illuc` : "illuc";
+        }
+        if (this.isGettingStartedRoute()) {
+            return "Getting Started • illuc";
+        }
+        if (this.isTokenUsageRoute()) {
+            return "Token Usage • illuc";
+        }
+        if (this.isDashboardRoute()) {
+            return "Dashboard • illuc";
+        }
+        return "illuc";
+    }
+
+    private isInteractiveTitlebarTarget(target: EventTarget | null): boolean {
+        return (
+            target instanceof HTMLElement &&
+            !!target.closest(
+                "button, a, input, select, textarea, [role='button'], [data-window-control]",
+            )
+        );
     }
 }
