@@ -14,7 +14,7 @@
 
 .sidebar-top {
     --sidebar-pad: 0.9rem;
-    padding: 0.85rem var(--sidebar-pad) 0.75rem;
+    padding: 0.5rem var(--sidebar-pad) 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
