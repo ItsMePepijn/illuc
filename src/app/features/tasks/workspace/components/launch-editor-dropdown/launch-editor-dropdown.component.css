@@ -18,10 +18,6 @@
     color: var(--text-muted);
 }
 
-.launch-dropdown.compact .trigger-label {
-    display: none;
-}
-
 .launch-menu {
     min-width: 13rem;
     background: var(--surfaces-surface);
