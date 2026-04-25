@@ -20,11 +20,27 @@ pub fn suppress_console_window(_command: &mut Command) {}
 
 #[cfg(target_os = "windows")]
 pub fn to_wsl_path(path: &Path) -> Option<String> {
-    let mut path_str = path.to_string_lossy().replace('\\', "/");
-    if path_str.starts_with("//?/") {
-        path_str = path_str.trim_start_matches("//?/").to_string();
+    windows_path_text_to_wsl_path(&path.to_string_lossy())
+}
+
+pub(crate) fn windows_path_text_to_wsl_path(value: &str) -> Option<String> {
+    let mut path_str = value.trim().replace('\\', "/");
+    if path_str.is_empty() {
+        return None;
+    }
+    if let Some(rest) = path_str.strip_prefix("//?/UNC/") {
+        path_str = format!("//{}", rest);
+    } else if let Some(rest) = path_str.strip_prefix("//?/") {
+        path_str = rest.to_string();
+    }
+
+    if let Some(path) = wsl_unc_path_to_posix(&path_str) {
+        return Some(path);
     }
     if path_str.starts_with("/mnt/") {
+        return Some(path_str);
+    }
+    if path_str.starts_with('/') && !path_str.starts_with("//") {
         return Some(path_str);
     }
     if path_str.len() >= 3 {
@@ -41,6 +57,22 @@ pub fn to_wsl_path(path: &Path) -> Option<String> {
         }
     }
     None
+}
+
+fn wsl_unc_path_to_posix(value: &str) -> Option<String> {
+    let path = value.strip_prefix("//")?;
+    let mut parts = path.split('/').filter(|part| !part.is_empty());
+    let server = parts.next()?;
+    if !server.eq_ignore_ascii_case("wsl$") && !server.eq_ignore_ascii_case("wsl.localhost") {
+        return None;
+    }
+    let _distro = parts.next()?;
+    let rest = parts.collect::<Vec<_>>().join("/");
+    if rest.is_empty() {
+        Some("/".to_string())
+    } else {
+        Some(format!("/{}", rest))
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -118,4 +150,55 @@ pub fn resolve_wsl_home_dir() -> Result<std::path::PathBuf> {
     }
 
     Ok(std::path::PathBuf::from(home))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::windows_path_text_to_wsl_path;
+
+    #[test]
+    fn converts_drive_letter_paths_to_wsl_paths() {
+        assert_eq!(
+            windows_path_text_to_wsl_path(r"C:\Users\Alice\repo").as_deref(),
+            Some("/mnt/c/Users/Alice/repo")
+        );
+        assert_eq!(
+            windows_path_text_to_wsl_path(r"\\?\D:\work\repo").as_deref(),
+            Some("/mnt/d/work/repo")
+        );
+    }
+
+    #[test]
+    fn converts_wsl_unc_paths_to_posix_paths() {
+        assert_eq!(
+            windows_path_text_to_wsl_path(r"\\wsl.localhost\Ubuntu\home\alice\repo").as_deref(),
+            Some("/home/alice/repo")
+        );
+        assert_eq!(
+            windows_path_text_to_wsl_path(r"\\wsl$\Ubuntu\mnt\c\Users\Alice\repo").as_deref(),
+            Some("/mnt/c/Users/Alice/repo")
+        );
+        assert_eq!(
+            windows_path_text_to_wsl_path(r"\\?\UNC\wsl.localhost\Ubuntu\home\alice\repo")
+                .as_deref(),
+            Some("/home/alice/repo")
+        );
+    }
+
+    #[test]
+    fn leaves_posix_wsl_paths_unchanged() {
+        assert_eq!(
+            windows_path_text_to_wsl_path("/mnt/c/Users/Alice/repo").as_deref(),
+            Some("/mnt/c/Users/Alice/repo")
+        );
+        assert_eq!(
+            windows_path_text_to_wsl_path("/home/alice/repo").as_deref(),
+            Some("/home/alice/repo")
+        );
+    }
+
+    #[test]
+    fn rejects_non_wsl_unc_paths() {
+        assert_eq!(windows_path_text_to_wsl_path(r"\\server\share\repo"), None);
+    }
 }

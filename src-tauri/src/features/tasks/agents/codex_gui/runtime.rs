@@ -51,10 +51,7 @@ pub(super) fn start(
         state.stdin = Some(BufWriter::new(stdin));
         #[cfg(target_os = "windows")]
         {
-            state.cwd = Some(
-                to_wsl_path(worktree_path)
-                    .unwrap_or_else(|| worktree_path.to_string_lossy().to_string()),
-            );
+            state.cwd = Some(resolve_windows_cwd(worktree_path));
         }
         #[cfg(not(target_os = "windows"))]
         {
@@ -125,6 +122,16 @@ pub(super) fn start(
     spawn_exit_watcher(Arc::clone(&agent.state), child_handle, callbacks);
 
     Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn resolve_windows_cwd(worktree_path: &Path) -> String {
+    std::fs::canonicalize(worktree_path)
+        .ok()
+        .as_deref()
+        .and_then(to_wsl_path)
+        .or_else(|| to_wsl_path(worktree_path))
+        .unwrap_or_else(|| worktree_path.to_string_lossy().to_string())
 }
 
 fn spawn_reader_loop(

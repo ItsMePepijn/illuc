@@ -4,6 +4,7 @@ use log::warn;
 use std::fs;
 use std::path::Path;
 
+use crate::utils::windows::windows_path_text_to_wsl_path;
 #[cfg(target_os = "windows")]
 use crate::utils::windows::{resolve_wsl_home_dir, to_wsl_path};
 
@@ -59,12 +60,10 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
             return None;
         }
     };
-    if !data.contains(desired_cwd) {
-        return None;
-    }
 
     let mut session_id: Option<String> = None;
     let mut latest_timestamp: Option<DateTime<Utc>> = None;
+    let mut matches_desired_cwd = false;
 
     for line in data.lines() {
         let value: serde_json::Value = match serde_json::from_str(line) {
@@ -78,6 +77,9 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
                 continue;
             }
         };
+        if value_contains_cwd(&value, desired_cwd) {
+            matches_desired_cwd = true;
+        }
         if session_id.is_none() {
             if value.get("type").and_then(|value| value.as_str()) == Some("session.start") {
                 if let Some(id) = value
@@ -99,6 +101,10 @@ fn parse_session_file(path: &Path, desired_cwd: &str) -> Option<SessionCandidate
                 _ => Some(ts),
             };
         }
+    }
+
+    if !matches_desired_cwd {
+        return None;
     }
 
     let session_id = session_id.or_else(|| {
@@ -133,7 +139,7 @@ fn parse_session_dir(path: &Path, desired_cwd: &str) -> Option<SessionCandidate>
     };
 
     let cwd = workspace.get("cwd").and_then(|v| v.as_str())?;
-    if cwd != desired_cwd {
+    if !session_cwd_matches(cwd, desired_cwd) {
         return None;
     }
 
@@ -209,6 +215,27 @@ fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
     best.map(|candidate| candidate.session_id)
 }
 
+fn value_contains_cwd(value: &serde_json::Value, desired_cwd: &str) -> bool {
+    match value {
+        serde_json::Value::String(text) => session_cwd_matches(text, desired_cwd),
+        serde_json::Value::Array(items) => items
+            .iter()
+            .any(|item| value_contains_cwd(item, desired_cwd)),
+        serde_json::Value::Object(map) => map
+            .values()
+            .any(|item| value_contains_cwd(item, desired_cwd)),
+        _ => false,
+    }
+}
+
+fn session_cwd_matches(value: &str, desired_cwd: &str) -> bool {
+    let value = value.trim();
+    if value == desired_cwd {
+        return true;
+    }
+    windows_path_text_to_wsl_path(value).as_deref() == Some(desired_cwd)
+}
+
 pub fn find_latest_session_id(worktree_path: &Path) -> anyhow::Result<Option<String>> {
     let desired_cwd = resolve_session_cwd(worktree_path)?;
     #[cfg(target_os = "windows")]
@@ -226,4 +253,65 @@ pub fn find_latest_session_id(worktree_path: &Path) -> anyhow::Result<Option<Str
     }
 
     Ok(None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_session_dir, parse_session_file};
+
+    #[test]
+    fn parse_session_file_matches_windows_drive_cwd() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("session.jsonl");
+        std::fs::write(
+            &path,
+            r#"{"type":"session.start","data":{"sessionId":"session-a","cwd":"C:\\Users\\Alice\\repo"},"timestamp":"2026-04-20T10:00:00Z"}"#,
+        )
+        .unwrap();
+
+        let candidate = parse_session_file(&path, "/mnt/c/Users/Alice/repo").unwrap();
+        assert_eq!(candidate.session_id, "session-a");
+    }
+
+    #[test]
+    fn parse_session_file_matches_wsl_unc_cwd() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("session.jsonl");
+        std::fs::write(
+            &path,
+            r#"{"type":"session.start","data":{"sessionId":"session-b","cwd":"\\\\wsl.localhost\\Ubuntu\\home\\alice\\repo"},"timestamp":"2026-04-20T10:00:00Z"}"#,
+        )
+        .unwrap();
+
+        let candidate = parse_session_file(&path, "/home/alice/repo").unwrap();
+        assert_eq!(candidate.session_id, "session-b");
+    }
+
+    #[test]
+    fn parse_session_file_rejects_other_cwd() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("session.jsonl");
+        std::fs::write(
+            &path,
+            r#"{"type":"session.start","data":{"sessionId":"session-c","cwd":"C:\\Users\\Alice\\other"},"timestamp":"2026-04-20T10:00:00Z"}"#,
+        )
+        .unwrap();
+
+        assert!(parse_session_file(&path, "/mnt/c/Users/Alice/repo").is_none());
+    }
+
+    #[test]
+    fn parse_session_dir_matches_normalized_cwd() {
+        let temp = tempfile::tempdir().unwrap();
+        let session = temp.path().join("session-dir");
+        std::fs::create_dir(&session).unwrap();
+        std::fs::write(
+            session.join("workspace.yaml"),
+            "id: session-d\ncwd: '\\\\wsl$\\Ubuntu\\home\\alice\\repo'\nupdated_at: 2026-04-20T10:00:00Z\n",
+        )
+        .unwrap();
+
+        let candidate = parse_session_dir(&session, "/home/alice/repo").unwrap();
+        assert_eq!(candidate.session_id, "session-d");
+    }
 }
