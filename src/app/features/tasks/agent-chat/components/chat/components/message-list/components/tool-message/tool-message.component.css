@@ -1,15 +1,63 @@
 .tool-stack {
-    margin-bottom: 2px;
+    margin-bottom: 0;
+}
+
+.tool-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 0;
+    line-height: 1.45;
+}
+
+.tool-title {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: var(--font-size-sm);
+    line-height: inherit;
+    color: var(--text-default);
+}
+
+.tool-meta,
+.tool-overflow {
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    color: var(--text-subtle);
+}
+
+.tool-children {
+    display: flex;
+    align-items: flex-start;
+}
+
+.tool-children.grouped {
+    padding-left: calc(var(--throbber-size) + 6px);
+}
+
+.tool-branch {
+    width: var(--throbber-size);
+    flex: 0 0 auto;
+    margin-right: 6px;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
+    font-size: var(--font-size-xs);
+    line-height: 1.45;
+    color: var(--text-subtle);
+    user-select: none;
+}
+
+.tool-child-list {
+    min-width: 0;
 }
 
 .tool-block {
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 2px;
+    margin-bottom: 0;
     padding: 0;
     background: none;
     border: none;
+    line-height: 1.45;
 }
 
 .tool-glyph {
@@ -35,11 +83,17 @@
 .tool-cmd {
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: var(--font-size-sm);
+    line-height: inherit;
     color: var(--text-muted);
     flex: 0 1 auto;
     min-width: 1px;
     white-space: pre-wrap;
     word-break: break-all;
+}
+
+.tool-cmd.live-command-output {
+    max-height: calc(1.45em * 3);
+    overflow: hidden;
 }
 
 .tool-label {

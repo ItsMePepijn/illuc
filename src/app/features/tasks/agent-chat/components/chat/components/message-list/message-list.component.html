@@ -65,6 +65,9 @@
     <app-agent-chat-tool-message
         *ngIf="item.renderKind === 'tool'"
         [rows]="item.toolRows"
+        [groupTitle]="item.toolGroupTitle"
+        [groupMeta]="item.toolGroupMeta"
+        [groupCount]="item.toolGroupCount"
         [isRunning]="item.isToolRunning"
         [statusLabel]="item.toolStatusLabel"
         [stripPathPrefix]="stripPathPrefix"
