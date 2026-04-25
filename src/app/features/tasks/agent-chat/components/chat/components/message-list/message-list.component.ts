@@ -13,7 +13,7 @@ import {
     ViewChild,
 } from "@angular/core";
 import { Datasource, SizeStrategy, UiScrollModule } from "ngx-ui-scroll";
-import { Message, ToolRow } from "../../../../models";
+import { Message, ToolRow, ToolRowKind } from "../../../../models";
 import { LoadingSpinnerComponent } from "../../../../../../../shared/components/loading-spinner/loading-spinner.component";
 import {
     globalTypingLabel,
@@ -38,6 +38,9 @@ type AgentChatListItem = {
     plainContent: string;
     streamingPlain: boolean;
     toolRows: ToolRow[];
+    toolGroupTitle: string;
+    toolGroupMeta: string;
+    toolGroupCount: number;
     isToolRunning: boolean;
     toolStatusLabel: string;
     showStreamingIndicator: boolean;
@@ -216,11 +219,11 @@ export class MessageListComponent implements OnChanges, OnDestroy {
         const liveTailMessages =
             liveTailIndex >= 0 ? this.messages.slice(liveTailIndex) : [];
 
-        this.historyItems = historyMessages.map((message) =>
-            this.buildMessageItem(message),
+        this.historyItems = this.collapseToolRuns(
+            historyMessages.map((message) => this.buildMessageItem(message)),
         );
-        this.tailItems = liveTailMessages.map((message) =>
-            this.buildMessageItem(message),
+        this.tailItems = this.collapseToolRuns(
+            liveTailMessages.map((message) => this.buildMessageItem(message)),
         );
         const typingIndicator = this.buildTypingIndicatorItem();
         if (typingIndicator) {
@@ -251,6 +254,9 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             plainContent: "",
             streamingPlain: false,
             toolRows: [],
+            toolGroupTitle: "",
+            toolGroupMeta: "",
+            toolGroupCount: 0,
             isToolRunning: false,
             toolStatusLabel: "",
             showStreamingIndicator: false,
@@ -280,6 +286,9 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             plainContent: rendered.plainContent,
             streamingPlain: rendered.streamingPlain,
             toolRows: rendered.toolRows,
+            toolGroupTitle: "",
+            toolGroupMeta: "",
+            toolGroupCount: 0,
             isToolRunning: rendered.isToolRunning,
             toolStatusLabel: rendered.toolStatusLabel,
             showStreamingIndicator: rendered.showStreamingIndicator,
@@ -288,6 +297,122 @@ export class MessageListComponent implements OnChanges, OnDestroy {
             showTypingLabel: false,
             compactWithNext: false,
         };
+    }
+
+    private collapseToolRuns(items: AgentChatListItem[]): AgentChatListItem[] {
+        const collapsed: AgentChatListItem[] = [];
+        for (let index = 0; index < items.length; ) {
+            const current = items[index];
+            const toolKind = this.primaryToolKind(current);
+            if (!toolKind) {
+                collapsed.push(current);
+                index += 1;
+                continue;
+            }
+
+            const run: AgentChatListItem[] = [current];
+            let nextIndex = index + 1;
+            while (nextIndex < items.length) {
+                const next = items[nextIndex];
+                if (this.primaryToolKind(next) !== toolKind) {
+                    break;
+                }
+                run.push(next);
+                nextIndex += 1;
+            }
+
+            collapsed.push(
+                run.length > 1 ? this.buildToolGroupItem(run, toolKind) : current,
+            );
+            index = nextIndex;
+        }
+        return collapsed;
+    }
+
+    private primaryToolKind(item: AgentChatListItem): ToolRowKind | null {
+        if (item.renderKind !== "tool") {
+            return null;
+        }
+        return item.toolRows[0]?.kind ?? null;
+    }
+
+    private buildToolGroupItem(
+        run: readonly AgentChatListItem[],
+        toolKind: ToolRowKind,
+    ): AgentChatListItem {
+        const first = run[0];
+        const rows = run.flatMap((item) => item.toolRows);
+        const runningItem = run.find((item) => item.isToolRunning);
+        const statusLabel =
+            runningItem?.toolStatusLabel || run[run.length - 1]?.toolStatusLabel || "";
+        return {
+            ...first,
+            key: run.map((item) => item.key).join("|"),
+            trackKey: run.map((item) => item.trackKey).join("\u0000"),
+            dataStatus: run.some((item) => item.dataStatus === "streaming")
+                ? "streaming"
+                : run.some((item) => item.dataStatus === "error")
+                  ? "error"
+                  : "complete",
+            toolRows: rows,
+            toolGroupTitle: this.toolGroupTitle(toolKind),
+            toolGroupMeta: this.toolGroupMeta(toolKind, rows, run.length),
+            toolGroupCount: run.length,
+            isToolRunning: run.some((item) => item.isToolRunning),
+            toolStatusLabel: statusLabel,
+            showStreamingIndicator: run.some((item) => item.showStreamingIndicator),
+            compactWithNext: false,
+        };
+    }
+
+    private toolGroupTitle(kind: ToolRowKind): string {
+        switch (kind) {
+            case "read":
+                return "Read files...";
+            case "search":
+                return "Search code...";
+            case "change":
+                return "Edit files...";
+            case "command":
+                return "Run commands...";
+            case "text":
+                return "Use tools...";
+        }
+    }
+
+    private toolGroupMeta(
+        kind: ToolRowKind,
+        rows: readonly ToolRow[],
+        runCount: number,
+    ): string {
+        const pathCount = new Set(
+            rows
+                .map((row) => row.path?.trim())
+                .filter((path): path is string => Boolean(path)),
+        ).size;
+        const added = rows.reduce((total, row) => total + (row.added ?? 0), 0);
+        const removed = rows.reduce((total, row) => total + (row.removed ?? 0), 0);
+        switch (kind) {
+            case "read":
+                return this.countLabel(pathCount || runCount, "file");
+            case "search":
+                return this.countLabel(runCount, "search");
+            case "change": {
+                const fileLabel = this.countLabel(pathCount || runCount, "file");
+                if (added === 0 && removed === 0) {
+                    return fileLabel;
+                }
+                return `${fileLabel} · +${added} -${removed}`;
+            }
+            case "command":
+                return this.countLabel(runCount, "command");
+            case "text":
+                return this.countLabel(runCount, "tool call");
+        }
+    }
+
+    private countLabel(count: number, singular: string): string {
+        return `${count} ${singular}${count === 1 ? "" : "s"}`;
     }
 
     private applyToolSpacingCompaction(): void {

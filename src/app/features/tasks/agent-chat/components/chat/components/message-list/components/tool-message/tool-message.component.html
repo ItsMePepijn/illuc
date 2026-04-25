@@ -1,32 +1,65 @@
 <div class="tool-stack" (click)="contentClick.emit($event)">
-    <div class="tool-block" *ngFor="let row of rows; let first = first">
+    <div class="tool-summary" *ngIf="isGrouped">
         <app-agent-chat-throbber
-            *ngIf="first && isRunning; else toolGlyph"
+            *ngIf="isRunning; else groupGlyph"
             class="tool-throbber"
         ></app-agent-chat-throbber>
-        <ng-template #toolGlyph>
-            <span class="tool-glyph" [class.placeholder]="!first">&gt;_</span>
+        <ng-template #groupGlyph>
+            <span class="tool-glyph">&gt;_</span>
         </ng-template>
-        <span class="tool-cmd">
-            <span *ngIf="showLabel(row)" class="tool-label">{{ row.label }}</span>
-            <ng-container *ngIf="rowValue(row) as value">
-                <span *ngIf="showLabel(row) && value.length > 0">&nbsp;</span>
-                <a *ngIf="rowHref(row) as href; else plainValue" [href]="href">{{ value }}</a>
-                <ng-template #plainValue>{{ value }}</ng-template>
-            </ng-container>
-            <ng-container *ngIf="row.added !== null && row.added !== undefined">
-                <span class="tool-stat added">+{{ row.added }}</span>
-            </ng-container>
-            <ng-container *ngIf="row.removed !== null && row.removed !== undefined">
-                <span class="tool-stat removed">-{{ row.removed }}</span>
-            </ng-container>
-        </span>
+        <span class="tool-title">{{ groupTitle }}</span>
+        <span class="tool-meta" *ngIf="groupMeta">({{ groupMeta }})</span>
         <span
-            *ngIf="first && statusLabel"
+            *ngIf="statusLabel"
             class="tool-status"
             [class.running]="isRunning"
         >
             {{ statusLabel }}
         </span>
+    </div>
+
+    <div class="tool-children" [class.grouped]="isGrouped">
+        <span class="tool-branch" *ngIf="isGrouped">⎿</span>
+        <div class="tool-child-list">
+            <div
+                class="tool-block"
+                *ngFor="let row of visibleRows; let first = first; let index = index"
+            >
+                <app-agent-chat-throbber
+                    *ngIf="!isGrouped && first && isRunning; else toolGlyph"
+                    class="tool-throbber"
+                ></app-agent-chat-throbber>
+                <ng-template #toolGlyph>
+                    <span
+                        class="tool-glyph"
+                        [class.placeholder]="!isGrouped && !first"
+                    >{{ rowMarker(index) }}</span>
+                </ng-template>
+                <span class="tool-cmd" [class.live-command-output]="isLiveCommandOutput(row)">
+                    <span *ngIf="showRowLabel(row)" class="tool-label">{{ row.label }}</span>
+                    <ng-container *ngIf="rowValue(row) as value">
+                        <span *ngIf="showRowLabel(row) && value.length > 0">&nbsp;</span>
+                        <a *ngIf="rowHref(row) as href; else plainValue" [href]="href">{{ value }}</a>
+                        <ng-template #plainValue>{{ value }}</ng-template>
+                    </ng-container>
+                    <ng-container *ngIf="row.added !== null && row.added !== undefined">
+                        <span class="tool-stat added">+{{ row.added }}</span>
+                    </ng-container>
+                    <ng-container *ngIf="row.removed !== null && row.removed !== undefined">
+                        <span class="tool-stat removed">-{{ row.removed }}</span>
+                    </ng-container>
+                </span>
+                <span
+                    *ngIf="!isGrouped && first && statusLabel"
+                    class="tool-status"
+                    [class.running]="isRunning"
+                >
+                    {{ statusLabel }}
+                </span>
+            </div>
+            <div class="tool-overflow" *ngIf="hiddenRowCount > 0">
+                … +{{ hiddenRowCount }} more
+            </div>
+        </div>
     </div>
 </div>
