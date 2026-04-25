@@ -1,15 +1,16 @@
 .tool-stack {
-    margin-bottom: 2px;
+    margin-bottom: 0;
 }
 
 .tool-block {
     display: flex;
     align-items: baseline;
     gap: 6px;
-    margin-bottom: 2px;
+    margin-bottom: 0;
     padding: 0;
     background: none;
     border: none;
+    line-height: 1.45;
 }
 
 .tool-glyph {
@@ -35,6 +36,7 @@
 .tool-cmd {
     font-family: "JetBrains Mono", "Fira Code", monospace;
     font-size: var(--font-size-sm);
+    line-height: inherit;
     color: var(--text-muted);
     flex: 0 1 auto;
     min-width: 1px;

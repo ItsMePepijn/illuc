@@ -61,7 +61,7 @@
 }
 
 .message-row.compact-with-next {
-    padding-bottom: 6px;
+    padding-bottom: 0;
 }
 
 .tail-row {
