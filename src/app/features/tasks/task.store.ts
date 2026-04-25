@@ -86,6 +86,9 @@ export class TaskStore implements OnDestroy {
         void this.preloadAgentKinds();
         this.registerEventListeners();
         window.addEventListener("unload", this.unloadHandler);
+        if (!this.baseRepoSignal()) {
+            void this.restoreSelectedBaseRepo();
+        }
     }
 
     ngOnDestroy(): void {
@@ -144,10 +147,7 @@ export class TaskStore implements OnDestroy {
 
     async selectBaseRepo(path: string): Promise<BaseRepoInfo> {
         const repo = await tauriInvoke<BaseRepoInfo>(this.zone, "select_base_repo", { path });
-        const normalized: BaseRepoInfo = {
-            ...repo,
-            path: repo.canonicalPath,
-        };
+        const normalized = this.normalizeBaseRepo(repo);
         this.baseRepoSignal.set(normalized);
         this.tasksSignal.set([]);
         this.viewModeSignal.set("home");
@@ -165,6 +165,30 @@ export class TaskStore implements OnDestroy {
         await this.loadExistingTasks(normalized.path);
         await this.loadBranches(normalized.path);
         return normalized;
+    }
+
+    async restoreSelectedBaseRepo(): Promise<BaseRepoInfo | null> {
+        const current = this.baseRepoSignal();
+        if (current) {
+            return current;
+        }
+        try {
+            const repo = await tauriInvoke<BaseRepoInfo | null>(
+                this.zone,
+                "get_selected_base_repo",
+            );
+            if (!repo) {
+                return null;
+            }
+            const normalized = this.normalizeBaseRepo(repo);
+            this.baseRepoSignal.set(normalized);
+            await this.loadExistingTasks(normalized.path);
+            await this.loadBranches(normalized.path);
+            return normalized;
+        } catch (error) {
+            console.error("Failed to restore selected base repository", error);
+            return null;
+        }
     }
 
     async createTask(
@@ -615,6 +639,13 @@ export class TaskStore implements OnDestroy {
             console.error("Failed to load branches", error);
             this.branchOptionsSignal.set([]);
         }
+    }
+
+    private normalizeBaseRepo(repo: BaseRepoInfo): BaseRepoInfo {
+        return {
+            ...repo,
+            path: repo.canonicalPath,
+        };
     }
 
     private ensureTerminalStream(

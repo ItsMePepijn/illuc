@@ -1,3 +1,4 @@
+pub mod get_selected_base_repo;
 pub mod select_base_repo;
 pub mod task_agent_kinds_list;
 pub mod task_create;

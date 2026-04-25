@@ -21,6 +21,7 @@ pub struct TaskManager {
 pub(crate) struct TaskManagerInner {
     pub(crate) tasks: RwLock<HashMap<Uuid, TaskRecord>>,
     pub(crate) diff_watchers: Mutex<HashMap<Uuid, DiffWatcher>>,
+    pub(crate) selected_base_repo: RwLock<Option<BaseRepoInfo>>,
 }
 
 impl Default for TaskManagerInner {
@@ -28,6 +29,7 @@ impl Default for TaskManagerInner {
         Self {
             tasks: RwLock::new(HashMap::new()),
             diff_watchers: Mutex::new(HashMap::new()),
+            selected_base_repo: RwLock::new(None),
         }
     }
 }
@@ -58,6 +60,24 @@ pub(crate) struct TaskRuntime {
 }
 
 impl TaskManager {
+    pub fn selected_base_repo(&self) -> Option<BaseRepoInfo> {
+        self.inner.selected_base_repo.read().clone()
+    }
+
+    pub fn set_selected_base_repo(&self, repo: BaseRepoInfo) {
+        self.inner.selected_base_repo.write().replace(repo);
+    }
+
+    pub(crate) fn summary_for_worktree_path(&self, path: &Path) -> Option<TaskSummary> {
+        let target = normalize_path_string(path);
+        self.inner
+            .tasks
+            .read()
+            .values()
+            .find(|record| record.summary.worktree_path == target)
+            .map(|record| record.summary.clone())
+    }
+
     pub(crate) fn apply_agent_status(
         &self,
         record: &mut TaskRecord,
@@ -101,15 +121,6 @@ impl TaskManager {
             );
         }
         emit_terminal_exit(app, task_id, exit_code, TerminalKind::Agent);
-    }
-
-    pub(crate) fn contains_worktree_path(&self, path: &Path) -> bool {
-        let target = normalize_path_string(path);
-        self.inner
-            .tasks
-            .read()
-            .values()
-            .any(|record| record.summary.worktree_path == target)
     }
 
     pub(crate) fn worktree_path(&self, task_id: Uuid) -> Result<PathBuf> {

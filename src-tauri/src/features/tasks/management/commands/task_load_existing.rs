@@ -54,7 +54,7 @@ pub async fn task_load_existing(
         "HEAD".to_string()
     });
     let entries = list_worktrees(&repo_root).map_err(|err| err.to_string())?;
-    let mut inserted = Vec::new();
+    let mut summaries = Vec::new();
     for entry in entries {
         if let Err(err) = ensure_relative_worktree_gitdir(&entry.path) {
             warn!(
@@ -77,7 +77,8 @@ pub async fn task_load_existing(
         if !canonical_path.starts_with(&managed_root) {
             continue;
         }
-        if manager.contains_worktree_path(&canonical_path) {
+        if let Some(summary) = manager.summary_for_worktree_path(&canonical_path) {
+            summaries.push(summary);
             continue;
         }
         let worktree_path_display = normalize_path_string(&canonical_path);
@@ -122,7 +123,7 @@ pub async fn task_load_existing(
             },
         );
         emit_status(&app_handle, &summary);
-        inserted.push(summary);
+        summaries.push(summary);
     }
-    Ok(inserted)
+    Ok(summaries)
 }
