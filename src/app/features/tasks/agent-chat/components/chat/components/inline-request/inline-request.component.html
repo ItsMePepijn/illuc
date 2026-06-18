@@ -27,6 +27,7 @@
         *ngIf="
             request.additionalReadRoots.length ||
             request.additionalWriteRoots.length ||
+            request.additionalNetwork ||
             request.proposedExecPolicy.length ||
             request.proposedNetworkPolicy.length
         "
@@ -37,6 +38,7 @@
         <p *ngIf="request.additionalWriteRoots.length">
             Write roots: {{ request.additionalWriteRoots.join(", ") }}
         </p>
+        <p *ngIf="request.additionalNetwork">Network access requested</p>
         <p *ngIf="request.proposedExecPolicy.length">
             Exec policy: {{ request.proposedExecPolicy.join(" ") }}
         </p>

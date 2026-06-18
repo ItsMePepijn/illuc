@@ -50,8 +50,13 @@ fn normalize_decision(response: Value) -> Value {
     };
 
     let normalized = match decision.to_ascii_lowercase().as_str() {
-        "approve" | "approved" | "allow" | "allowed" | "accept" | "accepted" | "yes" => "approved",
-        "deny" | "denied" | "decline" | "declined" | "reject" | "rejected" | "no" => "denied",
+        "approve" | "approved" | "allow" | "allowed" | "accept" | "accepted" | "yes" => "accept",
+        "approved_for_session"
+        | "approve_for_session"
+        | "accept_for_session"
+        | "acceptforsession" => "acceptForSession",
+        "deny" | "denied" | "decline" | "declined" | "reject" | "rejected" | "no" => "decline",
+        "abort" | "cancel" | "cancelled" | "canceled" => "cancel",
         _ => decision,
     };
     object.insert(
@@ -59,4 +64,42 @@ fn normalize_decision(response: Value) -> Value {
         Value::String(normalized.to_string()),
     );
     Value::Object(object)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_decision;
+    use serde_json::json;
+
+    #[test]
+    fn normalizes_legacy_approval_aliases_to_codex_v2_decisions() {
+        assert_eq!(
+            normalize_decision(json!({ "decision": "approved" })),
+            json!({ "decision": "accept" })
+        );
+        assert_eq!(
+            normalize_decision(json!({ "decision": "approved_for_session" })),
+            json!({ "decision": "acceptForSession" })
+        );
+        assert_eq!(
+            normalize_decision(json!({ "decision": "denied" })),
+            json!({ "decision": "decline" })
+        );
+    }
+
+    #[test]
+    fn preserves_structured_approval_decisions() {
+        let response = json!({
+            "decision": {
+                "acceptWithExecpolicyAmendment": {
+                    "execpolicy_amendment": {
+                        "rule": "prefix_rule",
+                        "prefix": ["npm", "test"]
+                    }
+                }
+            }
+        });
+
+        assert_eq!(normalize_decision(response.clone()), response);
+    }
 }

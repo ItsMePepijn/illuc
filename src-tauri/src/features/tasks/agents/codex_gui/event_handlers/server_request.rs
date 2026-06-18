@@ -23,6 +23,7 @@ pub(super) fn handle_server_request(
         return rpc::send_rpc(&mut state, payload);
     };
 
+    let response_kind = request.response_kind.clone();
     let (callbacks, response) = {
         let (sender, receiver) = sync_channel(1);
         let callbacks = {
@@ -35,7 +36,10 @@ pub(super) fn handle_server_request(
         if let Some(callbacks) = callbacks.clone() {
             (callbacks.on_gui_request)(request.event);
         }
-        let response = receiver.recv().unwrap_or_else(|_| json!({}));
+        let response = normalize_response_for_request(
+            &response_kind,
+            receiver.recv().unwrap_or_else(|_| json!({})),
+        );
         (callbacks, response)
     };
 
@@ -59,7 +63,15 @@ pub(super) fn handle_server_request(
 
 struct PendingRequestEvent {
     request_id: String,
+    response_kind: ResponseKind,
     event: GuiRequestEvent,
+}
+
+#[derive(Clone)]
+enum ResponseKind {
+    Decision,
+    Permissions { requested_permissions: Value },
+    Passthrough,
 }
 
 fn parse_request_event(
@@ -74,90 +86,108 @@ fn parse_request_event(
         .to_string();
 
     let event = match method {
-        "item/commandExecution/requestApproval" | "item/permissions/requestApproval" => {
-            GuiRequestEvent::CommandApproval {
-                request_id: request_id_text.clone(),
-                item_id,
-                approval_id: string_field(&params, &["approvalId", "approval_id"])
-                    .map(str::to_string),
-                command: string_field(&params, &["command"]).map(str::to_string),
-                cwd: string_field(&params, &["cwd"]).map(str::to_string),
-                reason: string_field(&params, &["reason"]).map(str::to_string),
-                network_host: params
-                    .pointer("/networkApprovalContext/host")
-                    .or_else(|| params.pointer("/network_approval_context/host"))
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
-                network_protocol: params
-                    .pointer("/networkApprovalContext/protocol")
-                    .or_else(|| params.pointer("/network_approval_context/protocol"))
-                    .and_then(Value::as_str)
-                    .map(str::to_string),
-                additional_read_roots: params
-                    .pointer("/additionalPermissions/fileSystem/read")
-                    .or_else(|| params.pointer("/additional_permissions/file_system/read"))
-                    .and_then(Value::as_array)
-                    .map(string_vec)
-                    .unwrap_or_default(),
-                additional_write_roots: params
-                    .pointer("/additionalPermissions/fileSystem/write")
-                    .or_else(|| params.pointer("/additional_permissions/file_system/write"))
-                    .and_then(Value::as_array)
-                    .map(string_vec)
-                    .unwrap_or_default(),
-                additional_network: params
-                    .pointer("/additionalPermissions/network")
-                    .or_else(|| params.pointer("/additional_permissions/network"))
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false),
-                available_decisions: string_vec_field(
-                    &params,
-                    &["availableDecisions", "available_decisions"],
-                )
-                .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
-                proposed_exec_policy: string_vec_field(
-                    &params,
-                    &[
-                        "proposedExecpolicyAmendment",
-                        "proposedExecPolicyAmendment",
-                        "proposed_execpolicy_amendment",
-                        "proposed_exec_policy_amendment",
-                    ],
-                )
-                .unwrap_or_default(),
-                proposed_network_policy: array_field(
-                    &params,
-                    &[
-                        "proposedNetworkPolicyAmendments",
-                        "proposed_network_policy_amendments",
-                    ],
-                )
-                .map(|items| {
-                    items
-                        .iter()
-                        .filter_map(|item| {
-                            Some(format!(
-                                "{} {}",
-                                item.get("action")?.as_str()?,
-                                item.get("host")?.as_str()?
-                            ))
-                        })
-                        .collect()
-                })
-                .unwrap_or_default(),
-            }
-        },
-        "item/fileChange/requestApproval" => GuiRequestEvent::FileChangeApproval {
+        "item/commandExecution/requestApproval" => GuiRequestEvent::CommandApproval {
             request_id: request_id_text.clone(),
             item_id,
+            approval_id: string_field(&params, &["approvalId", "approval_id"]).map(str::to_string),
+            command: string_field(&params, &["command"]).map(str::to_string),
+            cwd: string_field(&params, &["cwd"]).map(str::to_string),
             reason: string_field(&params, &["reason"]).map(str::to_string),
-            grant_root: string_field(&params, &["grantRoot", "grant_root"])
+            network_host: params
+                .pointer("/networkApprovalContext/host")
+                .or_else(|| params.pointer("/network_approval_context/host"))
+                .and_then(Value::as_str)
                 .map(str::to_string),
+            network_protocol: params
+                .pointer("/networkApprovalContext/protocol")
+                .or_else(|| params.pointer("/network_approval_context/protocol"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            additional_read_roots: params
+                .pointer("/additionalPermissions/fileSystem/read")
+                .or_else(|| params.pointer("/additional_permissions/file_system/read"))
+                .and_then(Value::as_array)
+                .map(string_vec)
+                .unwrap_or_default(),
+            additional_write_roots: params
+                .pointer("/additionalPermissions/fileSystem/write")
+                .or_else(|| params.pointer("/additional_permissions/file_system/write"))
+                .and_then(Value::as_array)
+                .map(string_vec)
+                .unwrap_or_default(),
+            additional_network: params
+                .pointer("/additionalPermissions/network")
+                .or_else(|| params.pointer("/additional_permissions/network"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
             available_decisions: string_vec_field(
                 &params,
                 &["availableDecisions", "available_decisions"],
             )
-            .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
+            .unwrap_or_else(default_approval_decisions),
+            proposed_exec_policy: string_vec_field(
+                &params,
+                &[
+                    "proposedExecpolicyAmendment",
+                    "proposedExecPolicyAmendment",
+                    "proposed_execpolicy_amendment",
+                    "proposed_exec_policy_amendment",
+                ],
+            )
+            .unwrap_or_default(),
+            proposed_network_policy: array_field(
+                &params,
+                &[
+                    "proposedNetworkPolicyAmendments",
+                    "proposed_network_policy_amendments",
+                ],
+            )
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(|item| {
+                        Some(format!(
+                            "{} {}",
+                            item.get("action")?.as_str()?,
+                            item.get("host")?.as_str()?
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+        },
+        "item/permissions/requestApproval" => {
+            let permissions = params
+                .get("permissions")
+                .cloned()
+                .unwrap_or_else(|| json!({}));
+            GuiRequestEvent::CommandApproval {
+                request_id: request_id_text.clone(),
+                item_id,
+                approval_id: None,
+                command: None,
+                cwd: string_field(&params, &["cwd"]).map(str::to_string),
+                reason: string_field(&params, &["reason"]).map(str::to_string),
+                network_host: None,
+                network_protocol: None,
+                additional_read_roots: permissions_read_roots(&permissions),
+                additional_write_roots: permissions_write_roots(&permissions),
+                additional_network: permissions_network_enabled(&permissions),
+                available_decisions: default_approval_decisions(),
+                proposed_exec_policy: Vec::new(),
+                proposed_network_policy: Vec::new(),
+            }
+        }
+        "item/fileChange/requestApproval" => GuiRequestEvent::FileChangeApproval {
+            request_id: request_id_text.clone(),
+            item_id,
+            reason: string_field(&params, &["reason"]).map(str::to_string),
+            grant_root: string_field(&params, &["grantRoot", "grant_root"]).map(str::to_string),
+            available_decisions: string_vec_field(
+                &params,
+                &["availableDecisions", "available_decisions"],
+            )
+            .unwrap_or_else(default_approval_decisions),
         },
         "item/tool/requestUserInput" => GuiRequestEvent::UserInput {
             request_id: request_id_text.clone(),
@@ -223,8 +253,68 @@ fn parse_request_event(
 
     Some(PendingRequestEvent {
         request_id: request_id_text,
+        response_kind: response_kind_for_request(method, &params),
         event,
     })
+}
+
+fn response_kind_for_request(method: &str, params: &Value) -> ResponseKind {
+    match method {
+        "item/commandExecution/requestApproval" | "item/fileChange/requestApproval" => {
+            ResponseKind::Decision
+        }
+        "item/permissions/requestApproval" => ResponseKind::Permissions {
+            requested_permissions: params
+                .get("permissions")
+                .cloned()
+                .unwrap_or_else(|| json!({})),
+        },
+        _ => ResponseKind::Passthrough,
+    }
+}
+
+fn normalize_response_for_request(response_kind: &ResponseKind, response: Value) -> Value {
+    match response_kind {
+        ResponseKind::Decision | ResponseKind::Passthrough => response,
+        ResponseKind::Permissions {
+            requested_permissions,
+        } => permissions_response(requested_permissions, &response),
+    }
+}
+
+fn permissions_response(requested_permissions: &Value, response: &Value) -> Value {
+    match decision_text(response) {
+        Some("acceptForSession") => json!({
+            "permissions": requested_permissions,
+            "scope": "session"
+        }),
+        Some("accept") => json!({
+            "permissions": requested_permissions,
+            "scope": "turn"
+        }),
+        _ => json!({
+            "permissions": {},
+            "scope": "turn"
+        }),
+    }
+}
+
+fn decision_text(response: &Value) -> Option<&'static str> {
+    response
+        .get("decision")
+        .and_then(Value::as_str)
+        .map(
+            |decision| match decision.trim().to_ascii_lowercase().as_str() {
+                "approve" | "approved" | "allow" | "allowed" | "accept" | "accepted" | "yes" => {
+                    "accept"
+                }
+                "approved_for_session"
+                | "approve_for_session"
+                | "accept_for_session"
+                | "acceptforsession" => "acceptForSession",
+                _ => "decline",
+            },
+        )
 }
 
 fn string_field<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {
@@ -247,9 +337,79 @@ fn string_vec(items: &Vec<Value>) -> Vec<String> {
         .collect()
 }
 
+fn permissions_read_roots(permissions: &Value) -> Vec<String> {
+    let mut roots = permissions
+        .pointer("/fileSystem/read")
+        .and_then(Value::as_array)
+        .map(string_vec)
+        .unwrap_or_default();
+    roots.extend(permission_entry_roots(permissions, "read"));
+    roots
+}
+
+fn permissions_write_roots(permissions: &Value) -> Vec<String> {
+    let mut roots = permissions
+        .pointer("/fileSystem/write")
+        .and_then(Value::as_array)
+        .map(string_vec)
+        .unwrap_or_default();
+    roots.extend(permission_entry_roots(permissions, "write"));
+    roots
+}
+
+fn permission_entry_roots(permissions: &Value, access: &str) -> Vec<String> {
+    permissions
+        .pointer("/fileSystem/entries")
+        .and_then(Value::as_array)
+        .map(|entries| {
+            entries
+                .iter()
+                .filter(|entry| entry.get("access").and_then(Value::as_str) == Some(access))
+                .filter_map(permission_entry_path)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn permission_entry_path(entry: &Value) -> Option<String> {
+    let path = entry.get("path")?;
+    if let Some(path) = path.as_str() {
+        return Some(path.to_string());
+    }
+
+    match path.get("type").and_then(Value::as_str) {
+        Some("path") => path.get("path").and_then(Value::as_str).map(str::to_string),
+        Some("glob_pattern") => path
+            .get("pattern")
+            .and_then(Value::as_str)
+            .map(str::to_string),
+        Some("special") => path
+            .get("kind")
+            .or_else(|| path.get("value"))
+            .and_then(Value::as_str)
+            .map(|kind| format!("special:{kind}")),
+        _ => None,
+    }
+}
+
+fn permissions_network_enabled(permissions: &Value) -> bool {
+    permissions
+        .pointer("/network/enabled")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn default_approval_decisions() -> Vec<String> {
+    vec![
+        "accept".to_string(),
+        "acceptForSession".to_string(),
+        "decline".to_string(),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
-    use super::parse_request_event;
+    use super::{normalize_response_for_request, parse_request_event, ResponseKind};
     use crate::features::tasks::agents::agent_gui::types::GuiRequestEvent;
     use serde_json::json;
 
@@ -279,6 +439,61 @@ mod tests {
     }
 
     #[test]
+    fn command_approval_defaults_to_codex_v2_decisions() {
+        let request = json!({
+            "params": {
+                "itemId": "item-1"
+            }
+        });
+
+        let parsed =
+            parse_request_event(&request, &json!(7), "item/commandExecution/requestApproval")
+                .expect("request should parse");
+
+        match parsed.event {
+            GuiRequestEvent::CommandApproval {
+                available_decisions,
+                ..
+            } => assert_eq!(
+                available_decisions,
+                vec![
+                    "accept".to_string(),
+                    "acceptForSession".to_string(),
+                    "decline".to_string()
+                ]
+            ),
+            _ => panic!("expected command approval"),
+        }
+    }
+
+    #[test]
+    fn file_change_approval_defaults_to_codex_v2_decisions() {
+        let request = json!({
+            "params": {
+                "itemId": "item-1"
+            }
+        });
+
+        let parsed = parse_request_event(&request, &json!(7), "item/fileChange/requestApproval")
+            .expect("request should parse");
+
+        match parsed.event {
+            GuiRequestEvent::FileChangeApproval {
+                available_decisions,
+                ..
+            } => assert_eq!(
+                available_decisions,
+                vec![
+                    "accept".to_string(),
+                    "acceptForSession".to_string(),
+                    "decline".to_string()
+                ]
+            ),
+            _ => panic!("expected file change approval"),
+        }
+    }
+
+    #[test]
     fn file_change_approval_preserves_snake_case_available_decisions() {
         let request = json!({
             "params": {
@@ -303,11 +518,37 @@ mod tests {
     }
 
     #[test]
-    fn permission_approval_request_uses_command_approval_payload() {
+    fn permissions_approval_defaults_to_codex_v2_decisions_and_displays_permissions() {
         let request = json!({
             "params": {
                 "item_id": "item-1",
-                "available_decisions": ["approved_execpolicy_amendment", "denied"]
+                "cwd": "/repo",
+                "reason": "Need broader access",
+                "permissions": {
+                    "fileSystem": {
+                        "read": ["/repo/read"],
+                        "entries": [
+                            {
+                                "path": {
+                                    "type": "path",
+                                    "path": "/repo/entry-read"
+                                },
+                                "access": "read"
+                            },
+                            {
+                                "path": {
+                                    "type": "glob_pattern",
+                                    "pattern": "/repo/**/*.rs"
+                                },
+                                "access": "write"
+                            }
+                        ],
+                        "write": ["/repo/write"]
+                    },
+                    "network": {
+                        "enabled": true
+                    }
+                }
             }
         });
 
@@ -318,18 +559,105 @@ mod tests {
             GuiRequestEvent::CommandApproval {
                 item_id,
                 available_decisions,
+                cwd,
+                reason,
+                additional_read_roots,
+                additional_write_roots,
+                additional_network,
                 ..
             } => {
                 assert_eq!(item_id, "item-1");
+                assert_eq!(cwd, Some("/repo".to_string()));
+                assert_eq!(reason, Some("Need broader access".to_string()));
                 assert_eq!(
                     available_decisions,
                     vec![
-                        "approved_execpolicy_amendment".to_string(),
-                        "denied".to_string()
+                        "accept".to_string(),
+                        "acceptForSession".to_string(),
+                        "decline".to_string()
                     ]
                 );
+                assert_eq!(
+                    additional_read_roots,
+                    vec!["/repo/read".to_string(), "/repo/entry-read".to_string()]
+                );
+                assert_eq!(
+                    additional_write_roots,
+                    vec!["/repo/write".to_string(), "/repo/**/*.rs".to_string()]
+                );
+                assert!(additional_network);
             }
             _ => panic!("expected command approval"),
         }
+    }
+
+    #[test]
+    fn permissions_response_accept_grants_requested_permissions_for_turn() {
+        let requested_permissions = json!({
+            "fileSystem": {
+                "write": ["/repo"]
+            }
+        });
+
+        let response = normalize_response_for_request(
+            &ResponseKind::Permissions {
+                requested_permissions: requested_permissions.clone(),
+            },
+            json!({ "decision": "accept" }),
+        );
+
+        assert_eq!(
+            response,
+            json!({
+                "permissions": requested_permissions,
+                "scope": "turn"
+            })
+        );
+    }
+
+    #[test]
+    fn permissions_response_accept_for_session_grants_requested_permissions_for_session() {
+        let requested_permissions = json!({
+            "network": {
+                "enabled": true
+            }
+        });
+
+        let response = normalize_response_for_request(
+            &ResponseKind::Permissions {
+                requested_permissions: requested_permissions.clone(),
+            },
+            json!({ "decision": "acceptForSession" }),
+        );
+
+        assert_eq!(
+            response,
+            json!({
+                "permissions": requested_permissions,
+                "scope": "session"
+            })
+        );
+    }
+
+    #[test]
+    fn permissions_response_decline_returns_empty_turn_grant() {
+        let response = normalize_response_for_request(
+            &ResponseKind::Permissions {
+                requested_permissions: json!({
+                    "fileSystem": {
+                        "write": ["/repo"]
+                    }
+                }),
+            },
+            json!({ "decision": "decline" }),
+        );
+
+        assert_eq!(
+            response,
+            json!({
+                "permissions": {},
+                "scope": "turn"
+            })
+        );
     }
 }

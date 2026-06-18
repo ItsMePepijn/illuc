@@ -39,6 +39,13 @@ export class InlineRequestComponent {
 
     decisionLabel(decision: string): string {
         const normalized = decision.trim().toLowerCase();
+        if (
+            normalized === "acceptforsession" ||
+            normalized === "accept_for_session" ||
+            normalized === "approved_for_session"
+        ) {
+            return "Accept for session";
+        }
         if (normalized.startsWith("approved") || normalized.startsWith("accept")) {
             return "Accept";
         }

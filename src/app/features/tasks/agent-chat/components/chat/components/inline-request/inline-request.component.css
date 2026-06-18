@@ -1,22 +1,43 @@
+:host {
+    display: block;
+    min-height: 0;
+    max-height: inherit;
+}
+
 .inline-request {
     margin: 0 12px;
     padding: 14px 16px;
+    box-sizing: border-box;
+    max-height: inherit;
+    min-width: 0;
     border-radius: 14px;
     border: 1px solid var(--borders-default);
     background: color-mix(in srgb, var(--surfaces-surface_alt) 92%, transparent);
     display: grid;
     gap: 10px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
 }
 
 .inline-request-header h3 {
     margin: 0;
     font-size: var(--font-size-sm);
+    overflow-wrap: anywhere;
 }
 
 .inline-request-subtitle {
     margin: 0;
     color: var(--text-muted);
     line-height: 1.5;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.inline-request-subtitle code {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .request-metadata {
@@ -26,6 +47,8 @@
     background: var(--surfaces-surface_alt);
     color: var(--text-muted);
     font-size: var(--font-size-xs);
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .request-questions {
@@ -37,6 +60,7 @@
 .request-question {
     display: grid;
     gap: 6px;
+    min-width: 0;
 }
 
 .request-question-header {
@@ -49,6 +73,7 @@
 .request-question-copy {
     color: var(--text-default);
     line-height: 1.5;
+    overflow-wrap: anywhere;
 }
 
 .request-question select,
@@ -68,14 +93,22 @@
     gap: 8px;
     justify-content: flex-end;
     flex-wrap: wrap;
+    min-width: 0;
 }
 
 .inline-request-actions button {
+    flex: 1 1 132px;
     border-radius: 999px;
     padding: 8px 12px;
+    min-height: 34px;
+    max-width: 100%;
     font: inherit;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
     cursor: pointer;
     border: 1px solid var(--borders-default);
+    overflow-wrap: anywhere;
 }
 
 .inline-request-actions .ghost {
