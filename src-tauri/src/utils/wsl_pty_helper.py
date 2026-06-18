@@ -4,6 +4,7 @@ import fcntl
 import os
 import pty
 import select
+import signal
 import socket
 import struct
 import sys
@@ -18,7 +19,14 @@ def set_winsize(fd, rows, cols):
         pass
 
 
-def run_control_server(master_fd, port, stop_event):
+def notify_resize(child_pid):
+    try:
+        os.killpg(child_pid, signal.SIGWINCH)
+    except Exception:
+        pass
+
+
+def run_control_server(master_fd, port, stop_event, child_pid):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("127.0.0.1", port))
@@ -54,6 +62,7 @@ def run_control_server(master_fd, port, stop_event):
                     except ValueError:
                         continue
                     set_winsize(master_fd, rows, cols)
+                    notify_resize(child_pid)
     server.close()
 
 
@@ -99,7 +108,7 @@ def main():
     stop_event = threading.Event()
     control_thread = threading.Thread(
         target=run_control_server,
-        args=(master_fd, args.control_port, stop_event),
+        args=(master_fd, args.control_port, stop_event, pid),
         daemon=True,
     )
     control_thread.start()

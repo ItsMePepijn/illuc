@@ -4,4 +4,5 @@ export enum AgentKind {
     CopilotGui = "copilot_gui",
     Copilot = "copilot",
     OpenCode = "open_code",
+    ClaudeCode = "claude_code",
 }

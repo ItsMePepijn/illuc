@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub mod acp;
 pub mod agent_gui;
 pub mod agent_tui;
+pub mod claude;
 pub mod codex;
 pub mod codex_gui;
 pub mod copilot;

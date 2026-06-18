@@ -14,7 +14,7 @@ type AgentTile = {
     kind: AgentKind;
     label: string;
     subtitle: string;
-    brand: "openai" | "copilot" | "opencode";
+    brand: "openai" | "copilot" | "opencode" | "claude";
     title: string;
     installed: boolean;
 };
@@ -81,6 +81,13 @@ export class StartAgentDropdownComponent {
                 "Copilot",
                 "Terminal Interface",
                 "copilot",
+                availabilityByKind,
+            ),
+            this.buildTile(
+                AgentKind.ClaudeCode,
+                "Claude Code",
+                "Terminal Interface",
+                "claude",
                 availabilityByKind,
             ),
             this.buildTile(

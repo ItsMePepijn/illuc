@@ -9,5 +9,5 @@ import { Component, Input } from "@angular/core";
     styleUrl: "./agent-brand-logo.component.css",
 })
 export class AgentBrandLogoComponent {
-    @Input({ required: true }) brand!: "openai" | "copilot" | "opencode";
+    @Input({ required: true }) brand!: "openai" | "copilot" | "opencode" | "claude";
 }

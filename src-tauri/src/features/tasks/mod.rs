@@ -21,6 +21,7 @@ pub use models::{
 pub use repo::handle_select_base_repo;
 
 use crate::features::tasks::agents::acp::{AcpAgent, CopilotAcpConfig};
+use crate::features::tasks::agents::claude::ClaudeAgent;
 use crate::features::tasks::agents::codex::CodexAgent;
 use crate::features::tasks::agents::codex_gui::CodexGuiAgent;
 use crate::features::tasks::agents::copilot::CopilotAgent;
@@ -41,6 +42,7 @@ pub(crate) fn build_agent(agent_kind: AgentKind) -> Box<dyn Agent> {
         AgentKind::CopilotGui => Box::new(AcpAgent::new(CopilotAcpConfig)),
         AgentKind::Copilot => Box::new(CopilotAgent::default()),
         AgentKind::OpenCode => Box::new(OpenCodeAgent::default()),
+        AgentKind::ClaudeCode => Box::new(ClaudeAgent::default()),
     }
 }
 
@@ -51,6 +53,7 @@ pub(crate) fn agent_label(agent_kind: AgentKind) -> &'static str {
         AgentKind::CopilotGui => "Copilot GUI",
         AgentKind::Copilot => "Copilot CLI",
         AgentKind::OpenCode => "OpenCode",
+        AgentKind::ClaudeCode => "Claude Code",
     }
 }
 

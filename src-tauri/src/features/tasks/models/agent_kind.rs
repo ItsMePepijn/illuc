@@ -9,14 +9,16 @@ pub enum AgentKind {
     CopilotGui,
     Copilot,
     OpenCode,
+    ClaudeCode,
 }
 
 impl AgentKind {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::CodexGui,
         Self::CopilotGui,
         Self::Codex,
         Self::Copilot,
+        Self::ClaudeCode,
         Self::OpenCode,
     ];
 
@@ -27,6 +29,7 @@ impl AgentKind {
             Self::CopilotGui => "Copilot GUI",
             Self::Copilot => "Copilot CLI",
             Self::OpenCode => "OpenCode",
+            Self::ClaudeCode => "Claude Code",
         }
     }
 
@@ -35,6 +38,7 @@ impl AgentKind {
             Self::Codex | Self::CodexGui => "codex",
             Self::Copilot | Self::CopilotGui => "copilot",
             Self::OpenCode => "opencode",
+            Self::ClaudeCode => "claude",
         }
     }
 
