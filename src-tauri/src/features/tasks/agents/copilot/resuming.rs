@@ -167,6 +167,9 @@ fn parse_session_dir(path: &Path, desired_cwd: &str) -> Option<SessionCandidate>
 fn find_latest_session_in_dir(dir: &Path, desired_cwd: &str) -> Option<String> {
     let entries = match fs::read_dir(dir) {
         Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            return None;
+        }
         Err(error) => {
             warn!(
                 "failed to read copilot session directory {}: {}",

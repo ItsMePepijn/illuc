@@ -259,6 +259,17 @@ fn fast_forward_local_branch_if_behind(
         return Ok(());
     }
 
+    let head = repo.head().map_err(map_git_err)?;
+    let on_branch = head.is_branch() && head.shorthand() == Some(branch);
+    let update_checkout = on_branch && repo.workdir().is_some();
+    if update_checkout && has_uncommitted_changes(repo_root).unwrap_or(true) {
+        warn!(
+            "skipping fast-forward of checked-out base branch {} because the main worktree is dirty",
+            branch
+        );
+        return Ok(());
+    }
+
     {
         let mut reference = repo.find_reference(&local_ref).map_err(map_git_err)?;
         reference
@@ -266,17 +277,12 @@ fn fast_forward_local_branch_if_behind(
             .map_err(map_git_err)?;
     }
 
-    // If we're currently on this branch and the workdir is clean, refresh checkout.
-    let head = repo.head().map_err(map_git_err)?;
-    let on_branch = head.is_branch() && head.shorthand() == Some(branch);
-    if on_branch && repo.workdir().is_some() {
-        let dirty = has_uncommitted_changes(repo_root).unwrap_or(true);
-        if !dirty {
-            let mut checkout = git2::build::CheckoutBuilder::new();
-            checkout.safe();
-            repo.checkout_head(Some(&mut checkout))
-                .map_err(map_git_err)?;
-        }
+    if update_checkout {
+        let object = repo
+            .find_object(remote_oid, Some(ObjectType::Commit))
+            .map_err(map_git_err)?;
+        repo.reset(&object, ResetType::Hard, None)
+            .map_err(map_git_err)?;
     }
 
     Ok(())
@@ -985,7 +991,10 @@ pub fn has_uncommitted_changes(repo: &Path) -> Result<bool> {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_head_commit, git_merge_branch, has_uncommitted_changes};
+    use super::{
+        fast_forward_local_branch_if_behind, get_head_commit, git_merge_branch,
+        has_uncommitted_changes,
+    };
     use git2::build::CheckoutBuilder;
     use git2::{Repository, Signature};
     use std::fs;
@@ -1030,6 +1039,61 @@ mod tests {
         assert!(error
             .to_string()
             .contains("Resolve them manually in the main repository"));
+
+        let _ = fs::remove_dir_all(&repo_dir);
+    }
+
+    #[test]
+    fn fast_forward_checked_out_base_branch_updates_worktree_when_clean() {
+        let repo_dir = temp_repo_dir("ff-clean-worktree");
+        let repo = init_repo(&repo_dir);
+        create_commit(&repo, "main.txt", "base\n", "initial");
+
+        checkout_branch(&repo, "remote-main", true);
+        let remote_commit = create_commit(&repo, "main.txt", "remote\n", "remote");
+        repo.reference(
+            "refs/remotes/origin/main",
+            remote_commit,
+            true,
+            "test remote",
+        )
+        .unwrap();
+        checkout_branch(&repo, "main", false);
+
+        fast_forward_local_branch_if_behind(&repo, &repo_dir, "main", "origin", "main").unwrap();
+
+        assert_eq!(repo.head().unwrap().shorthand(), Some("main"));
+        assert_eq!(get_head_commit(&repo_dir).unwrap(), remote_commit.to_string());
+        assert_eq!(fs::read_to_string(repo_dir.join("main.txt")).unwrap(), "remote\n");
+        assert!(!has_uncommitted_changes(&repo_dir).unwrap());
+
+        let _ = fs::remove_dir_all(&repo_dir);
+    }
+
+    #[test]
+    fn fast_forward_checked_out_base_branch_does_not_move_dirty_worktree() {
+        let repo_dir = temp_repo_dir("ff-dirty-worktree");
+        let repo = init_repo(&repo_dir);
+        let local_commit = create_commit(&repo, "main.txt", "base\n", "initial");
+
+        checkout_branch(&repo, "remote-main", true);
+        let remote_commit = create_commit(&repo, "main.txt", "remote\n", "remote");
+        repo.reference(
+            "refs/remotes/origin/main",
+            remote_commit,
+            true,
+            "test remote",
+        )
+        .unwrap();
+        checkout_branch(&repo, "main", false);
+        fs::write(repo_dir.join("local.txt"), "local\n").unwrap();
+
+        fast_forward_local_branch_if_behind(&repo, &repo_dir, "main", "origin", "main").unwrap();
+
+        assert_eq!(get_head_commit(&repo_dir).unwrap(), local_commit.to_string());
+        assert_eq!(fs::read_to_string(repo_dir.join("main.txt")).unwrap(), "base\n");
+        assert_eq!(fs::read_to_string(repo_dir.join("local.txt")).unwrap(), "local\n");
+        assert!(has_uncommitted_changes(&repo_dir).unwrap());
 
         let _ = fs::remove_dir_all(&repo_dir);
     }

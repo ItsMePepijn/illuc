@@ -38,9 +38,21 @@ export class InlineRequestComponent {
     }
 
     decisionLabel(decision: string): string {
-        return decision
-            .trim()
-            .split(/\s+/)
+        const normalized = decision.trim().toLowerCase();
+        if (normalized.startsWith("approved") || normalized.startsWith("accept")) {
+            return "Accept";
+        }
+        if (
+            normalized.startsWith("deny") ||
+            normalized.startsWith("denied") ||
+            normalized.startsWith("decline") ||
+            normalized.startsWith("declined") ||
+            normalized.startsWith("reject")
+        ) {
+            return "Decline";
+        }
+        return normalized
+            .split(/[\s_]+/)
             .filter((part) => part.length > 0)
             .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
             .join(" ");

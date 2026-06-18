@@ -122,7 +122,7 @@ impl TuiAgent for CodexAgent {
             let pty = spawn_wsl_pty(
                 worktree_path,
                 "codex",
-                &["--full-auto", "resume", "--last"],
+                &["--ask-for-approval", "on-request", "--sandbox", "workspace-write", "resume", "--last"],
                 rows,
                 cols,
                 Some("xterm-256color"),
@@ -151,7 +151,7 @@ impl TuiAgent for CodexAgent {
             let writer = Arc::new(Mutex::new(writer));
 
             let mut command = CommandBuilder::new("codex");
-            command.args(["--full-auto", "resume", "--last"]);
+            command.args(["--ask-for-approval", "on-request", "--sandbox", "workspace-write", "resume", "--last"]);
             command.cwd(worktree_path);
 
             let child = pair

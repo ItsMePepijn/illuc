@@ -152,11 +152,11 @@
 }
 
 .diff-row.add {
-    background: rgba(111, 143, 108, 0.2);
+    background: rgba(111, 143, 108, 0.4);
 }
 
 .diff-row.del {
-    background: rgba(176, 96, 82, 0.2);
+    background: rgba(176, 96, 82, 0.4);
 }
 
 .diff-row.context {

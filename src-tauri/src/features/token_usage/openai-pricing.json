@@ -1,9 +1,14 @@
 {
-  "version": 5,
+  "version": 6,
   "currency": "USD",
   "sourceUrl": "https://developers.openai.com/api/docs/pricing",
-  "publishedAt": "2026-03-30",
+  "publishedAt": "2026-04-29",
   "models": {
+    "gpt-5.5": {
+      "inputPerMillion": 5,
+      "cachedInputPerMillion": 0.5,
+      "outputPerMillion": 30
+    },
     "gpt-5.2": {
       "inputPerMillion": 1.75,
       "cachedInputPerMillion": 0.175,

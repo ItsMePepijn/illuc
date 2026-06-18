@@ -465,6 +465,15 @@ export class TaskStore implements OnDestroy {
         return this.branchOptionsSignal();
     }
 
+    async refreshBranches(): Promise<void> {
+        const repo = this.baseRepoSignal();
+        if (!repo) {
+            this.branchOptionsSignal.set([]);
+            return;
+        }
+        await this.loadBranches(repo.path);
+    }
+
     defaultBaseBranch(): string | null {
         return this.baseRepoSignal()?.currentBranch ?? null;
     }

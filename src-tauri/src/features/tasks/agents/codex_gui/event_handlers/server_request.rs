@@ -69,67 +69,69 @@ fn parse_request_event(
 ) -> Option<PendingRequestEvent> {
     let request_id_text = request_id.to_string();
     let params = request.get("params").cloned().unwrap_or(Value::Null);
-    let item_id = params
-        .get("itemId")
-        .and_then(Value::as_str)
+    let item_id = string_field(&params, &["itemId", "item_id"])
         .unwrap_or_default()
         .to_string();
 
     let event = match method {
-        "item/commandExecution/requestApproval" => GuiRequestEvent::CommandApproval {
-            request_id: request_id_text.clone(),
-            item_id,
-            approval_id: params
-                .get("approvalId")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            command: params
-                .get("command")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            cwd: params
-                .get("cwd")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            reason: params
-                .get("reason")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            network_host: params
-                .pointer("/networkApprovalContext/host")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            network_protocol: params
-                .pointer("/networkApprovalContext/protocol")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            additional_read_roots: params
-                .pointer("/additionalPermissions/fileSystem/read")
-                .and_then(Value::as_array)
-                .map(string_vec)
-                .unwrap_or_default(),
-            additional_write_roots: params
-                .pointer("/additionalPermissions/fileSystem/write")
-                .and_then(Value::as_array)
-                .map(string_vec)
-                .unwrap_or_default(),
-            additional_network: params
-                .pointer("/additionalPermissions/network")
-                .and_then(Value::as_bool)
-                .unwrap_or(false),
-            available_decisions: params
-                .get("availableDecisions")
-                .and_then(Value::as_array)
-                .map(string_vec)
+        "item/commandExecution/requestApproval" | "item/permissions/requestApproval" => {
+            GuiRequestEvent::CommandApproval {
+                request_id: request_id_text.clone(),
+                item_id,
+                approval_id: string_field(&params, &["approvalId", "approval_id"])
+                    .map(str::to_string),
+                command: string_field(&params, &["command"]).map(str::to_string),
+                cwd: string_field(&params, &["cwd"]).map(str::to_string),
+                reason: string_field(&params, &["reason"]).map(str::to_string),
+                network_host: params
+                    .pointer("/networkApprovalContext/host")
+                    .or_else(|| params.pointer("/network_approval_context/host"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                network_protocol: params
+                    .pointer("/networkApprovalContext/protocol")
+                    .or_else(|| params.pointer("/network_approval_context/protocol"))
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                additional_read_roots: params
+                    .pointer("/additionalPermissions/fileSystem/read")
+                    .or_else(|| params.pointer("/additional_permissions/file_system/read"))
+                    .and_then(Value::as_array)
+                    .map(string_vec)
+                    .unwrap_or_default(),
+                additional_write_roots: params
+                    .pointer("/additionalPermissions/fileSystem/write")
+                    .or_else(|| params.pointer("/additional_permissions/file_system/write"))
+                    .and_then(Value::as_array)
+                    .map(string_vec)
+                    .unwrap_or_default(),
+                additional_network: params
+                    .pointer("/additionalPermissions/network")
+                    .or_else(|| params.pointer("/additional_permissions/network"))
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
+                available_decisions: string_vec_field(
+                    &params,
+                    &["availableDecisions", "available_decisions"],
+                )
                 .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
-            proposed_exec_policy: params
-                .get("proposedExecpolicyAmendment")
-                .and_then(Value::as_array)
-                .map(string_vec)
+                proposed_exec_policy: string_vec_field(
+                    &params,
+                    &[
+                        "proposedExecpolicyAmendment",
+                        "proposedExecPolicyAmendment",
+                        "proposed_execpolicy_amendment",
+                        "proposed_exec_policy_amendment",
+                    ],
+                )
                 .unwrap_or_default(),
-            proposed_network_policy: params
-                .get("proposedNetworkPolicyAmendments")
-                .and_then(Value::as_array)
+                proposed_network_policy: array_field(
+                    &params,
+                    &[
+                        "proposedNetworkPolicyAmendments",
+                        "proposed_network_policy_amendments",
+                    ],
+                )
                 .map(|items| {
                     items
                         .iter()
@@ -143,23 +145,19 @@ fn parse_request_event(
                         .collect()
                 })
                 .unwrap_or_default(),
+            }
         },
         "item/fileChange/requestApproval" => GuiRequestEvent::FileChangeApproval {
             request_id: request_id_text.clone(),
             item_id,
-            reason: params
-                .get("reason")
-                .and_then(Value::as_str)
+            reason: string_field(&params, &["reason"]).map(str::to_string),
+            grant_root: string_field(&params, &["grantRoot", "grant_root"])
                 .map(str::to_string),
-            grant_root: params
-                .get("grantRoot")
-                .and_then(Value::as_str)
-                .map(str::to_string),
-            available_decisions: params
-                .get("availableDecisions")
-                .and_then(Value::as_array)
-                .map(string_vec)
-                .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
+            available_decisions: string_vec_field(
+                &params,
+                &["availableDecisions", "available_decisions"],
+            )
+            .unwrap_or_else(|| vec!["approved".to_string(), "denied".to_string()]),
         },
         "item/tool/requestUserInput" => GuiRequestEvent::UserInput {
             request_id: request_id_text.clone(),
@@ -229,10 +227,109 @@ fn parse_request_event(
     })
 }
 
+fn string_field<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a str> {
+    keys.iter().find_map(|key| value.get(*key)?.as_str())
+}
+
+fn array_field<'a>(value: &'a Value, keys: &[&str]) -> Option<&'a Vec<Value>> {
+    keys.iter().find_map(|key| value.get(*key)?.as_array())
+}
+
+fn string_vec_field(value: &Value, keys: &[&str]) -> Option<Vec<String>> {
+    array_field(value, keys).map(string_vec)
+}
+
 fn string_vec(items: &Vec<Value>) -> Vec<String> {
     items
         .iter()
         .filter_map(Value::as_str)
         .map(str::to_string)
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_request_event;
+    use crate::features::tasks::agents::agent_gui::types::GuiRequestEvent;
+    use serde_json::json;
+
+    #[test]
+    fn command_approval_preserves_snake_case_available_decisions() {
+        let request = json!({
+            "params": {
+                "itemId": "item-1",
+                "available_decisions": ["approved_for_session", "denied"]
+            }
+        });
+
+        let parsed =
+            parse_request_event(&request, &json!(7), "item/commandExecution/requestApproval")
+                .expect("request should parse");
+
+        match parsed.event {
+            GuiRequestEvent::CommandApproval {
+                available_decisions,
+                ..
+            } => assert_eq!(
+                available_decisions,
+                vec!["approved_for_session".to_string(), "denied".to_string()]
+            ),
+            _ => panic!("expected command approval"),
+        }
+    }
+
+    #[test]
+    fn file_change_approval_preserves_snake_case_available_decisions() {
+        let request = json!({
+            "params": {
+                "itemId": "item-1",
+                "available_decisions": ["approved_for_session", "denied"]
+            }
+        });
+
+        let parsed = parse_request_event(&request, &json!(7), "item/fileChange/requestApproval")
+            .expect("request should parse");
+
+        match parsed.event {
+            GuiRequestEvent::FileChangeApproval {
+                available_decisions,
+                ..
+            } => assert_eq!(
+                available_decisions,
+                vec!["approved_for_session".to_string(), "denied".to_string()]
+            ),
+            _ => panic!("expected file change approval"),
+        }
+    }
+
+    #[test]
+    fn permission_approval_request_uses_command_approval_payload() {
+        let request = json!({
+            "params": {
+                "item_id": "item-1",
+                "available_decisions": ["approved_execpolicy_amendment", "denied"]
+            }
+        });
+
+        let parsed = parse_request_event(&request, &json!(7), "item/permissions/requestApproval")
+            .expect("request should parse");
+
+        match parsed.event {
+            GuiRequestEvent::CommandApproval {
+                item_id,
+                available_decisions,
+                ..
+            } => {
+                assert_eq!(item_id, "item-1");
+                assert_eq!(
+                    available_decisions,
+                    vec![
+                        "approved_execpolicy_amendment".to_string(),
+                        "denied".to_string()
+                    ]
+                );
+            }
+            _ => panic!("expected command approval"),
+        }
+    }
 }

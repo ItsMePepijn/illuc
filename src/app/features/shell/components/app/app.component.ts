@@ -203,6 +203,7 @@ export class AppComponent {
         this.branchNameError.set("");
         this.baseBranchSelection = this.taskStore.defaultBaseBranch() ?? "";
         this.showCreateModal = true;
+        void this.refreshCreateTaskBranches();
     }
 
     setCreateTaskTab(tab: CreateTaskTab): void {
@@ -224,6 +225,32 @@ export class AppComponent {
         this.continueBranchSelection = "";
         this.branchNameError.set("");
         this.baseBranchSelection = "";
+    }
+
+    private async refreshCreateTaskBranches(): Promise<void> {
+        try {
+            await this.taskStore.refreshBranches();
+            if (!this.showCreateModal) {
+                return;
+            }
+            const branches = this.branchOptions();
+            const fallbackBranch =
+                this.taskStore.defaultBaseBranch() || branches[0] || "";
+            if (
+                !this.baseBranchSelection ||
+                branches.indexOf(this.baseBranchSelection) === -1
+            ) {
+                this.baseBranchSelection = fallbackBranch;
+            }
+            if (
+                !this.continueBranchSelection ||
+                branches.indexOf(this.continueBranchSelection) === -1
+            ) {
+                this.continueBranchSelection = fallbackBranch;
+            }
+        } catch (error: unknown) {
+            console.error("Failed to refresh branches", error);
+        }
     }
 
     async submitNewTask(): Promise<void> {
