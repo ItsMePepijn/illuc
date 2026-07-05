@@ -1,4 +1,6 @@
 use super::config::AcpAgentConfig;
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_process_env, resolve_command};
 use crate::features::tasks::agents::copilot::{find_latest_session_id, resolve_session_cwd};
 #[cfg(target_os = "windows")]
 use crate::utils::windows::build_wsl_process_command;
@@ -34,7 +36,8 @@ impl AcpAgentConfig for CopilotAcpConfig {
 
         #[cfg(not(target_os = "windows"))]
         {
-            let mut command = Command::new("copilot");
+            let mut command = Command::new(resolve_command("copilot"));
+            apply_process_env(&mut command);
             command.args(args);
             command.current_dir(worktree_path);
             command

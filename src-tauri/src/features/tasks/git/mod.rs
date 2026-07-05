@@ -6,7 +6,7 @@ use git2::build::CheckoutBuilder;
 use git2::{
     BranchType, Cred, Delta, DiffFormat, DiffOptions, ErrorCode, FetchOptions, IndexAddOption,
     ObjectType, PushOptions, RemoteCallbacks, Repository, ResetType, Signature, Status,
-    StatusOptions, WorktreeAddOptions,
+    StatusOptions, WorktreeAddOptions, WorktreePruneOptions,
 };
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -360,20 +360,55 @@ pub fn add_worktree(
     worktree_name: &str,
 ) -> Result<()> {
     let repo = open_repo(repo_root)?;
+    if let Err(err) = prune_stale_worktrees(&repo) {
+        warn!(
+            "failed to prune stale worktrees before adding {}: {}",
+            branch_name, err
+        );
+    }
     let base_object = repo.revparse_single(base_ref).map_err(map_git_err)?;
     let base_commit = base_object.peel_to_commit().map_err(map_git_err)?;
     if repo.find_branch(branch_name, BranchType::Local).is_err() {
         repo.branch(branch_name, &base_commit, false)
             .map_err(map_git_err)?;
     }
-    let reference_name = format!("refs/heads/{}", branch_name);
-    let reference = repo.find_reference(&reference_name).map_err(map_git_err)?;
-    let mut options = WorktreeAddOptions::new();
-    options.reference(Some(&reference));
-    repo.worktree(worktree_name, worktree_path, Some(&options))
-        .map_err(map_git_err)?;
+    create_worktree_for_branch(&repo, branch_name, worktree_path, worktree_name).or_else(|err| {
+        if !is_reference_checked_out_error(&err) {
+            return Err(map_git_err(err));
+        }
+        warn!(
+            "worktree add for {} failed because the ref is already checked out; pruning stale worktrees and retrying",
+            branch_name
+        );
+        if let Err(prune_err) = prune_stale_worktrees(&repo) {
+            warn!(
+                "failed to prune stale worktrees before retrying {}: {}",
+                branch_name, prune_err
+            );
+        }
+        create_worktree_for_branch(&repo, branch_name, worktree_path, worktree_name)
+            .map_err(map_git_err)
+    })?;
     ensure_relative_worktree_gitdir(worktree_path)?;
     Ok(())
+}
+
+fn create_worktree_for_branch(
+    repo: &Repository,
+    branch_name: &str,
+    worktree_path: &Path,
+    worktree_name: &str,
+) -> std::result::Result<(), git2::Error> {
+    let reference_name = format!("refs/heads/{}", branch_name);
+    let reference = repo.find_reference(&reference_name)?;
+    let mut options = WorktreeAddOptions::new();
+    options.reference(Some(&reference));
+    repo.worktree(worktree_name, worktree_path, Some(&options))?;
+    Ok(())
+}
+
+fn is_reference_checked_out_error(err: &git2::Error) -> bool {
+    err.message().contains(" is already checked out")
 }
 
 pub fn ensure_relative_worktree_gitdir(worktree_path: &Path) -> Result<()> {
@@ -560,10 +595,15 @@ pub fn list_worktrees(repo_root: &Path) -> Result<Vec<WorktreeEntry>> {
 
 pub fn prune_worktrees(repo_root: &Path) -> Result<()> {
     let repo = open_repo(repo_root)?;
+    prune_stale_worktrees(&repo)
+}
+
+fn prune_stale_worktrees(repo: &Repository) -> Result<()> {
     let worktrees = repo.worktrees().map_err(map_git_err)?;
     for name in worktrees.iter().flatten() {
         if let Ok(worktree) = repo.find_worktree(name) {
-            if let Err(err) = worktree.prune(None) {
+            let mut options = WorktreePruneOptions::new();
+            if let Err(err) = worktree.prune(Some(&mut options)) {
                 if err.message().contains("not pruning valid working tree") {
                     continue;
                 }
@@ -992,7 +1032,7 @@ pub fn has_uncommitted_changes(repo: &Path) -> Result<bool> {
 #[cfg(test)]
 mod tests {
     use super::{
-        fast_forward_local_branch_if_behind, get_head_commit, git_merge_branch,
+        add_worktree, fast_forward_local_branch_if_behind, get_head_commit, git_merge_branch,
         has_uncommitted_changes,
     };
     use git2::build::CheckoutBuilder;
@@ -1063,8 +1103,14 @@ mod tests {
         fast_forward_local_branch_if_behind(&repo, &repo_dir, "main", "origin", "main").unwrap();
 
         assert_eq!(repo.head().unwrap().shorthand(), Some("main"));
-        assert_eq!(get_head_commit(&repo_dir).unwrap(), remote_commit.to_string());
-        assert_eq!(fs::read_to_string(repo_dir.join("main.txt")).unwrap(), "remote\n");
+        assert_eq!(
+            get_head_commit(&repo_dir).unwrap(),
+            remote_commit.to_string()
+        );
+        assert_eq!(
+            fs::read_to_string(repo_dir.join("main.txt")).unwrap(),
+            "remote\n"
+        );
         assert!(!has_uncommitted_changes(&repo_dir).unwrap());
 
         let _ = fs::remove_dir_all(&repo_dir);
@@ -1090,11 +1136,55 @@ mod tests {
 
         fast_forward_local_branch_if_behind(&repo, &repo_dir, "main", "origin", "main").unwrap();
 
-        assert_eq!(get_head_commit(&repo_dir).unwrap(), local_commit.to_string());
-        assert_eq!(fs::read_to_string(repo_dir.join("main.txt")).unwrap(), "base\n");
-        assert_eq!(fs::read_to_string(repo_dir.join("local.txt")).unwrap(), "local\n");
+        assert_eq!(
+            get_head_commit(&repo_dir).unwrap(),
+            local_commit.to_string()
+        );
+        assert_eq!(
+            fs::read_to_string(repo_dir.join("main.txt")).unwrap(),
+            "base\n"
+        );
+        assert_eq!(
+            fs::read_to_string(repo_dir.join("local.txt")).unwrap(),
+            "local\n"
+        );
         assert!(has_uncommitted_changes(&repo_dir).unwrap());
 
+        let _ = fs::remove_dir_all(&repo_dir);
+    }
+
+    #[test]
+    fn add_worktree_recovers_from_stale_checked_out_metadata() {
+        let repo_dir = temp_repo_dir("stale-worktree-metadata");
+        let repo = init_repo(&repo_dir);
+        create_commit(&repo, "main.txt", "base\n", "initial");
+
+        let stale_path = temp_repo_dir("stale-worktree-metadata-old");
+        add_worktree(
+            &repo_dir,
+            "feature/stale",
+            &stale_path,
+            "main",
+            "stale-worktree",
+        )
+        .unwrap();
+        fs::remove_dir_all(&stale_path).unwrap();
+
+        let next_path = temp_repo_dir("stale-worktree-metadata-next");
+        add_worktree(
+            &repo_dir,
+            "feature/stale",
+            &next_path,
+            "main",
+            "next-worktree",
+        )
+        .unwrap();
+
+        let next_repo = Repository::open(&next_path).unwrap();
+        assert_eq!(next_repo.head().unwrap().shorthand(), Some("feature/stale"));
+
+        let _ = repo.find_worktree("next-worktree").unwrap().prune(None);
+        let _ = fs::remove_dir_all(&next_path);
         let _ = fs::remove_dir_all(&repo_dir);
     }
 

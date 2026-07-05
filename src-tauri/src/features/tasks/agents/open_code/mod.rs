@@ -1,5 +1,7 @@
 mod resuming;
 
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_command_env, resolve_command};
 use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 use crate::utils::pty::{
@@ -190,7 +192,8 @@ impl TuiAgent for OpenCodeAgent {
 
         #[cfg(not(target_os = "windows"))]
         let command = {
-            let mut command = CommandBuilder::new("opencode");
+            let mut command = CommandBuilder::new(resolve_command("opencode"));
+            apply_command_env(&mut command);
             if let Some(session_id) = latest_session_id.as_deref() {
                 command.args(["--session", session_id]);
             }

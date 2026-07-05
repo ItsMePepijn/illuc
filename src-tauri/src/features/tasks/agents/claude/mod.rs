@@ -1,5 +1,7 @@
 mod resuming;
 
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_command_env, resolve_command};
 use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 #[cfg(not(target_os = "windows"))]
@@ -171,7 +173,8 @@ impl TuiAgent for ClaudeAgent {
             let master = wrap_portable_master(master);
             let writer = Arc::new(Mutex::new(writer));
 
-            let mut command = CommandBuilder::new("claude");
+            let mut command = CommandBuilder::new(resolve_command("claude"));
+            apply_command_env(&mut command);
             command.args(arg_refs);
             command.cwd(worktree_path);
 

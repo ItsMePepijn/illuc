@@ -1,3 +1,5 @@
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_command_env, resolve_command};
 use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 #[cfg(not(target_os = "windows"))]
@@ -122,7 +124,14 @@ impl TuiAgent for CodexAgent {
             let pty = spawn_wsl_pty(
                 worktree_path,
                 "codex",
-                &["--ask-for-approval", "on-request", "--sandbox", "workspace-write", "resume", "--last"],
+                &[
+                    "--ask-for-approval",
+                    "on-request",
+                    "--sandbox",
+                    "workspace-write",
+                    "resume",
+                    "--last",
+                ],
                 rows,
                 cols,
                 Some("xterm-256color"),
@@ -150,8 +159,16 @@ impl TuiAgent for CodexAgent {
             let master = wrap_portable_master(master);
             let writer = Arc::new(Mutex::new(writer));
 
-            let mut command = CommandBuilder::new("codex");
-            command.args(["--ask-for-approval", "on-request", "--sandbox", "workspace-write", "resume", "--last"]);
+            let mut command = CommandBuilder::new(resolve_command("codex"));
+            apply_command_env(&mut command);
+            command.args([
+                "--ask-for-approval",
+                "on-request",
+                "--sandbox",
+                "workspace-write",
+                "resume",
+                "--last",
+            ]);
             command.cwd(worktree_path);
 
             let child = pair

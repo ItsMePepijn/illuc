@@ -1,4 +1,6 @@
 use super::{event_handlers, rpc, CodexGuiAgent, CodexGuiAgentState, StdChild};
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_process_env, resolve_command};
 use crate::features::tasks::agents::AgentCallbacks;
 use crate::utils::pty::ChildHandle;
 #[cfg(target_os = "windows")]
@@ -23,7 +25,8 @@ pub(super) fn start(
     let mut command = build_wsl_process_command(worktree_path, "codex", &["app-server"]);
     #[cfg(not(target_os = "windows"))]
     let mut command = {
-        let mut command = Command::new("codex");
+        let mut command = Command::new(resolve_command("codex"));
+        apply_process_env(&mut command);
         command.arg("app-server").current_dir(worktree_path);
         command
     };

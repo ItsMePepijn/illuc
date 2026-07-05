@@ -1,3 +1,5 @@
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_process_env, resolve_command};
 #[cfg(target_os = "windows")]
 use anyhow::anyhow;
 use anyhow::Context;
@@ -58,11 +60,15 @@ pub fn find_latest_session_id(worktree_path: &Path) -> anyhow::Result<Option<Str
     .context("failed to list OpenCode sessions in WSL")?;
 
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new("opencode")
-        .args(["session", "list", "--format", "json"])
-        .current_dir(worktree_path)
-        .output()
-        .context("failed to list OpenCode sessions")?;
+    let output = {
+        let mut command = Command::new(resolve_command("opencode"));
+        apply_process_env(&mut command);
+        command
+            .args(["session", "list", "--format", "json"])
+            .current_dir(worktree_path)
+            .output()
+            .context("failed to list OpenCode sessions")?
+    };
 
     if !output.status.success() {
         return Ok(None);

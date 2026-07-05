@@ -1,3 +1,4 @@
+pub(crate) mod agent_command;
 pub(crate) mod agents;
 mod diff_watcher;
 pub(crate) mod events;

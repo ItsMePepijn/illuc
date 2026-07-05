@@ -1,3 +1,5 @@
+#[cfg(not(target_os = "windows"))]
+use crate::features::tasks::agent_command::{apply_command_env, resolve_command};
 use crate::features::tasks::agents::{Agent, AgentCallbacks, TuiAgent};
 use crate::features::tasks::TaskStatus;
 use crate::utils::pty::{
@@ -149,7 +151,8 @@ impl TuiAgent for CopilotAgent {
 
         #[cfg(not(target_os = "windows"))]
         let command = {
-            let mut command = CommandBuilder::new("copilot");
+            let mut command = CommandBuilder::new(resolve_command("copilot"));
+            apply_command_env(&mut command);
             command.args(args.iter().map(|arg| arg.as_str()));
             command.cwd(worktree_path);
             command
